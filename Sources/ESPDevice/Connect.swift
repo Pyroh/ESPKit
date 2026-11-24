@@ -6,12 +6,12 @@ import ESPTargets
 import ESPTransport
 
 extension ESPDevice {
-    /// Ouvre le transport, fait le reset d'entrée, se synchronise, détecte la puce,
-    /// puis applique `options.stub` et `options.baudRate`.
+    /// Opens the transport, performs the entry reset, syncs, detects the chip,
+    /// then applies `options.stub` and `options.baudRate`.
     ///
     /// - Throws: `TransportError`, `ConnectionError` (`noResponse`, `chipMismatch`, `unknownChip`),
     ///   `ProtocolError`, `StubError`, `UsageError`, `CancellationError`.
-    ///   En cas d'échec, le transport est refermé.
+    ///   On failure, the transport is closed again.
     public static func connect(_ transport: some Transport,
                                options: ConnectOptions = .init()) async throws -> ESPDevice {
         let channel = ProtocolChannel(transport: transport, trace: options.trace)
@@ -29,9 +29,9 @@ extension ESPDevice {
         try await connect(SerialPort(path: path), options: options)
     }
 
-    /// Essaie chaque port correspondant au filtre et rend le premier qui répond.
-    /// - Throws: `ConnectionError.noMatchingPort` si aucun port ne correspond ; sinon l'erreur
-    ///   du dernier port essayé.
+    /// Tries each port matching the filter and returns the first one that answers.
+    /// - Throws: `ConnectionError.noMatchingPort` if no port matches; otherwise the error
+    ///   of the last port tried.
     public static func connectFirstAvailable(matching filter: PortFilter = .init(),
                                              options: ConnectOptions = .init()) async throws -> ESPDevice {
         let ports = try SerialPorts.available(matching: filter)
@@ -50,7 +50,7 @@ extension ESPDevice {
         throw lastError
     }
 
-    // MARK: - Séquence de connexion
+    // MARK: - Connection sequence
 
     private static func establish(on channel: ProtocolChannel, options: ConnectOptions) async throws -> ESPDevice {
         let transport = channel.transport
@@ -72,7 +72,7 @@ extension ESPDevice {
 
         let state: State
         if stubAlreadyRunning {
-            state = .stub(.custom("déjà actif"))
+            state = .stub(.custom("already running"))
         } else if detection.secureDownloadMode {
             state = .secureDownloadMode
         } else {
@@ -84,7 +84,7 @@ extension ESPDevice {
         try await device.exclusive { try await device.disableWatchdogsForUSBSerialJTAG() }
 
         if options.vddsdioOverride != nil {
-            throw UsageError.unsupported(feature: "Le forçage VDDSDIO (phase 6)", chip: detection.chip, state: state)
+            throw UsageError.unsupported(feature: "VDDSDIO override (phase 6)", chip: detection.chip, state: state)
         }
         switch options.stub {
         case .romOnly: break
@@ -97,8 +97,8 @@ extension ESPDevice {
         return device
     }
 
-    /// Reset d'entrée puis SYNC, avec la rotation des stratégies sur les tentatives.
-    /// - Returns: `true` si un stub répondait déjà (valeur 0 dans les réponses SYNC).
+    /// Entry reset then SYNC, rotating strategies across attempts.
+    /// - Returns: `true` if a stub was already answering (value 0 in the SYNC responses).
     private static func resetAndSync(_ channel: ProtocolChannel, options: ConnectOptions) async throws -> Bool {
         let sequences = entrySequences(for: options.entryReset, usb: channel.transport.usbIdentity)
         let attempts = options.connectAttempts
@@ -120,16 +120,16 @@ extension ESPDevice {
         throw ConnectionError.noResponse(attempts: attempts)
     }
 
-    /// Jusqu'à 5 SYNC de 100 ms. `nil` si la puce ne répond pas.
+    /// Up to 5 SYNCs of 100 ms. `nil` if the chip does not answer.
     private static func sync(_ channel: ProtocolChannel) async throws -> Bool? {
-        // 07 07 12 20 puis 32 × 0x55 : la ROM cale son auto-baud sur ce motif.
+        // 07 07 12 20 then 32 × 0x55: the ROM locks its auto-baud on this pattern.
         let payload = Data([0x07, 0x07, 0x12, 0x20] + [UInt8](repeating: 0x55, count: 32))
         for _ in 0..<5 {
             try Task.checkCancellation()
             try await channel.send(Command(.sync, payload: payload))
             do {
                 let response = try await channel.receive(opcode: Opcode.sync.rawValue, timeout: .milliseconds(100))
-                // La ROM envoie plusieurs réponses à un SYNC : on vide les suivantes.
+                // The ROM sends several responses to one SYNC: drain the extra ones.
                 try await channel.drain(quietPeriod: .milliseconds(100))
                 return response.value == 0
             } catch is ProtocolError {
@@ -150,7 +150,7 @@ extension ESPDevice {
             if usb?.isEspressifUSBSerialJTAG == true {
                 [.usbSerialJTAG]
             } else {
-                // Délai standard, puis délai allongé de 500 ms pour les cartes lentes à démarrer.
+                // Standard delay, then a delay 500 ms longer for boards that are slow to start.
                 [.unixTight(holdBootFor: .milliseconds(50)), .unixTight(holdBootFor: .milliseconds(550)),
                  .classic(holdBootFor: .milliseconds(50)), .classic(holdBootFor: .milliseconds(550))]
             }
@@ -163,8 +163,8 @@ extension ESPDevice {
         var securityInfo: SecurityInfo?
     }
 
-    /// GET_SECURITY_INFO d'abord (chip ID des puces récentes, valable en Secure Download Mode),
-    /// sinon lecture de la valeur magique de la ROM.
+    /// GET_SECURITY_INFO first (chip ID of recent chips, also valid in Secure Download Mode),
+    /// otherwise read the ROM magic value.
     static func detectChip(_ channel: ProtocolChannel, stubRunning: Bool) async throws -> Detection {
         await channel.setStatusLength(stubRunning ? 2 : nil)
 
@@ -172,8 +172,8 @@ extension ESPDevice {
         do {
             info = try await ESPDevice.readSecurityInfo(channel)
         } catch let error as ProtocolError {
-            // ESP8266 et ESP32 ne connaissent pas la commande : elles répondent par un échec
-            // ou ne répondent pas.
+            // The ESP8266 and ESP32 do not know the command: they answer with a failure
+            // or not at all.
             if case .timeout = error { try await channel.discardInput() }
         }
         let secureDownload = info?.flags.contains(.secureDownloadEnable) ?? false
@@ -188,7 +188,7 @@ extension ESPDevice {
         do {
             magic = try await channel.execute(Command(.readReg, payload: .le(ChipDescriptor.magicRegister))).value
         } catch ProtocolError.deviceError where info != nil {
-            // Lecture refusée et sécurité lisible sans chip ID : ESP32-S2 en Secure Download Mode.
+            // Read refused and security info readable without a chip ID: ESP32-S2 in Secure Download Mode.
             return Detection(chip: .esp32s2, secureDownloadMode: true, securityInfo: info)
         }
         guard let chip = ChipDescriptor.family(forMagic: magic) else {

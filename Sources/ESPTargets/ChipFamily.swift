@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-/// Famille de puce Espressif.
+/// Espressif chip family.
 public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, CustomStringConvertible {
     case esp8266, esp32, esp32s2, esp32s3, esp32s31,
          esp32c2, esp32c3, esp32c5, esp32c6, esp32c61,
@@ -8,7 +8,7 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
 
     public enum Architecture: Sendable, Hashable { case xtensa, riscv }
 
-    /// Nom commercial, par exemple « ESP32-S3 ».
+    /// Marketing name, for example "ESP32-S3".
     public var displayName: String {
         switch self {
         case .esp8266: "ESP8266"
@@ -38,7 +38,7 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
         }
     }
 
-    /// Offset flash du bootloader de second niveau (0x1000, 0x0 ou 0x2000 selon la puce).
+    /// Flash offset of the second-stage bootloader (0x1000, 0x0 or 0x2000 depending on the chip).
     public var bootloaderOffset: UInt32 {
         switch self {
         case .esp32, .esp32s2: 0x1000
@@ -47,8 +47,8 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
         }
     }
 
-    /// Identifiant écrit dans l'en-tête étendu des images (`nil` pour l'ESP8266).
-    /// C'est aussi le `chip_id` que rend GET_SECURITY_INFO sur les puces récentes.
+    /// Identifier written in the extended image header (`nil` for the ESP8266).
+    /// It is also the `chip_id` that GET_SECURITY_INFO returns on recent chips.
     public var imageChipID: UInt16? {
         switch self {
         case .esp8266: nil
@@ -69,13 +69,13 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
         }
     }
 
-    /// Puce dont l'`imageChipID` vaut `id`.
+    /// The chip whose `imageChipID` is `id`.
     public init?(imageChipID id: UInt16) {
         guard let match = ChipFamily.allCases.first(where: { $0.imageChipID == id }) else { return nil }
         self = match
     }
 
-    /// Fréquences flash que l'en-tête d'image sait encoder pour cette puce.
+    /// Flash frequencies the image header can encode for this chip.
     public var supportedFlashFrequencies: [FlashFrequency] {
         switch self {
         case .esp32c2: [.mhz60, .mhz30, .mhz20, .mhz15]
@@ -85,6 +85,6 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
         }
     }
 
-    /// Secure Boot v2 possible sur cette famille. Sur l'ESP32, seulement à partir de la révision v3.0.
+    /// Whether this family supports Secure Boot v2. On the ESP32, only from revision v3.0.
     public var supportsSecureBootV2: Bool { self != .esp8266 }
 }

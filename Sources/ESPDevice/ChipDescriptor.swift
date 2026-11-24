@@ -2,15 +2,15 @@
 
 import ESPTargets
 
-/// Faits matériels par puce dont la session a besoin : détection, MAC, contrôleur SPI.
-/// Des valeurs, pas une hiérarchie de classes.
+/// Per-chip hardware facts the session needs: detection, MAC, SPI controller.
+/// Values, not a class hierarchy.
 struct ChipDescriptor: Sendable {
     let family: ChipFamily
 
-    /// Adresse ROM lue pour la détection par valeur magique.
+    /// ROM address read for magic-value detection.
     static let magicRegister: UInt32 = 0x4000_1000
 
-    /// Puces reconnues par la valeur magique (celles dont la ROM ne rend pas de chip ID).
+    /// Chips recognized by their magic value (those whose ROM returns no chip ID).
     static func family(forMagic magic: UInt32) -> ChipFamily? {
         switch magic {
         case 0xFFF0_C101: .esp8266
@@ -20,7 +20,7 @@ struct ChipDescriptor: Sendable {
         }
     }
 
-    /// Taille du bloc d'état en fin de réponse : 2 octets pour le stub et la ROM ESP8266, 4 sinon.
+    /// Size of the status block at the end of a response: 2 bytes for the stub and the ESP8266 ROM, 4 otherwise.
     func statusLength(stubRunning: Bool) -> Int {
         stubRunning || family == .esp8266 ? 2 : 4
     }
@@ -28,11 +28,11 @@ struct ChipDescriptor: Sendable {
     // MARK: MAC
 
     enum MACLayout {
-        /// ESP8266 : mots OTP MAC0, MAC1 et MAC3.
+        /// ESP8266: OTP words MAC0, MAC1 and MAC3.
         case esp8266OTP
-        /// ESP32 : mots eFuse 1 et 2 du bloc 0 (le mot 2 porte un octet de CRC à retirer).
+        /// ESP32: eFuse words 1 and 2 of block 0 (word 2 carries a CRC byte to drop).
         case esp32Efuse(base: UInt32)
-        /// Autres puces : deux registres consécutifs, MAC en big-endian sur 6 octets.
+        /// Other chips: two consecutive registers, big-endian 6-byte MAC.
         case register(UInt32)
     }
 
@@ -58,18 +58,18 @@ struct ChipDescriptor: Sendable {
     static let esp8266OTPMAC1: UInt32 = 0x3FF0_0054
     static let esp8266OTPMAC3: UInt32 = 0x3FF0_005C
 
-    // MARK: Contrôleur SPI1 (commandes flash brutes)
+    // MARK: SPI1 controller (raw flash commands)
 
     struct SPIRegisters: Sendable {
         let base: UInt32
         let usr: UInt32
         let usr1: UInt32
         let usr2: UInt32
-        /// `nil` sur l'ESP8266, qui range les longueurs dans USR1.
+        /// `nil` on the ESP8266, which stores the lengths in USR1.
         let mosiDataLength: UInt32?
         let misoDataLength: UInt32?
         let w0: UInt32
-        /// L'adresse est alignée sur les bits de poids fort (ESP8266, ESP32).
+        /// The address is aligned on the most significant bits (ESP8266, ESP32).
         let addressInMSB: Bool
 
         var cmd: UInt32 { base }
@@ -99,23 +99,23 @@ struct ChipDescriptor: Sendable {
         case .esp32p4: 0x5008_D000
         case .esp32s31: 0x2050_1000
         case .esp32e22: 0xC300_3000
-        case .esp8266, .esp32: 0                         // traités plus haut
+        case .esp8266, .esp32: 0                         // handled above
         }
     }
 
-    // MARK: Écriture flash
+    // MARK: Flash writing
 
-    /// La ROM attend un cinquième mot (« écriture chiffrée ») dans FLASH_BEGIN et FLASH_DEFL_BEGIN.
-    /// Vrai pour toutes les ROM sauf celles de l'ESP8266 et de l'ESP32 ; le stub ne l'attend pas.
+    /// The ROM expects a fifth word ("encrypted write") in FLASH_BEGIN and FLASH_DEFL_BEGIN.
+    /// True for every ROM except the ESP8266 and ESP32 ones; the stub does not expect it.
     var romFlashBeginHasEncryptionWord: Bool {
         family != .esp8266 && family != .esp32
     }
 
     // MARK: Watchdogs (USB-Serial-JTAG)
 
-    /// Registres RTC utilisés pour neutraliser le watchdog RTC et nourrir automatiquement le
-    /// super-watchdog quand la console est l'USB-Serial-JTAG. Renseigné pour l'ESP32-S3 ;
-    /// les autres puces suivront avec leurs tests.
+    /// RTC registers used to disable the RTC watchdog and auto-feed the super watchdog
+    /// when the console is USB-Serial-JTAG. Filled in for the ESP32-S3;
+    /// other chips will follow along with their tests.
     struct RTCWatchdog: Sendable {
         let wdtConfig0: UInt32
         let wdtConfig1: UInt32

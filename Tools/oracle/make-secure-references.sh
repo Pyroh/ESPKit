@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
-# Produit les références espsecure (boîte noire) des tests d'interopérabilité d'ESPSecure.
+# Produces espsecure references (black box) for the ESPSecure interoperability tests.
 #
-#   ESPSECURE=espsecure ./make-secure-references.sh <sortie> <image ESP32-S3 à signer (.bin)>
+#   ESPSECURE=espsecure ./make-secure-references.sh <output> <ESP32-S3 image to sign (.bin)>
 #
-# Puis : ESPKIT_SECURE_REFERENCES=<sortie> ESPKIT_ESPSECURE=espsecure swift test --filter ESPSecureTests
+# Then: ESPKIT_SECURE_REFERENCES=<output> ESPKIT_ESPSECURE=espsecure swift test --filter ESPSecureTests
 set -euo pipefail
 
 ESPSECURE=${ESPSECURE:-espsecure}
@@ -31,7 +31,7 @@ for input in plain.bin plain208.bin; do
         $ESPSECURE encrypt-flash-data --aes-xts --keyfile xts128.key --address $address --output enc-mis-$address-$input $input > /dev/null
     done
 done
-# Schéma ESP32 : clé modifiée selon l'adresse et FLASH_CRYPT_CONFIG.
+# ESP32 scheme: key tweaked by address and FLASH_CRYPT_CONFIG.
 head -c 32 /dev/urandom > esp32.key
 head -c 256 plain.bin > p256.bin
 for config in 0x0 0x1 0x2 0x4 0x8 0xf; do
@@ -40,4 +40,4 @@ for config in 0x0 0x1 0x2 0x4 0x8 0xf; do
             --output e32-$config-$address.bin p256.bin > /dev/null
     done
 done
-echo "références dans $out"
+echo "references in $out"

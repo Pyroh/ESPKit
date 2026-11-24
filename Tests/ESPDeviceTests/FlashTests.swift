@@ -15,7 +15,7 @@ private func options(stub: StubPolicy = .load, baudRate: Int? = nil) -> ConnectO
     return options
 }
 
-/// Données pseudo-aléatoires mais reproductibles, à moitié compressibles.
+/// Pseudo-random but reproducible data, half compressible.
 private func sample(_ count: Int, seed: UInt64 = 1) -> Data {
     var state = seed
     return Data((0..<count).map { index in
@@ -25,18 +25,18 @@ private func sample(_ count: Int, seed: UInt64 = 1) -> Data {
     })
 }
 
-/// Image ESP32-x minimale : en-tête, extension (chip ID), un segment, somme de contrôle, SHA-256.
+/// Minimal ESP32-x image: header, extension (chip ID), one segment, checksum, SHA-256.
 private func image(chipID: UInt16, payload: Data = sample(200)) -> Data {
-    var data = Data([0xE9, 1, 0x00, 0x20])                // magic, 1 segment, QIO, 4 Mo / 40 MHz
-    data.appendLE(UInt32(0x4008_0000))                    // entrée
+    var data = Data([0xE9, 1, 0x00, 0x20])                // magic, 1 segment, QIO, 4 MB / 40 MHz
+    data.appendLE(UInt32(0x4008_0000))                    // entry
     data.append(contentsOf: [0xEE, 0, 0, 0])              // WP, drv
     data.appendLE(chipID)
-    data.append(contentsOf: [0, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0, 1])   // révisions, réservés, append_digest
+    data.append(contentsOf: [0, 0, 0, 0xFF, 0xFF, 0, 0, 0, 0, 1])   // revisions, reserved, append_digest
     data.appendLE(UInt32(0x3FFB_0000))
     data.appendLE(UInt32(payload.count))
     data.append(payload)
     while (data.count + 1) % 16 != 0 { data.append(0) }
-    data.append(0xEF)                                     // somme de contrôle (fictive)
+    data.append(0xEF)                                     // checksum (dummy)
     data.append(SHA256.hash(data))
     return data
 }
@@ -50,11 +50,11 @@ struct StubLoadingTests {
         #expect(await esp.state == .stub(.bundled("2.0.0")))
         #expect(await chip.memory[stub.textAddress] == stub.text)
         #expect(await chip.memory[stub.dataAddress] == stub.data)
-        // Le stub veut le nouveau débit puis l'ancien.
+        // The stub wants the new baud rate, then the old one.
         #expect(await chip.baudPayloads == [Data.le(UInt32(460_800), UInt32(115_200))])
         #expect(await esp.baudRate == 460_800)
         #expect(await chip.baudRate == 460_800)
-        // Sous stub, les réponses ont 2 octets d'état : la lecture de registre doit passer.
+        // Under the stub, responses have 2 status bytes: reading a register must work.
         #expect(try await esp.macAddress().description == "24:0A:C4:12:34:56")
     }
 
@@ -83,14 +83,14 @@ struct StubLoadingTests {
 
     @Test func stubErrorsUseTheSixteenBitCode() async throws {
         let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: options())
-        // Le stub ne connaît pas READ_FLASH_SLOW : 0xC300 « commande invalide ».
+        // The stub does not know READ_FLASH_SLOW: 0xC300 "invalid command".
         await #expect(throws: ProtocolError.deviceError(opcode: 0x0E, code: .invalidCommand)) {
             _ = try await esp.channel.execute(Command(.readFlashSlow, payload: .le(UInt32(0), UInt32(64))))
         }
     }
 }
 
-@Suite("Écriture flash")
+@Suite("Flash writing")
 struct WriteFlashTests {
     @Test func writesCompressedRegionsWithTheStub() async throws {
         let chip = SimulatedChip.esp32()
@@ -107,11 +107,11 @@ struct WriteFlashTests {
             #expect(flash.subdata(in: start..<start + region.data.count) == region.data)
         }
         #expect(report.regions.count == 3)
-        #expect(report.regions[2].byteCount == 100_004)                 // aligné sur 4 octets
+        #expect(report.regions[2].byteCount == 100_004)                 // aligned on 4 bytes
         #expect(report.regions[2].bytesSent < report.regions[2].byteCount)
         #expect(report.regions.allSatisfy { !$0.skipped && $0.md5 != nil })
-        #expect(flash[0x1_0000 + 100_001] == 0xFF)                       // remplissage
-        // Le stub n'attend pas le mot « chiffré » de la ROM.
+        #expect(flash[0x1_0000 + 100_001] == 0xFF)                       // padding
+        // The stub does not expect the ROM's "encrypted" word.
         #expect(await chip.flashBeginPayloads.allSatisfy { $0.count == 16 })
     }
 
@@ -123,7 +123,7 @@ struct WriteFlashTests {
         let data = sample(5_000, seed: 4)
         _ = try await esp.writeFlash([FlashRegion(address: 0x2_0000, data: data)], options: write).value
         #expect(await chip.flash.subdata(in: 0x2_0000..<0x2_0000 + 5_000) == data)
-        // La ROM de l'S3 attend 5 mots dans FLASH_BEGIN.
+        // The S3 ROM expects 5 words in FLASH_BEGIN.
         #expect(await chip.flashBeginPayloads.map(\.count) == [20])
         #expect(await chip.flashParamsSize == 16 << 20)
     }
@@ -138,7 +138,7 @@ struct WriteFlashTests {
         #expect(flash.subdata(in: 0x3100..<0x3100 + 2_000) == data)
         #expect(flash.subdata(in: 0x3000..<0x3100) == Data(repeating: 0xFF, count: 0x100))
         #expect(report.regions[0].address == 0x3000)
-        #expect(await chip.flashBeginPayloads.map(\.count) == [16])     // ROM ESP32 : 4 mots
+        #expect(await chip.flashBeginPayloads.map(\.count) == [16])     // ESP32 ROM: 4 words
     }
 
     @Test func skipsUnchangedRegions() async throws {
@@ -203,7 +203,7 @@ struct WriteFlashTests {
         #expect(report.regions[0].headerPatched)
         let written = await chip.flash.subdata(in: 0x1000..<0x1000 + original.count)
         #expect(written[2] == 0x02)                          // DIO
-        #expect(written[3] == 0x2F)                          // 4 Mo, 80 MHz
+        #expect(written[3] == 0x2F)                          // 4 MB, 80 MHz
         let end = try #require(ImageHeader.imageEnd(written))
         #expect(written.subdata(in: end..<end + 32) == SHA256.hash(written.prefix(end)))
         #expect(written.subdata(in: end..<end + 32) != original.subdata(in: end..<end + 32))
@@ -219,7 +219,7 @@ struct WriteFlashTests {
             case .finished(let report): finished = report
             }
         }
-        // Contrat : `.finished` arrive toujours ; un consommateur lent peut manquer des progressions.
+        // Contract: `.finished` always arrives; a slow consumer may miss progress events.
         #expect(finished?.regions.count == 1)
         #expect(sawProgress)
     }
@@ -250,20 +250,20 @@ struct WriteFlashTests {
         try await Task.sleep(for: .milliseconds(50))
         #expect(await chip.flashBeginPayloads.isEmpty)
         _ = try await operation.value
-        _ = try await operation.value                       // chaque parcours relance l'opération
+        _ = try await operation.value                       // each iteration runs the operation again
         #expect(await chip.flashBeginPayloads.count == 2)
     }
 
     @Test func esp8266ROMWritesNeedTheStub() async throws {
-        // Sous ROM, ESPKit refuse l'écriture sur ESP8266 sans parler à la puce : on se contente
-        // de vérifier la règle sur une session ESP32 forcée en ROM.
+        // Under ROM, ESPKit refuses ESP8266 writes without talking to the chip: here the rule
+        // is only checked on an ESP32 session forced into ROM.
         let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: options(stub: .romOnly))
         await #expect(throws: UsageError.self) { _ = try await esp.eraseFlash().value }
         await #expect(throws: UsageError.self) { try await esp.eraseRegion(at: 0, count: 0x1000) }
     }
 }
 
-@Suite("Lecture, vérification, effacement")
+@Suite("Reading, verifying, erasing")
 struct ReadVerifyEraseTests {
     @Test func readsWithTheStubAndAcknowledgements() async throws {
         let chip = SimulatedChip.esp32s3()
@@ -279,7 +279,7 @@ struct ReadVerifyEraseTests {
             }
         }
         #expect(result == data)
-        // Un consommateur lent peut manquer des progressions, jamais les voir reculer.
+        // A slow consumer may miss progress events, never see them go backwards.
         #expect(reads == reads.sorted() && reads.allSatisfy { $0 <= 10_000 })
     }
 
@@ -291,7 +291,7 @@ struct ReadVerifyEraseTests {
         await chip.setDropReadPacket(2)
         #expect(try await esp.readFlash(at: 0x3_0000, count: 20_000).value == data)
         #expect(await chip.dropReadPacket == nil)
-        // Deux commandes READ_FLASH : la première interrompue, la seconde à partir du bloc perdu.
+        // Two READ_FLASH commands: the first one interrupted, the second from the lost block on.
         #expect(await chip.receivedOpcodes.filter { $0 == 0xD2 }.count == 2)
     }
 
@@ -339,7 +339,7 @@ struct ReadVerifyEraseTests {
                                                  FlashRegion(address: 0x2_0000, data: bad)]).value
         #expect(results[0] == .match(address: 0x1_0000))
         guard case .mismatch(let address, let differences) = results[1] else {
-            Issue.record("la deuxième région devrait différer")
+            Issue.record("the second region should differ")
             return
         }
         #expect(address == 0x2_0000)

@@ -18,42 +18,42 @@ let package = Package(
         .library(name: "ESPEfuse", targets: ["ESPEfuse"]),
     ],
     dependencies: [
-        // RSA, ECDSA et AES pour ESPSecure (Apache-2.0).
+        // RSA, ECDSA and AES for ESPSecure (Apache-2.0).
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "5.1.2")),
     ],
     targets: [
-        // Types de base, sans I/O.
+        // Base types, no I/O.
         .target(name: "ESPTargets"),
 
-        // Ports série, découverte USB, séquences de reset.
+        // Serial ports, USB discovery, reset sequences.
         .target(name: "ESPTransport", dependencies: ["ESPTargets"]),
 
-        // Trames SLIP, commandes et réponses du protocole ROM/stub. Pur, interne au package.
+        // SLIP frames, ROM/stub protocol commands and responses. Pure, internal to the package.
         .target(name: "ESPProtocol"),
 
-        // libz du système.
+        // System libz.
         .systemLibrary(name: "CZlib", path: "Sources/CZlib", providers: [.apt(["zlib1g-dev"])]),
 
-        // MD5, SHA-256 et zlib : utilitaires internes, sans dépendance externe.
+        // MD5, SHA-256 and zlib: internal utilities, no external dependency.
         .target(name: "ESPSupport", dependencies: ["CZlib"]),
 
-        // Images firmware, ELF, elf2image, fusion (brut, Intel HEX, UF2). Pur, sans I/O.
+        // Firmware images, ELF, elf2image, merging (raw, Intel HEX, UF2). Pure, no I/O.
         .target(name: "ESPImage", dependencies: ["ESPTargets", "ESPSupport"]),
 
-        // Secure Boot et chiffrement flash. Pur, sans I/O.
+        // Secure Boot and flash encryption. Pure, no I/O.
         .target(name: "ESPSecure", dependencies: [
             "ESPTargets", "ESPSupport",
             .product(name: "Crypto", package: "swift-crypto"),
             .product(name: "_CryptoExtras", package: "swift-crypto"),
         ]),
 
-        // L'acteur ESPDevice et ses opérations. Embarque le stub v2 (esp-flasher-stub).
+        // The ESPDevice actor and its operations. Bundles the v2 stub (esp-flasher-stub).
         .target(name: "ESPDevice", dependencies: ["ESPTargets", "ESPTransport", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
-        // Lecture des eFuses. Tables générées depuis ESP-IDF (Tools/efuse-codegen).
+        // eFuse reading. Tables generated from ESP-IDF (Tools/efuse-codegen).
         .target(name: "ESPEfuse", dependencies: ["ESPTargets", "ESPDevice", "ESPSecure"]),
 
-        // Parapluie : réexporte tous les modules publics.
+        // Umbrella: re-exports every public module.
         .target(name: "ESPKit", dependencies: ["ESPTargets", "ESPTransport", "ESPImage", "ESPSecure", "ESPDevice", "ESPEfuse"]),
 
         .testTarget(name: "ESPProtocolTests", dependencies: ["ESPProtocol"]),
@@ -65,7 +65,7 @@ let package = Package(
         .testTarget(name: "ESPEfuseTests", dependencies: ["ESPEfuse", "ESPSecure"]),
         .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
-        // Tests sur carte réelle. Ignorés sauf si ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 sont définies.
+        // Tests on real boards. Skipped unless ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 are set.
         .testTarget(name: "HardwareTests", dependencies: ["ESPKit"]),
     ],
     swiftLanguageModes: [.v6]

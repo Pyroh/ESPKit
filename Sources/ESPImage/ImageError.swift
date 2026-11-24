@@ -2,51 +2,51 @@
 
 import ESPTargets
 
-/// Erreurs d'analyse et de construction d'images.
+/// Image parsing and building errors.
 public enum ImageError: ESPKitError, Equatable {
     case malformedImage(String)
     case malformedELF(String)
     case malformedIntelHex(line: Int, reason: String)
-    /// Segments qui se chevauchent, alignement MMU impossible…
+    /// Overlapping segments, impossible MMU alignment…
     case layout(String)
     case unsupportedChip(ChipFamily)
-    /// Réglage d'en-tête qu'on ne sait pas encoder pour cette puce.
+    /// Header setting that cannot be encoded for this chip.
     case invalidHeaderSetting(String)
 
     public var description: String {
         switch self {
-        case .malformedImage(let reason): "Image invalide : \(reason)"
-        case .malformedELF(let reason): "ELF invalide : \(reason)"
-        case .malformedIntelHex(let line, let reason): "Intel HEX invalide, ligne \(line) : \(reason)"
-        case .layout(let reason): "Disposition impossible : \(reason)"
-        case .unsupportedChip(let chip): "Format d'image non pris en charge pour \(chip)"
-        case .invalidHeaderSetting(let reason): "Réglage d'en-tête invalide : \(reason)"
+        case .malformedImage(let reason): "Invalid image: \(reason)"
+        case .malformedELF(let reason): "Invalid ELF: \(reason)"
+        case .malformedIntelHex(let line, let reason): "Invalid Intel HEX, line \(line): \(reason)"
+        case .layout(let reason): "Impossible layout: \(reason)"
+        case .unsupportedChip(let chip): "Image format not supported for \(chip)"
+        case .invalidHeaderSetting(let reason): "Invalid header setting: \(reason)"
         }
     }
 }
 
-/// Résultat de `validate()` : une liste vide signifie que l'image est cohérente.
+/// Result of `validate()`: an empty list means the image is consistent.
 public struct ImageValidation: Hashable, Sendable {
     public enum Issue: Hashable, Sendable, CustomStringConvertible {
         case checksumMismatch(stored: UInt8, computed: UInt8)
         case digestMismatch
         case overlappingSegments(UInt32, UInt32)
-        /// Segment mappé en flash dont l'offset dans le fichier ne correspond pas à son adresse
-        /// modulo la page MMU.
+        /// Flash-mapped segment whose file offset does not match its address
+        /// modulo the MMU page.
         case misalignedFlashSegment(loadAddress: UInt32, fileOffset: Int)
         case crcMismatch(stored: UInt32, computed: UInt32)
 
         public var description: String {
             switch self {
             case .checksumMismatch(let stored, let computed):
-                "somme de contrôle 0x\(String(stored, radix: 16)) au lieu de 0x\(String(computed, radix: 16))"
-            case .digestMismatch: "empreinte SHA-256 invalide"
+                "checksum 0x\(String(stored, radix: 16)) instead of 0x\(String(computed, radix: 16))"
+            case .digestMismatch: "invalid SHA-256 digest"
             case .overlappingSegments(let a, let b):
-                "segments 0x\(String(a, radix: 16)) et 0x\(String(b, radix: 16)) se chevauchent"
+                "segments 0x\(String(a, radix: 16)) and 0x\(String(b, radix: 16)) overlap"
             case .misalignedFlashSegment(let address, let offset):
-                "segment flash 0x\(String(address, radix: 16)) mal aligné (offset 0x\(String(offset, radix: 16)))"
+                "flash segment 0x\(String(address, radix: 16)) misaligned (offset 0x\(String(offset, radix: 16)))"
             case .crcMismatch(let stored, let computed):
-                "CRC32 0x\(String(stored, radix: 16)) au lieu de 0x\(String(computed, radix: 16))"
+                "CRC32 0x\(String(stored, radix: 16)) instead of 0x\(String(computed, radix: 16))"
             }
         }
     }

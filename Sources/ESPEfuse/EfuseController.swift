@@ -4,22 +4,22 @@ import Foundation
 import ESPDevice
 import ESPTargets
 
-/// Lecture des eFuses : blocs bruts, champs décodés, erreurs de codage, calibration.
+/// eFuse reading: raw blocks, decoded fields, coding errors, calibration.
 ///
-/// Les blocs sont lus registre par registre (`READ_REG`), sous ROM comme sous stub. Les champs
-/// viennent des tables d'ESP-IDF ; leur présentation (`displayValue`, `summaryJSON()`) est alignée
-/// sur celle d'espefuse.
+/// Blocks are read register by register (`READ_REG`), under ROM as under the stub. Fields
+/// come from the ESP-IDF tables; their presentation (`displayValue`, `summaryJSON()`) is aligned
+/// with espefuse's.
 public actor EfuseController {
     public nonisolated let chip: ChipFamily
     var state: EfuseSnapshot
     private let device: ESPDevice?
     private let table: EfuseTable?
-    /// Contrôleur créé depuis un jeton : aucune écriture possible.
+    /// Controller created from a token: no writes possible.
     public nonisolated let isReadOnly: Bool
 
-    /// Lit tous les blocs via les registres (ROM ou stub, peu importe).
-    /// - Throws: `EfuseError.unsupportedChip` (registres inconnus pour cette puce : ESPKit connaît
-    ///   ceux de l'ESP32 et de l'ESP32-S3), et les erreurs de `ESPDevice.readRegister`.
+    /// Reads every block through the registers (ROM or stub, either works).
+    /// - Throws: `EfuseError.unsupportedChip` (registers unknown for this chip: ESPKit knows
+    ///   those of the ESP32 and ESP32-S3), and the errors of `ESPDevice.readRegister`.
     public init(device: ESPDevice) async throws {
         guard let layout = EfuseLayout.layout(for: device.chip), let table = EfuseTable.table(for: device.chip) else {
             throw EfuseError.unsupportedChip(device.chip)
@@ -31,7 +31,7 @@ public actor EfuseController {
         self.state = try await Self.read(layout, chip: device.chip, from: device)
     }
 
-    /// Contrôleur simulé, état vierge ou fourni. Rien n'est envoyé à une puce.
+    /// Simulated controller, blank or with a given state. Nothing is sent to a chip.
     public init(virtual chip: ChipFamily, initialState: EfuseSnapshot? = nil) {
         self.chip = chip
         self.device = nil
@@ -40,7 +40,7 @@ public actor EfuseController {
         self.state = initialState ?? EfuseSnapshot(chip: chip, blocks: EfuseLayout.blankBlocks(for: chip))
     }
 
-    /// Lecture seule, depuis un jeton `EFSR:<chip>:…` produit par `token()`.
+    /// Read-only, from an `EFSR:<chip>:…` token produced by `token()`.
     /// - Throws: `EfuseError.malformedToken`.
     public init(token: String) throws {
         let parts = token.split(separator: ":", maxSplits: 2).map(String.init)
@@ -55,7 +55,7 @@ public actor EfuseController {
         self.state = snapshot
     }
 
-    /// Relit les blocs sur la puce ; sans effet pour un contrôleur virtuel ou un jeton.
+    /// Reads the blocks again from the chip; no effect for a virtual controller or a token.
     public func refresh() async throws {
         guard let device, let layout = EfuseLayout.layout(for: chip) else { return }
         state = try await Self.read(layout, chip: chip, from: device)
@@ -68,7 +68,7 @@ public actor EfuseController {
         return "EFSR:\(chip.rawValue):\(data.base64EncodedString())"
     }
 
-    // MARK: Lecture
+    // MARK: Reading
 
     public func blocks() -> [EfuseBlock] {
         let names = EfuseLayout.layout(for: chip)?.blocks.map(\.name)
@@ -80,7 +80,7 @@ public actor EfuseController {
         }
     }
 
-    /// Tous les champs de la table, champs calculés compris.
+    /// Every field of the table, computed fields included.
     public func fields() -> [EfuseField] {
         guard let table else { return [] }
         return table.fields.map(field(for:)) + table.composites.compactMap(composite(for:))
@@ -92,7 +92,7 @@ public actor EfuseController {
         return table.composites.first { $0.name == name.rawValue }.flatMap(composite(for:))
     }
 
-    /// Erreurs d'encodage RS(44,32), de répétition (BLOCK0) ou 3/4 (ESP32) détectées par le contrôleur.
+    /// RS(44,32), repeat (BLOCK0) or 3/4 (ESP32) coding errors detected by the controller.
     public func codingErrors() -> [EfuseCodingError] {
         let registers = state.errorRegisters
         switch chip {
@@ -104,7 +104,7 @@ public actor EfuseController {
             for (index, bits) in registers.prefix(5).enumerated() where bits != 0 {
                 errors.append(EfuseCodingError(block: 0, kind: .repeatMismatch(word: index + 1, bits: bits)))
             }
-            // Quatre bits par bloc : nombre d'octets corrigés (3 bits) puis échec.
+            // Four bits per block: number of corrected bytes (3 bits), then failure.
             for block in 1...10 {
                 let register = block <= 8 ? registers[5] : registers[6]
                 let nibble = register >> UInt32(4 * ((block - 1) % 8)) & 0xF
@@ -119,8 +119,8 @@ public actor EfuseController {
         }
     }
 
-    /// Calibration convertie comme `espefuse adc-info`. `nil` si la puce n'en a pas ou si ESPKit
-    /// ne sait pas encore la convertir (seuls l'ESP32 et l'ESP32-S3 sont vérifiés).
+    /// Calibration converted like `espefuse adc-info`. `nil` if the chip has none or ESPKit
+    /// cannot convert it yet (only the ESP32 and ESP32-S3 are verified).
     public func adcCalibration() -> ADCCalibration? {
         switch chip {
         case .esp32:
@@ -139,18 +139,18 @@ public actor EfuseController {
         }
     }
 
-    /// MAC personnalisée, `nil` si elle n'est pas programmée (tous les octets à 0).
+    /// Custom MAC, `nil` if it is not programmed (all bytes 0).
     public func customMAC() -> MACAddress? {
         guard let field = field("CUSTOM_MAC") ?? field("MAC_CUSTOM"), case .mac(let mac) = field.value,
               mac.bytes.contains(where: { $0 != 0 }) else { return nil }
         return mac
     }
 
-    /// Équivalent de `espefuse summary --format json` : mêmes clés, même mise en forme.
+    /// The equivalent of `espefuse summary --format json`: same keys, same formatting.
     public func summaryJSON() -> Data {
         guard let table else { return Data("{}".utf8) }
         var entries: [(String, [(String, JSONValue)])] = []
-        // ESP32-S3 : sans bloc de calibration (BLK_VERSION_MAJOR = 0), espefuse n'affiche pas ses champs.
+        // ESP32-S3: without a calibration block (BLK_VERSION_MAJOR = 0), espefuse hides its fields.
         let hideCalibration = chip == .esp32s3 && raw("BLK_VERSION_MAJOR") == 0
         for definition in table.fields where definition.inSummary && !(hideCalibration && definition.category == "calibration") {
             let field = field(for: definition)
@@ -164,19 +164,19 @@ public actor EfuseController {
         return Data(JSONValue.object(entries.sorted { $0.0 < $1.0 }.map { ($0.0, .object($0.1)) }).pythonJSON().utf8)
     }
 
-    // MARK: Interne
+    // MARK: Internals
 
     var efuseTable: EfuseTable? { table }
     var isVirtual: Bool { device == nil }
 
     func rawValue(_ definition: EfuseDefinition) -> UInt64 { Self.integer(bits(of: definition)) }
 
-    /// Brûle (OU logique) les mots dans l'état simulé.
+    /// Burns (logical OR) the words into the simulated state.
     func apply(_ changes: [EfuseChange]) {
         for change in changes { state.blocks[change.block][change.word] |= change.after }
     }
 
-    /// Blocs entiers protégés en lecture : la puce les relit à zéro.
+    /// Whole read-protected blocks: the chip reads them back as zeros.
     func readProtectedBlocks() -> [Int] {
         guard let table else { return [] }
         return table.fields.filter { $0.bitCount >= 192 && isReadProtected($0) }.map(\.block)
@@ -197,7 +197,7 @@ public actor EfuseController {
         return EfuseSnapshot(chip: chip, blocks: blocks, errorRegisters: errors, apbControlDate: date)
     }
 
-    /// Bits du champ concaténés, poids faible d'abord.
+    /// The field's bits concatenated, least significant first.
     private func bits(of definition: EfuseDefinition) -> [Bool] {
         let words = state.blocks[safe: definition.block] ?? []
         var out: [Bool] = []
@@ -255,7 +255,7 @@ public actor EfuseController {
                           type: definition.type)
     }
 
-    /// Champs qu'espefuse calcule à partir d'autres champs.
+    /// Fields espefuse computes from other fields.
     private func composite(for label: CompositeLabel) -> EfuseField? {
         let value: EfuseValue
         var ranges: [Range<Int>] = []
@@ -264,7 +264,7 @@ public actor EfuseController {
         case (.esp32, "PKG_VERSION"):
             value = .uint((raw("CHIP_PACKAGE") ?? 0) | (raw("CHIP_PACKAGE_4BIT") ?? 0) << 3)
         case (.esp32, "WAFER_VERSION_MAJOR"):
-            // Révision 0, 1, puis 2 ou 3 selon le bit 31 de APB_CTRL_DATE.
+            // Revision 0, 1, then 2 or 3 depending on bit 31 of APB_CTRL_DATE.
             let major: UInt64 = raw("CHIP_VER_REV1") == 0 ? 0
                 : raw("CHIP_VER_REV2") == 0 ? 1 : ((state.apbControlDate ?? 0) >> 31 & 1 == 1 ? 3 : 2)
             value = .uint(major)
@@ -298,7 +298,7 @@ public actor EfuseController {
                           isWriteProtected: protection.map(isWriteProtected) ?? false, type: label.type)
     }
 
-    // MARK: Présentation (alignée sur espefuse)
+    // MARK: Presentation (aligned with espefuse)
 
     private func presentation(of definition: EfuseDefinition, value: EfuseValue, bits: [Bool]) -> JSONValue {
         if let converted = calibration(definition, bits: bits) { return converted }
@@ -311,7 +311,7 @@ public actor EfuseController {
         case .mac(let mac):
             return .string(macPresentation(mac, crcField: chip == .esp32 && definition.name == "MAC" ? "MAC_CRC" : nil))
         case .bytes(let data):
-            // Comme espefuse : un bloc protégé en lecture s'affiche « ?? ».
+            // Like espefuse: a read-protected block is shown as "??".
             if isReadProtected(definition) { return .string(Array(repeating: "??", count: data.count).joined(separator: " ")) }
             return .string(data.map { String(format: "%02x", $0) }.joined(separator: " "))
         case .uint(let number):
@@ -320,7 +320,7 @@ public actor EfuseController {
         }
     }
 
-    /// ESP32 : la MAC porte un CRC-8 (Dallas/Maxim) ; les autres puces n'en ont pas.
+    /// ESP32: the MAC carries a CRC-8 (Dallas/Maxim); other chips have none.
     private func macPresentation(_ mac: MACAddress, crcField: String?) -> String {
         let text = mac.bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
         guard let crcField, let stored = raw(crcField) else { return text + " (OK)" }
@@ -330,8 +330,8 @@ public actor EfuseController {
             : text + String(format: " (CRC 0x%02x has bad CRC, expected 0x%02x)", UInt8(stored), computed)
     }
 
-    /// Conversions de calibration établies sur l'ESP32 et l'ESP32-S3 : signe-magnitude (bit de
-    /// poids fort = signe), multiplié par 4 sur S3 ; référence ADC de l'ESP32 : 1 100 mV + 7 mV par pas.
+    /// Calibration conversions established on the ESP32 and ESP32-S3: sign-magnitude (top bit
+    /// = sign), times 4 on the S3; ESP32 ADC reference: 1,100 mV + 7 mV per step.
     private func calibration(_ definition: EfuseDefinition, bits: [Bool]) -> JSONValue? {
         guard definition.type.hasPrefix("uint"), (1...32).contains(bits.count) else { return nil }
         let raw = Self.integer(bits)
@@ -368,14 +368,14 @@ public actor EfuseController {
                 ("writeable", .bool(!field.isWriteProtected))]
     }
 
-    /// Noms des rôles de clé (énumération `esp_efuse_purpose_t` d'ESP-IDF).
+    /// Key purpose names (ESP-IDF's `esp_efuse_purpose_t` enumeration).
     private static let purposeNames: [Int: String] = [
         0: "USER", 1: "RESERVED", 2: "XTS_AES_256_KEY_1", 3: "XTS_AES_256_KEY_2", 4: "XTS_AES_128_KEY",
         5: "HMAC_DOWN_ALL", 6: "HMAC_DOWN_JTAG", 7: "HMAC_DOWN_DIGITAL_SIGNATURE", 8: "HMAC_UP",
         9: "SECURE_BOOT_DIGEST0", 10: "SECURE_BOOT_DIGEST1", 11: "SECURE_BOOT_DIGEST2",
     ]
 
-    /// CRC-8 Dallas/Maxim (polynôme 0x8C réfléchi, valeur initiale 0).
+    /// CRC-8 Dallas/Maxim (reflected polynomial 0x8C, initial value 0).
     static func crc8(_ data: Data) -> UInt8 {
         var crc: UInt8 = 0
         for byte in data {

@@ -2,8 +2,8 @@
 
 import Foundation
 
-/// Entier non signé minimal (mots de 32 bits, poids faible d'abord), juste ce qu'il faut pour
-/// les paramètres de Montgomery du périphérique RSA : R² mod n et −n⁻¹ mod 2³².
+/// Minimal unsigned integer (32-bit words, least significant first), just enough for the
+/// RSA peripheral's Montgomery parameters: R² mod n and −n⁻¹ mod 2³².
 struct BigUInt: Equatable {
     private(set) var words: [UInt32]
 
@@ -12,7 +12,7 @@ struct BigUInt: Equatable {
         normalize()
     }
 
-    /// Octets en big-endian (l'ordre des clés et signatures standard).
+    /// Big-endian bytes (the order of standard keys and signatures).
     init(bigEndian bytes: Data) {
         var words = [UInt32](repeating: 0, count: (bytes.count + 3) / 4)
         for (index, byte) in bytes.reversed().enumerated() {
@@ -25,7 +25,7 @@ struct BigUInt: Equatable {
         while let last = words.last, last == 0 { words.removeLast() }
     }
 
-    /// `count` octets en little-endian, l'ordre du périphérique RSA.
+    /// `count` little-endian bytes, the RSA peripheral's order.
     func littleEndian(count: Int) -> Data {
         var out = Data(count: count)
         for index in 0..<min(count, words.count * 4) {
@@ -42,7 +42,7 @@ struct BigUInt: Equatable {
         return true
     }
 
-    /// `self - other`, avec `self >= other`.
+    /// `self - other`, with `self >= other`.
     mutating func subtract(_ other: BigUInt) {
         var borrow: UInt64 = 0
         for index in words.indices {
@@ -69,7 +69,7 @@ struct BigUInt: Equatable {
         if carry != 0 { words.append(carry) }
     }
 
-    /// 2^exponent mod modulus, par doublements successifs (exponent ≈ 6 144 : rapide).
+    /// 2^exponent mod modulus, by repeated doubling (exponent ≈ 6,144: fast).
     static func powerOfTwo(_ exponent: Int, modulo modulus: BigUInt) -> BigUInt {
         var value = BigUInt(words: [1])
         if value >= modulus { value.subtract(modulus) }
@@ -80,10 +80,10 @@ struct BigUInt: Equatable {
         return value
     }
 
-    /// −self⁻¹ mod 2³² (self impair), par la méthode de Newton.
+    /// −self⁻¹ mod 2³² (self odd), by Newton's method.
     var negativeInverseModWord: UInt32 {
         let low = words.first ?? 1
-        var inverse = low                       // juste à 3 bits près pour un nombre impair
+        var inverse = low                       // correct to 3 bits for an odd number
         for _ in 0..<5 { inverse = inverse &* (2 &- low &* inverse) }
         return 0 &- inverse
     }

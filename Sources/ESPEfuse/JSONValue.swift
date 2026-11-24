@@ -2,18 +2,18 @@
 
 import Foundation
 
-/// Valeur JSON minimale, sérialisée exactement comme `json.dumps(…, indent=4, sort_keys=True)`
-/// de Python, pour comparer `summaryJSON()` à la sortie d'espefuse.
+/// Minimal JSON value, serialized exactly like Python's `json.dumps(…, indent=4, sort_keys=True)`,
+/// so that `summaryJSON()` can be compared with espefuse's output.
 enum JSONValue: Sendable {
     case null
     case bool(Bool)
     case int(Int64)
     case double(Double)
     case string(String)
-    /// Clés déjà dans l'ordre voulu.
+    /// Keys already in the wanted order.
     indirect case object([(String, JSONValue)])
 
-    /// Texte de la valeur quand elle est affichée seule (`EfuseField.displayValue`).
+    /// Text of the value when shown on its own (`EfuseField.displayValue`).
     var text: String {
         switch self {
         case .null: "null"
@@ -40,7 +40,7 @@ enum JSONValue: Sendable {
         }
     }
 
-    /// Échappement de Python (`ensure_ascii=True`).
+    /// Python's escaping (`ensure_ascii=True`).
     private static func quoted(_ text: String) -> String {
         var out = "\""
         for unit in text.utf16 {

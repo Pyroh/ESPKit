@@ -2,15 +2,15 @@
 
 import Foundation
 
-/// Encadrement SLIP (RFC 1055) utilisé par le bootloader : chaque paquet est borné par 0xC0,
-/// 0xC0 devient 0xDB 0xDC et 0xDB devient 0xDB 0xDD.
+/// SLIP framing (RFC 1055) used by the bootloader: each packet is delimited by 0xC0,
+/// 0xC0 becomes 0xDB 0xDC and 0xDB becomes 0xDB 0xDD.
 package enum SLIP {
     package static let end: UInt8 = 0xC0
     package static let escape: UInt8 = 0xDB
     package static let escapedEnd: UInt8 = 0xDC
     package static let escapedEscape: UInt8 = 0xDD
 
-    /// Encadre `packet` : délimiteur, contenu échappé, délimiteur.
+    /// Frames `packet`: delimiter, escaped content, delimiter.
     package static func encode(_ packet: Data) -> Data {
         var out = Data()
         out.reserveCapacity(packet.count + packet.count / 16 + 2)
@@ -27,22 +27,22 @@ package enum SLIP {
     }
 }
 
-/// Reconstitue les paquets SLIP à partir d'un flux d'octets arrivant par morceaux.
+/// Rebuilds SLIP packets from a byte stream arriving in pieces.
 ///
-/// Les octets reçus hors d'un paquet (journal de boot de la ROM, par exemple) sont mis de côté
-/// dans `strayBytes`, pour le diagnostic.
+/// Bytes received outside a packet (the ROM boot log, for example) are set aside
+/// in `strayBytes`, for diagnostics.
 package struct SLIPDecoder: Sendable {
     private var current = Data()
     private var inPacket = false
     private var pendingEscape = false
 
-    /// Octets reçus en dehors de tout paquet depuis le dernier `takeStrayBytes()`.
+    /// Bytes received outside any packet since the last `takeStrayBytes()`.
     package private(set) var strayBytes = Data()
 
     package init() {}
 
-    /// Ajoute des octets et rend les paquets complets qu'ils terminent, dans l'ordre.
-    /// - Throws: `SLIPDecodingError.invalidEscape` si 0xDB est suivi d'un octet inattendu.
+    /// Appends bytes and returns, in order, the packets they complete.
+    /// - Throws: `SLIPDecodingError.invalidEscape` if 0xDB is followed by an unexpected byte.
     package mutating func feed(_ bytes: Data) throws(SLIPDecodingError) -> [Data] {
         var packets: [Data] = []
         for byte in bytes {
@@ -71,7 +71,7 @@ package struct SLIPDecoder: Sendable {
                 pendingEscape = true
             case SLIP.end:
                 if current.isEmpty {
-                    // Deux délimiteurs de suite : on reste en début de paquet.
+                    // Two delimiters in a row: stay at the start of a packet.
                     continue
                 }
                 packets.append(current)
@@ -84,13 +84,13 @@ package struct SLIPDecoder: Sendable {
         return packets
     }
 
-    /// Rend et oublie les octets reçus hors paquet.
+    /// Returns and forgets the bytes received outside a packet.
     package mutating func takeStrayBytes() -> Data {
         defer { strayBytes = Data() }
         return strayBytes
     }
 
-    /// Abandonne le paquet en cours.
+    /// Drops the packet in progress.
     package mutating func reset() {
         current.removeAll(keepingCapacity: true)
         inPacket = false

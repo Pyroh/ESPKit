@@ -1,31 +1,31 @@
 # ESPKit
 
-SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266, ESP32 et famille ESP32-x) : détection, flash, images, Secure Boot, chiffrement flash et eFuses. Réimplémentation indépendante des capacités d'esptool, espefuse et espsecure, sans CLI.
+A Swift SDK for talking to the serial bootloader of Espressif chips (ESP8266, ESP32 and the ESP32-x family): detection, flashing, images, Secure Boot, flash encryption and eFuses. An independent reimplementation of what esptool, espefuse and espsecure can do, without a CLI.
 
-- **Plateformes :** macOS 15+, puis Linux.
-- **Langage :** Swift 6.2 minimum (swift-crypto 5.1), concurrence stricte. `ESPDevice` est un `actor` ; les opérations longues sont des `AsyncSequence`.
-- **Licence :** MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
+- **Platforms:** macOS 15+ and Linux.
+- **Language:** Swift 6.2 or later (swift-crypto 5.1), strict concurrency. `ESPDevice` is an `actor`; long-running operations are `AsyncSequence`s.
+- **License:** MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
 
-La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
+The public API specification is the reference; it lives in the research folder (`ESPKit-API.md`).
 
-## État : phase 5 en virtuel (programmation des eFuses)
+## Status: phase 5, virtual only (eFuse programming)
 
-Disponible :
+Available:
 
-- types de base (`ChipFamily`, `ChipRevision`, `MACAddress`, `KeyPurpose`, réglages flash) ;
-- `SerialPort` POSIX avec débits arbitraires (macOS : IOSSIOSPEED ; Linux : termios2), découverte des ports (IOKit, sysfs), séquences de reset (classique, UnixTight, USB-Serial-JTAG, personnalisée) ;
-- connexion : reset, synchro, détection de la puce (chip ID ou valeur magique), Secure Download Mode ;
-- stub v2 embarqué (`esp-flasher-stub` 2.0.0, toutes les puces sauf l'ESP32-E22), changement de débit ;
-- flash : écriture compressée zlib avec contrôle MD5, patch d'en-tête du bootloader, lecture, vérification, effacement total ou par zone ;
-- opérations longues en `AsyncSequence` (`ESPOperation`) : progression, annulation ;
-- images (`ESPImage`, sans I/O) : lecture d'ELF, `elf2image` (ESP32-x et ESP8266 v1/v2), lecture et validation d'images (`image-info`), fusion brute, Intel HEX et UF2, lecture d'Intel HEX. Sorties identiques à l'octet à esptool 4.11 et 5.1 sur des builds ESP-IDF et Arduino ;
-- registres, MAC, `securityInfo()`, identité JEDEC, commandes SPI brutes ;
-- trace bas niveau (`ConnectOptions.trace`).
+- base types (`ChipFamily`, `ChipRevision`, `MACAddress`, `KeyPurpose`, flash settings);
+- POSIX `SerialPort` with arbitrary baud rates (macOS: IOSSIOSPEED; Linux: termios2), port discovery (IOKit, sysfs), reset sequences (classic, UnixTight, USB-Serial-JTAG, custom);
+- connection: reset, sync, chip detection (chip ID or magic value), Secure Download Mode;
+- bundled v2 stub (`esp-flasher-stub` 2.0.0, every chip except the ESP32-E22), baud rate change;
+- flash: zlib-compressed writes with MD5 check, bootloader header patching, read, verify, full or ranged erase;
+- long-running operations as `AsyncSequence` (`ESPOperation`): progress, cancellation;
+- images (`ESPImage`, no I/O): ELF reading, `elf2image` (ESP32-x and ESP8266 v1/v2), image reading and validation (`image-info`), raw, Intel HEX and UF2 merging, Intel HEX reading. Output is byte-identical to esptool 4.11 and 5.1 on ESP-IDF and Arduino builds;
+- registers, MAC, `securityInfo()`, JEDEC identity, raw SPI commands;
+- low-level tracing (`ConnectOptions.trace`).
 
 ```swift
 import ESPKit
 
-let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")   // stub v2, 460 800 bauds
+let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")   // v2 stub, 460,800 baud
 let regions = [
     FlashRegion(address: esp.chip.bootloaderOffset, data: try Data(contentsOf: bootloader)),
     FlashRegion(address: 0x8000, data: try Data(contentsOf: partitions)),
@@ -37,13 +37,13 @@ for try await event in esp.writeFlash(regions) {
 await esp.disconnect(.hard)
 ```
 
-- sécurité (`ESPSecure`, sans I/O) : Secure Boot v2 en RSA-3072, ECDSA P-256 et P-384 (génération et lecture de clés PEM, signature locale ou par un `Signer` externe, jusqu'à 3 blocs, vérification, empreinte de clé à brûler en eFuse) ; chiffrement flash XTS-AES-128 et 256 et schéma ESP32, identiques à l'octet à espsecure. Les images signées par ESPKit sont acceptées par `espsecure verify-signature`.
+- security (`ESPSecure`, no I/O): Secure Boot v2 with RSA-3072, ECDSA P-256 and P-384 (PEM key generation and loading, local signing or through an external `Signer`, up to 3 signature blocks, verification, key digest to burn into eFuses); XTS-AES-128 and 256 flash encryption and the ESP32 scheme, byte-identical to espsecure. Images signed by ESPKit are accepted by `espsecure verify-signature`.
 
-- eFuses (`ESPEfuse`) : tables de 12 puces générées depuis ESP-IDF, lecture des blocs sur l'ESP32 et l'ESP32-S3, champs décodés (valeurs nommées, rôles de clé, MAC, protections), erreurs de codage, calibration ADC, instantanés et jetons, contrôleur virtuel. `summaryJSON()` est identique à l'octet à `espefuse summary --format json` sur l'ESP32 et l'ESP32-S3.
+- eFuses (`ESPEfuse`): tables for 12 chips generated from ESP-IDF, block reading on the ESP32 and ESP32-S3, decoded fields (named values, key purposes, MAC, protections), coding errors, ADC calibration, snapshots and tokens, virtual controller. `summaryJSON()` is byte-identical to `espefuse summary --format json` on the ESP32 and ESP32-S3.
 
-- programmation des eFuses **en virtuel** : plan (`EfuseBurnPlan` : champs, clés, digests Secure Boot, données de bloc, bits, protections, MAC personnalisée, tension flash), aperçu, burn du dernier bloc vers BLOCK0 avec les bits de verrouillage à la fin. Les scénarios donnent le même état qu'`espefuse --virt`, à l'octet. Sur une vraie puce, `burn` refuse : la séquence matérielle n'est pas encore écrite.
+- eFuse programming, **virtual only**: plan (`EfuseBurnPlan`: fields, keys, Secure Boot digests, block data, bits, protections, custom MAC, flash voltage), preview, burning from the last block down to BLOCK0 with the lock bits last. The scenarios produce the same state as `espefuse --virt`, byte for byte. On a real chip, `burn` refuses: the hardware sequence is not written yet.
 
-Pas encore : programmation sur carte (phase 5, sur une carte sacrifiable), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
+Not yet: programming on a board (phase 5, on a sacrificial board), encrypted writes, differential reflashing, NAND and the rest (phase 6).
 
 ## Tests
 
@@ -51,47 +51,47 @@ Pas encore : programmation sur carte (phase 5, sur une carte sacrifiable), écri
 swift test
 ```
 
-Les tests sur carte sont ignorés par défaut. Pour les lancer (identité des puces) :
+Hardware tests are skipped by default. To run them (chip identity):
 
 ```bash
 ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_PORT_S3=/dev/cu.usbmodem1101 swift test --filter HardwareTests
 ```
 
-Le test de flash a besoin en plus d'un build PlatformIO dont l'application écrit `ESPKit HIL OK <puce>` sur sa console (`printf("ESPKit HIL OK %s\n", CONFIG_IDF_TARGET)` sous ESP-IDF) :
+The flash test also needs a PlatformIO build whose application prints `ESPKit HIL OK <chip>` on its console (`printf("ESPKit HIL OK %s\n", CONFIG_IDF_TARGET)` under ESP-IDF):
 
 ```bash
 ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_FIRMWARE_ESP32=…/.pio/build/esp32 swift test --filter HardwareTests
 ```
 
-Les tests différentiels d'`ESPImage` comparent ESPKit à esptool, utilisé comme boîte noire. `Tools/oracle/make-references.sh` produit les binaires de référence à partir de builds ESP-IDF, Arduino et ESP8266 (voir l'en-tête du script), puis :
+The `ESPImage` differential tests compare ESPKit with esptool, used as a black box. `Tools/oracle/make-references.sh` produces the reference binaries from ESP-IDF, Arduino and ESP8266 builds (see the script header), then:
 
 ```bash
 ESPKIT_IMAGE_REFERENCES=…/ref-v5 swift test --filter ReferenceTests
 ```
 
-Pour `ESPSecure`, `Tools/oracle/make-secure-references.sh` produit clés, signatures et chiffrements de référence avec espsecure, puis :
+For `ESPSecure`, `Tools/oracle/make-secure-references.sh` produces reference keys, signatures and ciphertexts with espsecure, then:
 
 ```bash
 ESPKIT_SECURE_REFERENCES=… ESPKIT_ESPSECURE=espsecure swift test --filter ESPSecureTests
 ```
 
-Pour `ESPEfuse`, `Tools/oracle/make-efuse-references.sh` relève avec espefuse (lecture seule) les libellés de toutes les puces et, si des cartes sont branchées, leurs résumés et dumps. Les tables se régénèrent ensuite depuis ESP-IDF :
+For `ESPEfuse`, `Tools/oracle/make-efuse-references.sh` uses espefuse (read only) to record the labels of every chip and, when boards are connected, their summaries and dumps. The tables are then regenerated from ESP-IDF:
 
 ```bash
-python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse <références>/real <références>/virt
-ESPKIT_EFUSE_REFERENCES=<références> swift test --filter ESPEfuseTests
+python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse <references>/real <references>/virt
+ESPKIT_EFUSE_REFERENCES=<references> swift test --filter ESPEfuseTests
 ```
 
-Les scénarios de programmation se rejouent avec `Tools/oracle/make-burn-references.sh` (espefuse `--virt`, aucune puce touchée), puis `ESPKIT_BURN_REFERENCES=<dossier> swift test --filter ESPEfuseTests`.
+The programming scenarios are replayed with `Tools/oracle/make-burn-references.sh` (espefuse `--virt`, no chip touched), then `ESPKIT_BURN_REFERENCES=<folder> swift test --filter ESPEfuseTests`.
 
-Le stub embarqué se régénère depuis une release d'esp-flasher-stub :
+The bundled stub is regenerated from an esp-flasher-stub release:
 
 ```bash
-python3 -I Tools/generate-stubs.py v2.0.0 <dossier des JSON téléchargés>
+python3 -I Tools/generate-stubs.py v2.0.0 <folder of downloaded JSON files>
 ```
 
-## Règles de contribution
+## Contribution rules
 
-- On code depuis la spécification et la documentation publique, jamais en traduisant le Python d'esptool (GPL).
-- Chaque fichier porte l'en-tête `// SPDX-License-Identifier: MIT OR Apache-2.0`.
-- Dépendances acceptées : `swift-crypto` (5.1.x), libz système (paquet `zlib1g-dev` sous Linux). Rien sous GPL ou LGPL.
+- Code is written from the specification and public documentation, never by translating esptool's Python (GPL).
+- Every file carries the `// SPDX-License-Identifier: MIT OR Apache-2.0` header.
+- Accepted dependencies: `swift-crypto` (5.1.x), system libz (the `zlib1g-dev` package on Linux). Nothing under GPL or LGPL.

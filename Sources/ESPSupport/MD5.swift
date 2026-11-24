@@ -2,8 +2,8 @@
 
 import Foundation
 
-/// MD5 (RFC 1321). Sert uniquement à contrôler l'intégrité des transferts flash,
-/// comme le fait la puce : ce n'est pas un usage cryptographique.
+/// MD5 (RFC 1321). Used only to check the integrity of flash transfers,
+/// as the chip does: this is not a cryptographic use.
 package struct MD5: Sendable {
     private var state: (UInt32, UInt32, UInt32, UInt32) = (0x6745_2301, 0xEFCD_AB89, 0x98BA_DCFE, 0x1032_5476)
     private var buffer = [UInt8]()

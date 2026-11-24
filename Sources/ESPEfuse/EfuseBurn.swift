@@ -4,10 +4,10 @@ import Foundation
 import ESPSecure
 import ESPTargets
 
-/// Bloc destinataire d'une clé.
+/// Destination block of a key.
 public enum KeyBlock: Hashable, Sendable, CustomStringConvertible {
     case key0, key1, key2, key3, key4, key5
-    /// ESP32 : BLOCK1, BLOCK2 (Secure Boot v1) et BLOCK2 (digest Secure Boot v2, révision 3).
+    /// ESP32: BLOCK1, BLOCK2 (Secure Boot v1) and BLOCK2 (Secure Boot v2 digest, revision 3).
     case flashEncryption, secureBootV1, secureBootV2
 
     public var description: String {
@@ -18,7 +18,7 @@ public enum KeyBlock: Hashable, Sendable, CustomStringConvertible {
         case .key3: "BLOCK_KEY3"
         case .key4: "BLOCK_KEY4"
         case .key5: "BLOCK_KEY5"
-        case .flashEncryption: "BLOCK1 (chiffrement flash)"
+        case .flashEncryption: "BLOCK1 (flash encryption)"
         case .secureBootV1: "BLOCK2 (Secure Boot v1)"
         case .secureBootV2: "BLOCK2 (Secure Boot v2)"
         }
@@ -37,15 +37,15 @@ public enum KeyBlock: Hashable, Sendable, CustomStringConvertible {
     }
 }
 
-/// Tension de la flash forcée par eFuse (ESP32, S2, S3).
+/// Flash voltage forced by eFuse (ESP32, S2, S3).
 public enum FlashVoltage: Hashable, Sendable {
     case v1_8, v3_3, off
 }
 
-/// Jeton d'intention, équivalent du « BURN » tapé au clavier. Pas de valeur par défaut.
+/// Intent token, the equivalent of typing "BURN" at the keyboard. No default value.
 public enum BurnConfirmation: Sendable { case irreversible }
 
-/// Ce qu'on veut brûler. Une simple valeur : on la teste en virtuel, puis on la rejoue telle quelle.
+/// What to burn. A plain value: test it virtually, then replay it as is.
 public struct EfuseBurnPlan: Sendable {
     enum Operation: Sendable {
         case set(EfuseFieldName, EfuseValue)
@@ -60,28 +60,28 @@ public struct EfuseBurnPlan: Sendable {
     }
 
     var operations: [Operation] = []
-    /// Repousser à la fin les bits de BLOCK0 qui coupent l'accès (`DIS_DOWNLOAD_MODE`…),
-    /// comme `--postpone` (défaut : oui).
+    /// Postpone to the very end the BLOCK0 bits that cut off access (`DIS_DOWNLOAD_MODE`…),
+    /// like `--postpone` (default: yes).
     public var postponeLockingBits: Bool = true
 
     public init() {}
 
     public mutating func set(_ field: EfuseFieldName, to value: EfuseValue) { operations.append(.set(field, value)) }
 
-    /// Clé de 32 octets dans un bloc vide. Comme espefuse : les clés XTS-AES sont retournées
-    /// octet par octet pour le périphérique AES, et seules les clés secrètes (chiffrement, HMAC,
-    /// Secure Boot v1) sont protégées en lecture.
+    /// 32-byte key into an empty block. Like espefuse: XTS-AES keys are byte-reversed
+    /// for the AES peripheral, and only secret keys (encryption, HMAC,
+    /// Secure Boot v1) are read-protected.
     public mutating func writeKey(_ key: Data, to block: KeyBlock, purpose: KeyPurpose,
                                   readProtect: Bool = true, writeProtect: Bool = true) {
         operations.append(.key(key, block, purpose, readProtect: readProtect, writeProtect: writeProtect))
     }
 
-    /// Calcule le digest de la clé publique (Secure Boot v2) et l'écrit, protégé en écriture.
+    /// Computes the public key digest (Secure Boot v2) and writes it, write-protected.
     public mutating func writeKeyDigest(_ publicKey: SecureBootV2.PublicKey, to block: KeyBlock, purpose: KeyPurpose) {
         operations.append(.keyDigest(publicKey, block, purpose))
     }
 
-    /// Octets ajoutés (OU logique) au bloc à partir de `offset`.
+    /// Bytes added (logical OR) to the block from `offset`.
     public mutating func writeBlockData(_ data: Data, to block: Int, offset: Int = 0) {
         operations.append(.blockData(data, block: block, offset: offset))
     }
@@ -94,24 +94,24 @@ public struct EfuseBurnPlan: Sendable {
     public mutating func setFlashVoltage(_ voltage: FlashVoltage) { operations.append(.flashVoltage(voltage)) }
 }
 
-/// Problème qui empêche d'exécuter un plan.
+/// Problem that prevents a plan from running.
 public struct EfusePlanIssue: Hashable, Sendable, CustomStringConvertible {
     public var operation: Int
     public var message: String
-    public var description: String { "opération \(operation + 1) : \(message)" }
+    public var description: String { "operation \(operation + 1): \(message)" }
 }
 
-/// Mot d'un bloc qui va changer. Seuls des bits passent de 0 à 1.
+/// Block word that will change. Bits only go from 0 to 1.
 public struct EfuseChange: Hashable, Sendable, CustomStringConvertible {
     public var block: Int
     public var word: Int
     public var before: UInt32
     public var after: UInt32
-    /// Bits du mot qui seront brûlés.
+    /// Bits of the word that will be burned.
     public var newBits: UInt32 { after & ~before }
 
     public var description: String {
-        String(format: "BLOCK%d mot %d : %08x → %08x", block, word, before, after)
+        String(format: "BLOCK%d word %d: %08x → %08x", block, word, before, after)
     }
 }
 
@@ -119,33 +119,33 @@ public struct EfuseBurnReport: Hashable, Sendable {
     public struct Step: Hashable, Sendable {
         public var block: Int
         public var changes: [EfuseChange]
-        /// Bits de verrouillage de BLOCK0 brûlés en dernier.
+        /// BLOCK0 locking bits burned last.
         public var postponed: Bool
     }
 
-    /// Dans l'ordre d'exécution : du dernier bloc vers BLOCK0, puis les bits repoussés.
+    /// In execution order: from the last block down to BLOCK0, then the postponed bits.
     public var steps: [Step]
 }
 
 extension EfuseError {
-    /// La programmation sur une vraie puce n'est pas encore ouverte : seul le contrôleur virtuel brûle.
+    /// Burning a real chip is not open yet: only the virtual controller burns.
     static let hardwareBurn = EfuseError.planInvalid([EfusePlanIssue(operation: 0,
-        message: "la programmation sur une vraie puce n'est pas encore disponible ; utiliser EfuseController(virtual:)")])
+        message: "burning a real chip is not available yet; use EfuseController(virtual:)")])
 }
 
 extension EfuseController {
-    /// Vérifie le plan sans rien écrire : champ inconnu, valeur trop large, bits déjà à 1 qu'on
-    /// voudrait à 0, champ protégé en écriture, bloc de clé déjà utilisé, rôle inconnu de la puce…
-    /// - Throws: `EfuseError.planInvalid` avec la liste des problèmes.
-    /// - Returns: les mots qui changent, bloc par bloc.
+    /// Checks the plan without writing anything: unknown field, value too wide, bits already 1 that
+    /// would need to be 0, write-protected field, key block already used, purpose unknown to the chip…
+    /// - Throws: `EfuseError.planInvalid` with the list of problems.
+    /// - Returns: the words that change, block by block.
     public func preview(_ plan: EfuseBurnPlan) throws -> [EfuseChange] {
         try compile(plan).changes
     }
 
-    /// Valide, puis brûle bloc par bloc (BLOCK0 en dernier, bits de verrouillage à la toute fin),
-    /// relit et contrôle. En virtuel, ne modifie que l'état simulé ; comme sur la puce, un bloc
-    /// protégé en lecture se relit ensuite à zéro.
-    /// - Throws: `EfuseError.planInvalid`, `EfuseError.readOnly` (jeton),
+    /// Validates, then burns block by block (BLOCK0 last, locking bits at the very end),
+    /// reads back and checks. Virtually, only the simulated state changes; as on the chip, a
+    /// read-protected block then reads back as zeros.
+    /// - Throws: `EfuseError.planInvalid`, `EfuseError.readOnly` (token),
     ///   `EfuseError.verificationFailed`.
     public func burn(_ plan: EfuseBurnPlan, confirm: BurnConfirmation) async throws -> EfuseBurnReport {
         guard !isReadOnly else { throw EfuseError.readOnly }
@@ -173,7 +173,7 @@ extension EfuseController {
             apply(late)
             steps.append(.init(block: 0, changes: late, postponed: true))
         }
-        // Relecture : chaque bit demandé doit être à 1, sauf dans les blocs devenus illisibles.
+        // Read-back: every requested bit must be 1, except in blocks that became unreadable.
         let hidden = readProtectedBlocks()
         for block in compiled.target.indices where !hidden.contains(block) {
             for word in compiled.target[block].indices where state.blocks[block][word] & compiled.target[block][word] != compiled.target[block][word] {
@@ -184,12 +184,12 @@ extension EfuseController {
         return EfuseBurnReport(steps: steps)
     }
 
-    // MARK: Compilation du plan
+    // MARK: Plan compilation
 
     struct CompiledPlan {
         var target: [[UInt32]]
         var changes: [EfuseChange]
-        /// BLOCK0 : bits de verrouillage, par mot.
+        /// BLOCK0: locking bits, per word.
         var lockingMask: [Int: UInt32]
     }
 
@@ -201,16 +201,16 @@ extension EfuseController {
         func fail(_ index: Int, _ message: String) { issues.append(EfusePlanIssue(operation: index, message: message)) }
         func definition(_ index: Int, _ name: String) -> EfuseDefinition? {
             if let found = table.definition(named: name) { return found }
-            fail(index, "champ \(name) inconnu sur \(chip)")
+            fail(index, "unknown field \(name) on \(chip)")
             return nil
         }
-        /// Pose `bits` (poids faible d'abord) dans le champ, en refusant tout bit à remettre à 0.
+        /// Sets `bits` (least significant first) in the field, refusing any bit that would go back to 0.
         func write(_ index: Int, _ field: EfuseDefinition, bits: [Bool]) {
             guard bits.count <= field.bitCount else {
-                fail(index, "\(field.name) : valeur sur \(bits.count) bits pour un champ de \(field.bitCount)")
+                fail(index, "\(field.name): \(bits.count)-bit value for a \(field.bitCount)-bit field")
                 return
             }
-            if isWriteProtected(field) { fail(index, "\(field.name) est protégé en écriture") }
+            if isWriteProtected(field) { fail(index, "\(field.name) is write-protected") }
             var position = 0
             for range in field.bits {
                 for bit in range.start..<range.start + range.count {
@@ -218,7 +218,7 @@ extension EfuseController {
                     let word = bit / 32, mask = UInt32(1) << UInt32(bit % 32)
                     let current = target[field.block][word] & mask != 0
                     if current && !wanted && state.blocks[field.block][word] & mask != 0 {
-                        fail(index, "\(field.name) : le bit \(bit) est déjà à 1 et ne peut pas revenir à 0")
+                        fail(index, "\(field.name): bit \(bit) is already 1 and cannot go back to 0")
                         return
                     }
                     if wanted { target[field.block][word] |= mask }
@@ -241,7 +241,7 @@ extension EfuseController {
                 case .bool(let flag): write(index, field, bits: [flag])
                 case .uint(let number):
                     guard field.bitCount >= 64 || number >> UInt64(field.bitCount) == 0 else {
-                        fail(index, "\(field.name) : \(number) ne tient pas sur \(field.bitCount) bits")
+                        fail(index, "\(field.name): \(number) does not fit in \(field.bitCount) bits")
                         continue
                     }
                     write(index, field, bits: integerBits(number, count: field.bitCount))
@@ -259,33 +259,33 @@ extension EfuseController {
                          digest: true, table: table, write: write, fail: fail, setBit: setBit, integerBits: integerBits)
 
             case .blockData(let data, let block, let offset):
-                guard block < target.count else { fail(index, "BLOCK\(block) n'existe pas"); continue }
+                guard block < target.count else { fail(index, "BLOCK\(block) does not exist"); continue }
                 guard offset >= 0, offset + data.count <= target[block].count * 4 else {
-                    fail(index, "\(data.count) octets à l'offset \(offset) débordent du BLOCK\(block)")
+                    fail(index, "\(data.count) bytes at offset \(offset) go past BLOCK\(block)")
                     continue
                 }
-                if blocks()[block].isWriteProtected { fail(index, "BLOCK\(block) est protégé en écriture") }
+                if blocks()[block].isWriteProtected { fail(index, "BLOCK\(block) is write-protected") }
                 for (i, byte) in data.enumerated() {
                     let position = offset + i
                     target[block][position / 4] |= UInt32(byte) << UInt32(8 * (position % 4))
                 }
 
             case .bits(let bits, let block):
-                guard block < target.count else { fail(index, "BLOCK\(block) n'existe pas"); continue }
-                if blocks()[block].isWriteProtected { fail(index, "BLOCK\(block) est protégé en écriture") }
+                guard block < target.count else { fail(index, "BLOCK\(block) does not exist"); continue }
+                if blocks()[block].isWriteProtected { fail(index, "BLOCK\(block) is write-protected") }
                 for bit in bits {
-                    guard bit >= 0, bit < target[block].count * 32 else { fail(index, "bit \(bit) hors du BLOCK\(block)"); continue }
+                    guard bit >= 0, bit < target[block].count * 32 else { fail(index, "bit \(bit) outside BLOCK\(block)"); continue }
                     target[block][bit / 32] |= 1 << UInt32(bit % 32)
                 }
 
             case .readProtect(let name):
                 guard let field = definition(index, name.rawValue) else { continue }
-                guard field.readDisableBit != nil else { fail(index, "\(field.name) ne peut pas être protégé en lecture"); continue }
+                guard field.readDisableBit != nil else { fail(index, "\(field.name) cannot be read-protected"); continue }
                 setBit(index, "RD_DIS", bit: field.readDisableBit)
 
             case .writeProtect(let name):
                 guard let field = definition(index, name.rawValue) else { continue }
-                guard field.writeDisableBit != nil else { fail(index, "\(field.name) ne peut pas être protégé en écriture"); continue }
+                guard field.writeDisableBit != nil else { fail(index, "\(field.name) cannot be write-protected"); continue }
                 setBit(index, "WR_DIS", bit: field.writeDisableBit)
 
             case .customMAC(let mac):
@@ -304,9 +304,9 @@ extension EfuseController {
                 switch chip {
                 case .esp32: names = ("XPD_SDIO_FORCE", "XPD_SDIO_REG", "XPD_SDIO_TIEH")
                 case .esp32s2, .esp32s3: names = ("VDD_SPI_FORCE", "VDD_SPI_XPD", "VDD_SPI_TIEH")
-                default: fail(index, "\(chip) n'a pas de régulateur de flash réglable par eFuse"); continue
+                default: fail(index, "\(chip) has no flash regulator set by eFuse"); continue
                 }
-                // Forcer le réglage, puis : 1,8 V = régulateur seul ; 3,3 V = régulateur + VDD3P3 ; arrêt = rien.
+                // Force the setting, then: 1.8 V = regulator only; 3.3 V = regulator + VDD3P3; off = nothing.
                 guard let force = definition(index, names.force), let regulator = definition(index, names.regulator),
                       let high = definition(index, names.high) else { continue }
                 write(index, force, bits: [true])
@@ -343,25 +343,25 @@ extension EfuseController {
             switch block {
             case .flashEncryption: blockField = table.definition(named: "BLOCK1")
             case .secureBootV1, .secureBootV2: blockField = table.definition(named: "BLOCK2")
-            default: fail(index, "l'ESP32 n'a pas de \(block)"); return
+            default: fail(index, "the ESP32 has no \(block)"); return
             }
         } else {
-            guard let key = block.keyIndex else { fail(index, "\(chip) n'a pas de \(block)"); return }
+            guard let key = block.keyIndex else { fail(index, "\(chip) has no \(block)"); return }
             blockField = table.definition(named: "BLOCK_KEY\(key)")
             purposeField = table.definition(named: "KEY_PURPOSE_\(key)")
-            guard purposeField != nil else { fail(index, "\(chip) n'a pas de rôle de clé pour \(block)"); return }
+            guard purposeField != nil else { fail(index, "\(chip) has no key purpose for \(block)"); return }
         }
-        guard let blockField else { fail(index, "\(block) introuvable sur \(chip)"); return }
-        guard key.count == 32 else { fail(index, "clé de \(key.count) octets ; 32 attendus"); return }
+        guard let blockField else { fail(index, "\(block) not found on \(chip)"); return }
+        guard key.count == 32 else { fail(index, "\(key.count)-byte key; 32 expected"); return }
         if digest, ![.secureBootDigest0, .secureBootDigest1, .secureBootDigest2].contains(purpose), chip != .esp32 {
-            fail(index, "un digest Secure Boot veut un rôle SECURE_BOOT_DIGESTn")
+            fail(index, "a Secure Boot digest needs a SECURE_BOOT_DIGESTn purpose")
             return
         }
         if rawValue(blockField) != 0 || (purposeField.map(rawValue) ?? 0) != 0 {
-            fail(index, "\(block) est déjà utilisé")
+            fail(index, "\(block) is already used")
             return
         }
-        // Les clés AES (XTS, et sur ESP32 chiffrement flash et Secure Boot v1) sont rangées à l'envers.
+        // AES keys (XTS, and on the ESP32 flash encryption and Secure Boot v1) are stored reversed.
         let reversed = !digest && (chip == .esp32
             ? block != .secureBootV2
             : [.xtsAES128Key, .xtsAES256Key1, .xtsAES256Key2].contains(purpose))

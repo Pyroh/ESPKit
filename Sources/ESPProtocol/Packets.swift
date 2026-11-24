@@ -2,7 +2,7 @@
 
 import Foundation
 
-/// Opcodes du protocole du bootloader (ROM et stub).
+/// Bootloader protocol opcodes (ROM and stub).
 package enum Opcode: UInt8, Sendable, CaseIterable {
     case flashBegin = 0x02
     case flashData = 0x03
@@ -28,7 +28,7 @@ package enum Opcode: UInt8, Sendable, CaseIterable {
     case runUserCode = 0xD3
     case flashEncryptData = 0xD4
 
-    /// Commandes qui transportent un bloc de données et portent donc une somme de contrôle.
+    /// Commands that carry a data block, and therefore a checksum.
     package var carriesChecksum: Bool {
         switch self {
         case .flashData, .memData, .flashDeflData, .flashEncryptData: true
@@ -37,7 +37,7 @@ package enum Opcode: UInt8, Sendable, CaseIterable {
     }
 }
 
-/// Requête de l'hôte vers la puce.
+/// Request from the host to the chip.
 ///
 /// ```
 ///  0      1      2..3        4..7        8..
@@ -46,7 +46,7 @@ package enum Opcode: UInt8, Sendable, CaseIterable {
 package struct Command: Sendable, Equatable {
     package var opcode: UInt8
     package var payload: Data
-    /// Somme de contrôle du bloc transporté ; 0 pour les commandes qui n'en ont pas.
+    /// Checksum of the carried block; 0 for commands without one.
     package var checksum: UInt32
 
     package init(opcode: UInt8, payload: Data = Data(), checksum: UInt32 = 0) {
@@ -59,7 +59,7 @@ package struct Command: Sendable, Equatable {
         self.init(opcode: opcode.rawValue, payload: payload, checksum: checksum)
     }
 
-    /// Paquet non encadré (avant SLIP).
+    /// Unframed packet (before SLIP).
     package func encoded() -> Data {
         var out = Data(capacity: 8 + payload.count)
         out.append(0x00)
@@ -70,7 +70,7 @@ package struct Command: Sendable, Equatable {
         return out
     }
 
-    /// Somme de contrôle d'un bloc de données : XOR de tous les octets, valeur initiale 0xEF.
+    /// Checksum of a data block: XOR of every byte, seeded with 0xEF.
     package static func checksum(of data: Data) -> UInt32 {
         var value: UInt8 = 0xEF
         for byte in data { value ^= byte }
@@ -78,16 +78,16 @@ package struct Command: Sendable, Equatable {
     }
 }
 
-/// Réponse de la puce.
+/// Response from the chip.
 ///
 /// ```
-/// | 0x01 |  op  | len (LE16)| val (LE32)| data … | status | error | (réservés) |
+/// | 0x01 |  op  | len (LE16)| val (LE32)| data … | status | error | (reserved) |
 /// ```
-/// Les octets d'état terminent `data` : 2 pour le stub et la ROM ESP8266, 4 pour les autres ROM.
+/// Status bytes end `data`: 2 for the stub and the ESP8266 ROM, 4 for the other ROMs.
 package struct Response: Sendable, Equatable {
     package var opcode: UInt8
     package var value: UInt32
-    /// Données utiles **et** octets d'état, tels que reçus.
+    /// Payload **and** status bytes, as received.
     package var body: Data
 
     package init(opcode: UInt8, value: UInt32, body: Data) {
@@ -96,8 +96,8 @@ package struct Response: Sendable, Equatable {
         self.body = body
     }
 
-    /// Lit un paquet déjà désencadré. `nil` si ce n'est pas une réponse (direction ≠ 0x01,
-    /// ou paquet trop court).
+    /// Parses an already unframed packet. `nil` if it is not a response (direction ≠ 0x01,
+    /// or packet too short).
     package init?(packet: Data) {
         guard packet.count >= 8, packet[packet.startIndex] == 0x01 else { return nil }
         let bytes = Data(packet)
@@ -109,8 +109,8 @@ package struct Response: Sendable, Equatable {
         self.body = body.prefix(declared)
     }
 
-    /// Sépare les données utiles et l'état. `statusLength` vaut 2 ou 4.
-    /// `nil` si le corps est plus court que les octets d'état.
+    /// Splits the payload from the status. `statusLength` is 2 or 4.
+    /// `nil` if the body is shorter than the status bytes.
     package func split(statusLength: Int) -> (payload: Data, status: UInt8, error: UInt8)? {
         guard body.count >= statusLength, statusLength >= 2 else { return nil }
         let statusStart = body.count - statusLength
@@ -119,14 +119,14 @@ package struct Response: Sendable, Equatable {
     }
 }
 
-// MARK: - Petit-boutiste
+// MARK: - Little-endian
 
 extension Data {
     package mutating func appendLE<T: FixedWidthInteger>(_ value: T) {
         Swift.withUnsafeBytes(of: value.littleEndian) { append(contentsOf: $0) }
     }
 
-    /// Lit un entier petit-boutiste à `offset` (relatif au début de `self`).
+    /// Reads a little-endian integer at `offset` (relative to the start of `self`).
     package func readLE<T: FixedWidthInteger>(_: T.Type, at offset: Int) -> T {
         var value: T = 0
         for i in 0..<MemoryLayout<T>.size {

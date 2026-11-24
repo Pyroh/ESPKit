@@ -3,37 +3,37 @@
 import Foundation
 import ESPTargets
 
-/// Programme chargé en RAM pour accélérer et étendre le protocole de la ROM.
+/// Program loaded into RAM to speed up and extend the ROM protocol.
 public struct StubImage: Sendable, Hashable {
-    /// Puce visée. Charger un stub sur une autre puce lève `StubError.chipMismatch`.
+    /// Target chip. Loading a stub onto another chip throws `StubError.chipMismatch`.
     public var chip: ChipFamily
     public var text: Data
     public var textAddress: UInt32
     public var data: Data
     public var dataAddress: UInt32
     public var entry: UInt32
-    /// Début de la zone BSS, quand le format la donne. Informatif : ESPKit ne s'en sert que
-    /// pour vérifier que les segments ne la recouvrent pas.
+    /// Start of the BSS area, when the format provides it. Informational: ESPKit only uses it
+    /// to check that the segments do not overlap it.
     public var bssStart: UInt32?
     public var version: Version
 
     public enum Version: Sendable, Hashable, CustomStringConvertible {
-        /// Stub v2 embarqué ; la chaîne est la version d'`esp-flasher-stub` embarquée.
+        /// Bundled stub v2; the string is the bundled `esp-flasher-stub` version.
         case bundled(String)
-        /// Stub fourni par l'appelant, avec une étiquette libre pour la trace et les rapports.
+        /// Stub supplied by the caller, with a free label for the trace and reports.
         case custom(String?)
 
         public var description: String {
             switch self {
             case .bundled(let version): "esp-flasher-stub \(version)"
-            case .custom(let label): label ?? "personnalisé"
+            case .custom(let label): label ?? "custom"
             }
         }
     }
 
-    /// Image brute : l'appelant fournit lui-même segments, adresses et point d'entrée.
-    /// - Throws: `StubError.malformed` si le segment de code est vide ou si une adresse
-    ///   n'est pas alignée sur 4 octets ; `StubError.overlapping` si les segments se recouvrent.
+    /// Raw image: the caller provides the segments, addresses and entry point.
+    /// - Throws: `StubError.malformed` if the code segment is empty or an address
+    ///   is not 4-byte aligned; `StubError.overlapping` if the segments overlap.
     public init(chip: ChipFamily,
                 text: Data, textAddress: UInt32,
                 data: Data, dataAddress: UInt32,
@@ -45,19 +45,19 @@ public struct StubImage: Sendable, Hashable {
 
     init(chip: ChipFamily, text: Data, textAddress: UInt32, data: Data, dataAddress: UInt32,
          entry: UInt32, bssStart: UInt32?, version: Version) throws {
-        guard !text.isEmpty else { throw StubError.malformed("segment de code vide") }
+        guard !text.isEmpty else { throw StubError.malformed("empty code segment") }
         for (name, address) in [("text_start", textAddress), ("data_start", dataAddress)] where address % 4 != 0 {
-            throw StubError.malformed("\(name) \(hex(address)) n'est pas aligné sur 4 octets")
+            throw StubError.malformed("\(name) \(hex(address)) is not 4-byte aligned")
         }
         let textRange = UInt64(textAddress)..<UInt64(textAddress) + UInt64(text.count)
         let dataRange = UInt64(dataAddress)..<UInt64(dataAddress) + UInt64(data.count)
         if !data.isEmpty && textRange.overlaps(dataRange) {
-            throw StubError.overlapping("les segments text et data se recouvrent")
+            throw StubError.overlapping("the text and data segments overlap")
         }
         if let bssStart {
             let bss = UInt64(bssStart)
             if textRange.contains(bss) || (!data.isEmpty && dataRange.contains(bss) && bss != dataRange.lowerBound) {
-                throw StubError.overlapping("bss_start \(hex(bssStart)) tombe dans un segment")
+                throw StubError.overlapping("bss_start \(hex(bssStart)) falls inside a segment")
             }
         }
         self.chip = chip
@@ -70,9 +70,9 @@ public struct StubImage: Sendable, Hashable {
         self.version = version
     }
 
-    /// Lit le format JSON des stubs publiés par `esp-flasher-stub` (et par esptool) :
-    /// `entry`, `text`, `text_start`, `data`, `data_start`, `bss_start`, segments en base64.
-    /// Le fichier ne nomme pas la puce : l'appelant la donne.
+    /// Reads the JSON format of the stubs published by `esp-flasher-stub` (and esptool):
+    /// `entry`, `text`, `text_start`, `data`, `data_start`, `bss_start`, base64 segments.
+    /// The file does not name the chip: the caller provides it.
     /// - Throws: `StubError.malformed`, `StubError.overlapping`.
     public init(json: Data, chip: ChipFamily, label: String? = nil) throws {
         try self.init(json: json, chip: chip, version: .custom(label))
@@ -91,15 +91,15 @@ public struct StubImage: Sendable, Hashable {
         do {
             payload = try JSONDecoder().decode(Payload.self, from: json)
         } catch {
-            throw StubError.malformed("JSON illisible (\(error))")
+            throw StubError.malformed("unreadable JSON (\(error))")
         }
         guard let text = Data(base64Encoded: payload.text) else {
-            throw StubError.malformed("champ text : base64 invalide")
+            throw StubError.malformed("text field: invalid base64")
         }
         var data = Data()
         if let encoded = payload.data {
             guard let decoded = Data(base64Encoded: encoded) else {
-                throw StubError.malformed("champ data : base64 invalide")
+                throw StubError.malformed("data field: invalid base64")
             }
             data = decoded
         }
@@ -108,13 +108,13 @@ public struct StubImage: Sendable, Hashable {
                       entry: payload.entry, bssStart: payload.bss_start, version: version)
     }
 
-    /// Stub v2 embarqué pour cette puce. `nil` pour l'ESP32-E22, que le stub v2 ne couvre pas.
+    /// Bundled stub v2 for this chip. `nil` for the ESP32-E22, which stub v2 does not cover.
     ///
-    /// Les images viennent d'`esp-flasher-stub` (Espressif, MIT OR Apache-2.0). Pour l'ESP32-P4,
-    /// c'est l'image des révisions 3 et suivantes.
+    /// The images come from `esp-flasher-stub` (Espressif, MIT OR Apache-2.0). For the ESP32-P4,
+    /// it is the image for revision 3 and later.
     public static func bundled(for chip: ChipFamily) -> StubImage? {
         guard let json = bundledJSON(for: chip) else { return nil }
-        // Les images embarquées sont validées par les tests : un échec ici serait un bug d'ESPKit.
+        // The bundled images are validated by the tests: a failure here would be an ESPKit bug.
         return try? StubImage(json: Data(json.utf8), chip: chip, version: .bundled(bundledVersion))
     }
 }

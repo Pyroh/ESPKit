@@ -4,18 +4,18 @@ import Foundation
 import Testing
 import ESPKit
 
-// Tests sur carte réelle. Ignorés tant que les variables d'environnement ne sont pas définies :
+// Tests on real boards. Skipped until the environment variables are set:
 //
 //   ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_PORT_S3=/dev/cu.usbmodem1101 swift test --filter HardwareTests
 //
-// Jalon de la phase 0 : détection, MAC et identité de la flash sur l'ESP32 et l'ESP32-S3, en ROM.
+// Phase 0 milestone: detection, MAC and flash identity on the ESP32 and ESP32-S3, in ROM.
 //
-// Jalon de la phase 1 : flasher un vrai build PlatformIO (bootloader, partitions, application) avec
-// le stub, relire, puis constater le démarrage. Le dossier du build se donne par variable :
+// Phase 1 milestone: flash a real PlatformIO build (bootloader, partitions, application) with
+// the stub, read it back, then check that it boots. The build folder is given by variable:
 //
 //   ESPKIT_FIRMWARE_ESP32=…/.pio/build/esp32 ESPKIT_FIRMWARE_S3=…/.pio/build/esp32s3
 //
-// L'application doit écrire « ESPKit HIL OK <puce> » sur sa console (voir README).
+// The application must print "ESPKit HIL OK <chip>" on its console (see README).
 
 private let environment = ProcessInfo.processInfo.environment
 private let esp32Port = environment["ESPKIT_PORT_ESP32"]
@@ -31,9 +31,9 @@ private func romOnly(expecting chip: ChipFamily) -> ConnectOptions {
     return options
 }
 
-@Suite("Matériel", .serialized)
+@Suite("Hardware", .serialized)
 struct HardwareTests {
-    @Test("ESP32 : détection, MAC, flash", .enabled(if: esp32Port != nil))
+    @Test("ESP32: detection, MAC, flash", .enabled(if: esp32Port != nil))
     func esp32Identity() async throws {
         let esp = try await ESPDevice.connect(port: try #require(esp32Port), options: romOnly(expecting: .esp32))
         #expect(esp.chip == .esp32)
@@ -43,14 +43,14 @@ struct HardwareTests {
         #expect(mac.bytes != Data(count: 6))
 
         let flash = try await esp.flashInfo()
-        #expect(flash.detectedSize != nil, "ID JEDEC \(String(flash.jedecID, radix: 16))")
+        #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
 
         await #expect(throws: UsageError.self) { try await esp.chipID() }
-        print("ESP32 : MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?")")
+        print("ESP32: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?")")
         await esp.disconnect(.hard)
     }
 
-    @Test("ESP32-S3 : détection, sécurité, MAC, flash", .enabled(if: s3Port != nil))
+    @Test("ESP32-S3: detection, security, MAC, flash", .enabled(if: s3Port != nil))
     func s3Identity() async throws {
         let esp = try await ESPDevice.connect(port: try #require(s3Port), options: romOnly(expecting: .esp32s3))
         #expect(esp.chip == .esp32s3)
@@ -62,34 +62,34 @@ struct HardwareTests {
         #expect(mac.bytes != Data(count: 6))
 
         let flash = try await esp.flashInfo()
-        #expect(flash.detectedSize != nil, "ID JEDEC \(String(flash.jedecID, radix: 16))")
+        #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
 
-        print("ESP32-S3 : MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?"), sécurité \(security.flags.rawValue)")
+        print("ESP32-S3: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?"), security \(security.flags.rawValue)")
         await esp.disconnect(.hard)
     }
 
-    @Test("ESP32 : flash d'un vrai firmware et démarrage", .enabled(if: esp32Port != nil && esp32Firmware != nil))
+    @Test("ESP32: flash a real firmware and boot", .enabled(if: esp32Port != nil && esp32Firmware != nil))
     func esp32Flash() async throws {
         try await flashAndBoot(port: esp32Port!, chip: .esp32, firmware: esp32Firmware!)
     }
 
-    @Test("ESP32-S3 : flash d'un vrai firmware et démarrage", .enabled(if: s3Port != nil && s3Firmware != nil))
+    @Test("ESP32-S3: flash a real firmware and boot", .enabled(if: s3Port != nil && s3Firmware != nil))
     func s3Flash() async throws {
         try await flashAndBoot(port: s3Port!, chip: .esp32s3, firmware: s3Firmware!)
     }
 
-    @Test("Ports présents", .enabled(if: esp32Port != nil || s3Port != nil))
+    @Test("Ports present", .enabled(if: esp32Port != nil || s3Port != nil))
     func portsAreListed() throws {
         let ports = try SerialPorts.available()
         for path in [esp32Port, s3Port].compactMap({ $0 }) {
-            #expect(ports.contains { $0.path == path }, "\(path) absent de \(ports.map(\.path))")
+            #expect(ports.contains { $0.path == path }, "\(path) missing from \(ports.map(\.path))")
         }
     }
 }
 
-// MARK: - Jalon de la phase 1
+// MARK: - Phase 1 milestone
 
-/// Bootloader, table de partitions et application d'un build PlatformIO.
+/// Bootloader, partition table and application of a PlatformIO build.
 private func firmwareRegions(_ folder: String, chip: ChipFamily) throws -> [FlashRegion] {
     let url = URL(fileURLWithPath: folder)
     return [
@@ -101,14 +101,14 @@ private func firmwareRegions(_ folder: String, chip: ChipFamily) throws -> [Flas
 
 private func flashAndBoot(port: String, chip: ChipFamily, firmware: String) async throws {
     let regions = try firmwareRegions(firmware, chip: chip)
-    var options = ConnectOptions()                       // stub v2 et 460 800 bauds par défaut
+    var options = ConnectOptions()                       // stub v2 and 460,800 baud by default
     options.expectedChip = chip
     let clock = ContinuousClock()
     let connectStart = clock.now
     let esp = try await ESPDevice.connect(port: port, options: options)
     let connected = clock.now - connectStart
     guard case .stub(let version) = await esp.state else {
-        Issue.record("le stub ne tourne pas")
+        Issue.record("the stub is not running")
         return
     }
     #expect(await esp.baudRate == 460_800)
@@ -121,22 +121,22 @@ private func flashAndBoot(port: String, chip: ChipFamily, firmware: String) asyn
     let readStart = clock.now
     for region in regions {
         let back = try await esp.readFlash(at: region.address, count: region.data.count).value
-        #expect(back == region.data, "relecture à 0x\(String(region.address, radix: 16))")
+        #expect(back == region.data, "read-back at 0x\(String(region.address, radix: 16))")
     }
     let read = clock.now - readStart
     await esp.disconnect(.hard)
 
     let total = regions.reduce(0) { $0 + $1.data.count }
     let sent = report.regions.reduce(0) { $0 + $1.bytesSent }
-    print("\(chip) : \(version), connexion \(connected), écriture de \(total) o (\(sent) o envoyés) en \(written), relecture en \(read)")
+    print("\(chip): \(version), connection \(connected), wrote \(total) B (\(sent) B sent) in \(written), read back in \(read)")
 
     let marker = "ESPKit HIL OK \(chip.rawValue)"
     let output = try await captureConsole(port: port, until: marker, timeout: .seconds(10))
-    #expect(output.contains(marker), "console : \(output.suffix(400).debugDescription)")
+    #expect(output.contains(marker), "console: \(output.suffix(400).debugDescription)")
 }
 
-/// Lit la console de l'application après le reset. Sur l'USB-Serial-JTAG, le port disparaît
-/// pendant le reset : on réessaie de l'ouvrir.
+/// Reads the application console after the reset. Over USB-Serial-JTAG the port goes away
+/// during the reset, so opening it is retried.
 private func captureConsole(port path: String, until marker: String, timeout: Duration) async throws -> String {
     let clock = ContinuousClock()
     let deadline = clock.now + timeout
@@ -153,7 +153,7 @@ private func captureConsole(port path: String, until marker: String, timeout: Du
     }
     guard let port else { return "" }
     try await port.setBaudRate(115_200)
-    try await port.setControlLines(dtr: false, rts: false)  // EN et GPIO0 relâchés : l'application tourne
+    try await port.setControlLines(dtr: false, rts: false)  // EN and GPIO0 released: the application runs
     var text = ""
     while clock.now < deadline, !text.contains(marker) {
         let data = (try? await port.read(maxCount: 1024, timeout: .milliseconds(200))) ?? Data()

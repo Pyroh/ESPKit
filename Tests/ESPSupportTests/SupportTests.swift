@@ -8,7 +8,7 @@ private func hexString(_ data: Data) -> String { data.map { String(format: "%02x
 
 @Suite("MD5")
 struct MD5Tests {
-    // Vecteurs de la RFC 1321, annexe A.5.
+    // RFC 1321 test vectors, appendix A.5.
     @Test(arguments: [
         ("", "d41d8cd98f00b204e9800998ecf8427e"),
         ("a", "0cc175b9c0f1b6a831c399e269772661"),
@@ -56,7 +56,7 @@ struct ZlibTests {
         let data = Data((0..<200_000).map { UInt8(truncatingIfNeeded: $0 % 251) })
         let compressed = try Zlib.compress(data)
         #expect(compressed.count < data.count / 10)
-        #expect(compressed.first == 0x78)                 // en-tête zlib
+        #expect(compressed.first == 0x78)                 // zlib header
         #expect(try Zlib.decompress(compressed) == data)
     }
 

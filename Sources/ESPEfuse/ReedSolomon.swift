@@ -2,9 +2,9 @@
 
 import Foundation
 
-/// Codage Reed-Solomon RS(44,32) des blocs d'eFuses 1 à 10 (ESP32-S2 et suivantes) :
-/// 32 octets de données, 12 octets de parité. Corps GF(2⁸) de polynôme 0x11D, générateur α = 2,
-/// racines α⁰ … α¹¹ (codage systématique).
+/// Reed-Solomon RS(44,32) coding of eFuse blocks 1 to 10 (ESP32-S2 and later):
+/// 32 data bytes, 12 parity bytes. Field GF(2⁸) with polynomial 0x11D, generator α = 2,
+/// roots α⁰ … α¹¹ (systematic code).
 enum ReedSolomon {
     static let parityCount = 12
 
@@ -27,7 +27,7 @@ enum ReedSolomon {
         return tables.exp[tables.log[Int(a)] + tables.log[Int(b)]]
     }
 
-    /// g(x) = ∏ (x − αⁱ), i = 0 … 11, coefficients du degré le plus haut au plus bas.
+    /// g(x) = ∏ (x − αⁱ), i = 0 … 11, coefficients from the highest degree down.
     private static let generator: [UInt8] = {
         var g: [UInt8] = [1]
         for i in 0..<parityCount {
@@ -41,7 +41,7 @@ enum ReedSolomon {
         return g
     }()
 
-    /// Les 12 octets de parité de `data` (reste de la division de data·x¹² par g).
+    /// The 12 parity bytes of `data` (remainder of data·x¹² divided by g).
     static func parity(for data: Data) -> Data {
         var remainder = [UInt8](repeating: 0, count: parityCount)
         for byte in data {

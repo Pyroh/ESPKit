@@ -5,12 +5,12 @@ import ESPProtocol
 import ESPTargets
 import ESPTransport
 
-/// Session ouverte avec une puce en mode téléchargement.
+/// Session open with a chip in download mode.
 ///
-/// Les opérations sont sérialisées : même appelées depuis plusieurs tâches, deux échanges
-/// avec la puce ne s'entrelacent jamais.
+/// Operations are serialized: even when called from several tasks, two exchanges
+/// with the chip never interleave.
 public actor ESPDevice {
-    /// Puce détectée à la connexion.
+    /// Chip detected when connecting.
     public nonisolated let chip: ChipFamily
     public private(set) var state: State
     public private(set) var baudRate: Int
@@ -18,7 +18,7 @@ public actor ESPDevice {
     public enum State: Hashable, Sendable, CustomStringConvertible {
         /// Bootloader ROM.
         case rom
-        /// ROM restreint.
+        /// Restricted ROM.
         case secureDownloadMode
         case stub(StubImage.Version)
         case closed
@@ -28,7 +28,7 @@ public actor ESPDevice {
             case .rom: "ROM"
             case .secureDownloadMode: "Secure Download Mode"
             case .stub(let version): "stub \(version)"
-            case .closed: "fermée"
+            case .closed: "closed"
             }
         }
     }
@@ -49,18 +49,18 @@ public actor ESPDevice {
         self.cachedSecurityInfo = securityInfo
     }
 
-    // MARK: Cycle de vie
+    // MARK: Lifecycle
 
-    /// Charge un stub s'il n'en tourne pas déjà un. Sans effet si un stub tourne.
-    /// `nil` : le stub v2 embarqué pour `chip`.
-    /// - Throws: `StubError` (image refusée, pas de stub embarqué, pas de `OHAI`),
+    /// Loads a stub unless one is already running. Does nothing if a stub runs.
+    /// `nil`: the bundled stub v2 for `chip`.
+    /// - Throws: `StubError` (image refused, no bundled stub, no `OHAI`),
     ///   `UsageError.unavailableInSecureDownloadMode`, `TransportError`, `ProtocolError`.
     public func loadStub(_ stub: StubImage? = nil) async throws {
         try await exclusive {
             try ensureOpen()
             if case .stub = state { return }
             if state == .secureDownloadMode {
-                throw UsageError.unavailableInSecureDownloadMode(operation: "Le chargement du stub")
+                throw UsageError.unavailableInSecureDownloadMode(operation: "Loading the stub")
             }
             guard let image = stub ?? StubImage.bundled(for: chip) else { throw StubError.noBundledStub(chip) }
             guard image.chip == chip else { throw StubError.chipMismatch(stub: image.chip, device: chip) }
@@ -68,25 +68,25 @@ public actor ESPDevice {
         }
     }
 
-    /// Change le débit des deux côtés.
+    /// Changes the baud rate on both sides.
     ///
-    /// Avec le stub, toutes les puces. Sous ROM, `UsageError.unsupported` sur l'ESP8266, l'ESP32
-    /// et l'ESP32-C2, dont la ROM calcule mal le diviseur selon le quartz : charger le stub d'abord.
+    /// With the stub, every chip. Under ROM, `UsageError.unsupported` on the ESP8266, ESP32
+    /// and ESP32-C2, whose ROM computes the divider wrongly for the crystal: load the stub first.
     public func changeBaudRate(_ rate: Int) async throws {
         try await exclusive {
             try ensureOpen()
-            guard rate > 0 else { throw UsageError.invalidArgument("débit \(rate)") }
+            guard rate > 0 else { throw UsageError.invalidArgument("baud rate \(rate)") }
             guard rate != baudRate else { return }
             let stubRunning: Bool
             switch state {
             case .stub: stubRunning = true
             case .rom: stubRunning = false
-            default: throw UsageError.unsupported(feature: "Le changement de débit", chip: chip, state: state)
+            default: throw UsageError.unsupported(feature: "Changing the baud rate", chip: chip, state: state)
             }
             if !stubRunning && [.esp8266, .esp32, .esp32c2].contains(chip) {
-                throw UsageError.unsupported(feature: "Le changement de débit sous ROM", chip: chip, state: state)
+                throw UsageError.unsupported(feature: "Changing the baud rate under ROM", chip: chip, state: state)
             }
-            // Le stub veut aussi l'ancien débit ; la ROM attend 0.
+            // The stub also wants the old baud rate; the ROM expects 0.
             let payload = Data.le(UInt32(rate), stubRunning ? UInt32(baudRate) : 0)
             _ = try await channel.execute(Command(.changeBaudRate, payload: payload))
             try await channel.transport.setBaudRate(rate)
@@ -97,11 +97,11 @@ public actor ESPDevice {
         }
     }
 
-    /// Applique la stratégie de sortie puis ferme le transport. L'acteur est ensuite inutilisable :
-    /// toute opération lève `ConnectionError.disconnected`.
+    /// Applies the exit strategy then closes the transport. The actor is unusable afterwards:
+    /// every operation throws `ConnectionError.disconnected`.
     ///
-    /// `.soft` demande le stub : sous ROM, ESPKit fait un `.hard` à la place.
-    /// `.watchdog` n'est implémenté que pour l'ESP32-S3 ; ailleurs, `.hard`.
+    /// `.soft` needs the stub: under ROM, ESPKit performs a `.hard` instead.
+    /// `.watchdog` is only implemented for the ESP32-S3; elsewhere, `.hard`.
     public func disconnect(_ exitReset: ExitReset = .hard) async {
         await exclusiveIgnoringErrors {
             guard state != .closed else { return }
@@ -120,10 +120,10 @@ public actor ESPDevice {
         }
     }
 
-    // MARK: Identité
+    // MARK: Identity
 
-    /// État de sécurité de la puce. Disponible aussi en Secure Download Mode.
-    /// - Throws: `UsageError.unsupported` sur ESP8266 et ESP32, dont la ROM ne connaît pas la commande.
+    /// Security state of the chip. Also available in Secure Download Mode.
+    /// - Throws: `UsageError.unsupported` on the ESP8266 and ESP32, whose ROM lacks the command.
     public func securityInfo() async throws -> SecurityInfo {
         try await exclusive {
             try ensureOpen()
@@ -139,7 +139,7 @@ public actor ESPDevice {
     public func macAddress() async throws -> MACAddress {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("La lecture de la MAC")
+            try ensureNotSecureDownload("Reading the MAC")
             let bytes: Data
             switch descriptor.macLayout {
             case .esp8266OTP:
@@ -151,11 +151,11 @@ public actor ESPDevice {
                     oui = [UInt8(truncatingIfNeeded: mac3 >> 16), UInt8(truncatingIfNeeded: mac3 >> 8),
                            UInt8(truncatingIfNeeded: mac3)]
                 } else {
-                    // OUI non programmé : il se déduit d'un octet de MAC1.
+                    // OUI not programmed: it follows from one byte of MAC1.
                     switch (mac1 >> 16) & 0xFF {
                     case 0: oui = [0x18, 0xFE, 0x34]
                     case 1: oui = [0xAC, 0xD0, 0x74]
-                    default: throw ProtocolError.invalidResponse("OUI de l'ESP8266 inconnu")
+                    default: throw ProtocolError.invalidResponse("unknown ESP8266 OUI")
                     }
                 }
                 bytes = Data(oui + [UInt8(truncatingIfNeeded: mac1 >> 8), UInt8(truncatingIfNeeded: mac1),
@@ -170,22 +170,22 @@ public actor ESPDevice {
                 bytes = Self.bigEndian(high).suffix(2) + Self.bigEndian(low)
             }
             guard let mac = MACAddress(bytes: Data(bytes)) else {
-                throw ProtocolError.invalidResponse("MAC de \(bytes.count) octets")
+                throw ProtocolError.invalidResponse("MAC of \(bytes.count) bytes")
             }
             return mac
         }
     }
 
-    /// Identifiant de puce de l'ESP8266 (OTP), l'équivalent de `system_get_chip_id()`.
+    /// ESP8266 chip ID (OTP), the equivalent of `system_get_chip_id()`.
     ///
-    /// Les autres familles n'ont pas d'identifiant propre : utiliser `macAddress()`. Leur
-    /// identifiant de famille est dans `securityInfo().chipID`.
-    /// - Throws: `UsageError.unsupported` hors ESP8266.
+    /// Other families have no chip ID of their own: use `macAddress()`. Their
+    /// family identifier is in `securityInfo().chipID`.
+    /// - Throws: `UsageError.unsupported` on chips other than the ESP8266.
     public func chipID() async throws -> UInt32 {
         try await exclusive {
             try ensureOpen()
             guard chip == .esp8266 else {
-                throw UsageError.unsupported(feature: "L'identifiant de puce", chip: chip, state: state)
+                throw UsageError.unsupported(feature: "The chip ID", chip: chip, state: state)
             }
             let id0 = try await rawReadRegister(ChipDescriptor.esp8266OTPMAC0)
             let id1 = try await rawReadRegister(ChipDescriptor.esp8266OTPMAC1)
@@ -193,12 +193,12 @@ public actor ESPDevice {
         }
     }
 
-    // MARK: Registres
+    // MARK: Registers
 
     public func readRegister(_ address: UInt32) async throws -> UInt32 {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("La lecture de registre")
+            try ensureNotSecureDownload("Reading a register")
             return try await rawReadRegister(address)
         }
     }
@@ -207,15 +207,15 @@ public actor ESPDevice {
                               mask: UInt32 = .max, delay: Duration = .zero) async throws {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("L'écriture de registre")
+            try ensureNotSecureDownload("Writing a register")
             try await rawWriteRegister(address, value, mask: mask, delay: delay)
         }
     }
 
     // MARK: Flash
 
-    /// Attache la flash SPI et en lit l'identité. Appelé implicitement par toute opération flash ;
-    /// à appeler explicitement pour un câblage `SPIConnection` non standard.
+    /// Attaches the SPI flash and reads its identity. Called implicitly by every flash operation;
+    /// call it explicitly for non-standard `SPIConnection` wiring.
     public func attachFlash(_ connection: SPIConnection = .default,
                             type: FlashType = .nor) async throws -> FlashInfo {
         try await exclusive {
@@ -230,19 +230,19 @@ public actor ESPDevice {
         }
     }
 
-    /// Commande SPI brute (opcode, données sortantes, nombre de bits à relire).
-    /// Au plus 64 octets envoyés et 32 bits relus.
+    /// Raw SPI command (opcode, outgoing data, number of bits to read back).
+    /// At most 64 bytes sent and 32 bits read back.
     public func spiFlashCommand(_ opcode: UInt8, data: Data = .init(), readBits: Int = 0) async throws -> UInt32 {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("Les commandes SPI brutes")
+            try ensureNotSecureDownload("Raw SPI commands")
             return try await rawSPICommand(opcode, data: data, readBits: readBits)
         }
     }
 
-    // MARK: - Interne
+    // MARK: - Internals
 
-    /// Sérialise les opérations : l'acteur est réentrant, ce verrou ne l'est pas.
+    /// Serializes operations: the actor is reentrant, this lock is not.
     func exclusive<T: Sendable>(_ body: () async throws -> T) async throws -> T {
         if busy {
             await withCheckedContinuation { waiters.append($0) }
@@ -282,7 +282,7 @@ public actor ESPDevice {
         _ = try await channel.execute(Command(.writeReg, payload: .le(address, value, mask, microseconds)))
     }
 
-    /// Copie le stub en RAM avec les commandes mémoire de la ROM, le lance et attend son `OHAI`.
+    /// Copies the stub into RAM with the ROM memory commands, starts it and waits for its `OHAI`.
     private func rawLoadStub(_ image: StubImage) async throws {
         let blockSize = 0x1800
         for (segment, address) in [(image.text, image.textAddress), (image.data, image.dataAddress)] where !segment.isEmpty {
@@ -297,7 +297,7 @@ public actor ESPDevice {
                 _ = try await channel.execute(Command(.memData, payload: payload, checksum: Command.checksum(of: chunk)))
             }
         }
-        // MEM_END : premier mot à 0 pour sauter au point d'entrée.
+        // MEM_END: first word 0 to jump to the entry point.
         try await channel.send(Command(.memEnd, payload: .le(image.entry == 0 ? UInt32(1) : 0, image.entry)))
         let deadline = ContinuousClock.now + .seconds(3)
         while true {
@@ -310,7 +310,7 @@ public actor ESPDevice {
             }
             if packet == Data("OHAI".utf8) { break }
             if let response = Response(packet: packet), response.opcode == Opcode.memEnd.rawValue {
-                _ = try await channel.checked(response)       // refus de la ROM : on le remonte
+                _ = try await channel.checked(response)       // a ROM refusal is propagated
             }
         }
         await channel.setStatusLength(descriptor.statusLength(stubRunning: true))
@@ -327,13 +327,13 @@ public actor ESPDevice {
 
     func rawAttachFlash(_ connection: SPIConnection, type: FlashType) async throws -> FlashInfo {
         try ensureOpen()
-        try ensureNotSecureDownload("L'accès à la flash")
+        try ensureNotSecureDownload("Flash access")
         guard type == .nor else {
-            throw UsageError.unsupported(feature: "La flash NAND", chip: chip, state: state)
+            throw UsageError.unsupported(feature: "NAND flash", chip: chip, state: state)
         }
         if chip == .esp8266 {
             if !stubRunning {
-                // La ROM ESP8266 n'a pas de SPI_ATTACH : un FLASH_BEGIN vide attache la flash.
+                // The ESP8266 ROM has no SPI_ATTACH: an empty FLASH_BEGIN attaches the flash.
                 _ = try await channel.execute(Command(.flashBegin, payload: .le(UInt32(0), UInt32(0), UInt32(0x400), UInt32(0))))
             }
         } else {
@@ -341,12 +341,12 @@ public actor ESPDevice {
             switch connection {
             case .default, .spi: config = 0
             case .hspi:
-                guard chip == .esp32 else { throw UsageError.invalidArgument("HSPI n'existe que sur l'ESP32") }
+                guard chip == .esp32 else { throw UsageError.invalidArgument("HSPI only exists on the ESP32") }
                 config = 1
             case .pins(let clk, let q, let d, let hd, let cs):
                 config = UInt32(hd) << 24 | UInt32(cs) << 18 | UInt32(d) << 12 | UInt32(q) << 6 | UInt32(clk)
             }
-            // La ROM attend 4 octets de plus (indicateur « legacy » à 0 et 3 réservés).
+            // The ROM expects 4 more bytes (a "legacy" flag set to 0 and 3 reserved bytes).
             let payload = stubRunning ? Data.le(config) : Data.le(config, UInt32(0))
             _ = try await channel.execute(Command(.spiAttach, payload: payload))
         }
@@ -354,7 +354,7 @@ public actor ESPDevice {
         if [0xFF_FFFF, 0x00_0000, 0xFF_FF3F].contains(id) { throw FlashError.notDetected(jedecID: id) }
         let info = FlashInfo(jedecID: id, type: type)
         if stubRunning || chip != .esp8266 {
-            // Géométrie : seule la taille varie (4 Mo si l'ID JEDEC ne la donne pas, comme esptool).
+            // Geometry: only the size varies (4 MB if the JEDEC ID does not give it, like esptool).
             let size = UInt32(info.detectedSize?.byteCount ?? FlashSize.mb4.byteCount)
             _ = try await channel.execute(Command(.spiSetParams, payload: .le(UInt32(0), size, UInt32(0x1_0000),
                                                                               UInt32(0x1000), UInt32(0x100), UInt32(0xFFFF))))
@@ -363,11 +363,11 @@ public actor ESPDevice {
         return info
     }
 
-    /// Transaction SPI en mode « USR » sur le contrôleur SPI1, pilotée par READ_REG/WRITE_REG.
+    /// SPI transaction in "USR" mode on the SPI1 controller, driven through READ_REG/WRITE_REG.
     func rawSPICommand(_ opcode: UInt8, data: Data, readBits: Int,
                        address: UInt32? = nil, addressBits: Int = 0, dummyBits: Int = 0) async throws -> UInt32 {
-        guard data.count <= 64 else { throw UsageError.invalidArgument("au plus 64 octets par commande SPI") }
-        guard (0...32).contains(readBits) else { throw UsageError.invalidArgument("au plus 32 bits relus") }
+        guard data.count <= 64 else { throw UsageError.invalidArgument("at most 64 bytes per SPI command") }
+        guard (0...32).contains(readBits) else { throw UsageError.invalidArgument("at most 32 bits read back") }
 
         let regs = descriptor.spi
         let usr = regs.base + regs.usr, usr1 = regs.base + regs.usr1, usr2 = regs.base + regs.usr2
@@ -385,18 +385,18 @@ public actor ESPDevice {
             if readBits > 0 { try await rawWriteRegister(regs.base + miso, UInt32(readBits - 1)) }
             if usr1Value != 0 { try await rawWriteRegister(usr1, usr1Value) }
         } else {
-            // ESP8266 : longueurs MISO et MOSI rangées dans USR1.
+            // ESP8266: MISO and MOSI lengths are stored in USR1.
             usr1Value |= UInt32(max(readBits - 1, 0)) << 8 | UInt32(max(dataBits - 1, 0)) << 17
             try await rawWriteRegister(usr1, usr1Value)
         }
 
-        var flags: UInt32 = 1 << 31                              // phase commande
-        if address != nil, addressBits > 0 { flags |= 1 << 30 }  // phase adresse
-        if dummyBits > 0 { flags |= 1 << 29 }                    // cycles d'attente
-        if readBits > 0 { flags |= 1 << 28 }                     // lecture (MISO)
-        if dataBits > 0 { flags |= 1 << 27 }                     // écriture (MOSI)
+        var flags: UInt32 = 1 << 31                              // command phase
+        if address != nil, addressBits > 0 { flags |= 1 << 30 }  // address phase
+        if dummyBits > 0 { flags |= 1 << 29 }                    // dummy cycles
+        if readBits > 0 { flags |= 1 << 28 }                     // read (MISO)
+        if dataBits > 0 { flags |= 1 << 27 }                     // write (MOSI)
         try await rawWriteRegister(usr, flags)
-        try await rawWriteRegister(usr2, 7 << 28 | UInt32(opcode))   // commande sur 8 bits
+        try await rawWriteRegister(usr2, 7 << 28 | UInt32(opcode))   // 8-bit command
 
         if let address, addressBits > 0 {
             let value = regs.addressInMSB ? address << (32 - UInt32(addressBits)) : address
@@ -418,7 +418,7 @@ public actor ESPDevice {
         for _ in 0..<10 where !done {
             done = try await rawReadRegister(regs.cmd) & userBit == 0
         }
-        guard done else { throw ProtocolError.invalidResponse("la transaction SPI \(hex(opcode)) ne se termine pas") }
+        guard done else { throw ProtocolError.invalidResponse("SPI transaction \(hex(opcode)) does not complete") }
 
         let result = try await rawReadRegister(w0)
         try await rawWriteRegister(usr, savedUSR)
@@ -428,15 +428,15 @@ public actor ESPDevice {
 
     private func watchdogReset() async throws {
         guard let wdt = descriptor.rtcWatchdog else { return }
-        try await rawWriteRegister(wdt.wdtWriteProtect, wdt.wdtKey)        // déverrouille
-        try await rawWriteRegister(wdt.wdtConfig1, 2000)                   // délai
-        try await rawWriteRegister(wdt.wdtConfig0, 1 << 31 | 5 << 28 | 1 << 8 | 2)  // active, étape 0 : reset système
-        try await rawWriteRegister(wdt.wdtWriteProtect, 0)                 // reverrouille
+        try await rawWriteRegister(wdt.wdtWriteProtect, wdt.wdtKey)        // unlock
+        try await rawWriteRegister(wdt.wdtConfig1, 2000)                   // timeout
+        try await rawWriteRegister(wdt.wdtConfig0, 1 << 31 | 5 << 28 | 1 << 8 | 2)  // enable, stage 0: system reset
+        try await rawWriteRegister(wdt.wdtWriteProtect, 0)                 // lock again
         try await Task.sleep(for: .milliseconds(50))
     }
 
-    /// Neutralise le watchdog RTC et fait nourrir le super-watchdog : sur l'USB-Serial-JTAG,
-    /// la ROM ne le fait pas et la puce redémarrerait en pleine opération.
+    /// Disables the RTC watchdog and makes the super watchdog auto-feed: over USB-Serial-JTAG,
+    /// the ROM does not do it and the chip would reboot in the middle of an operation.
     func disableWatchdogsForUSBSerialJTAG() async throws {
         guard let wdt = descriptor.rtcWatchdog,
               channel.transport.usbIdentity?.isEspressifUSBSerialJTAG == true,
@@ -453,7 +453,7 @@ public actor ESPDevice {
     static func readSecurityInfo(_ channel: ProtocolChannel) async throws -> SecurityInfo {
         let reply = try await channel.execute(Command(.getSecurityInfo))
         guard let info = SecurityInfo(payload: reply.payload) else {
-            throw ProtocolError.invalidResponse("GET_SECURITY_INFO : \(reply.payload.count) octets")
+            throw ProtocolError.invalidResponse("GET_SECURITY_INFO: \(reply.payload.count) bytes")
         }
         return info
     }

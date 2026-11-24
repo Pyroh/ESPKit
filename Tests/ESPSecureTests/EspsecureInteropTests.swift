@@ -4,13 +4,13 @@ import Foundation
 import Testing
 @testable import ESPSecure
 
-// Interopérabilité avec espsecure, utilisé comme boîte noire. Ignorés sauf si
-// ESPKIT_SECURE_REFERENCES désigne un dossier contenant :
-//   key-<schéma>.pem, digest-<schéma>.bin, signed-<schéma>.bin (espsecure generate-signing-key,
-//   digest-sbv2-public-key, sign-data) ; plain.bin, xts128.key, xts256.key et
-//   enc-<clé>-<adresse>.bin (espsecure encrypt-flash-data --aes-xts).
-// ESPKIT_ESPSECURE (la commande espsecure) active en plus la vérification par espsecure des
-// images signées par ESPKit : c'est le jalon de la phase 3.
+// Interoperability with espsecure, used as a black box. Skipped unless
+// ESPKIT_SECURE_REFERENCES names a folder holding:
+//   key-<scheme>.pem, digest-<scheme>.bin, signed-<scheme>.bin (espsecure generate-signing-key,
+//   digest-sbv2-public-key, sign-data); plain.bin, xts128.key, xts256.key and
+//   enc-<key>-<address>.bin (espsecure encrypt-flash-data --aes-xts).
+// ESPKIT_ESPSECURE (the espsecure command) also enables espsecure's verification of
+// images signed by ESPKit: this is the phase 3 milestone.
 
 private let folder = ProcessInfo.processInfo.environment["ESPKIT_SECURE_REFERENCES"].map { URL(fileURLWithPath: $0) }
 private let espsecure = ProcessInfo.processInfo.environment["ESPKIT_ESPSECURE"]
@@ -18,7 +18,7 @@ private let schemes = ["rsa3072", "ecdsa256", "ecdsa384"]
 
 private func file(_ name: String) throws -> Data { try Data(contentsOf: folder!.appendingPathComponent(name)) }
 
-@Suite("Interopérabilité espsecure", .enabled(if: folder != nil))
+@Suite("espsecure interoperability", .enabled(if: folder != nil))
 struct EspsecureInteropTests {
     @Test(arguments: schemes)
     func publicKeyDigestMatches(scheme: String) throws {
@@ -36,7 +36,7 @@ struct EspsecureInteropTests {
     func espsecureAcceptsESPKitSignatures(scheme: String) throws {
         let pem = String(decoding: try file("key-\(scheme).pem"), as: UTF8.self)
         let key = try SecureBootV2.SigningKey(pemRepresentation: pem)
-        // Même image que celle signée par espsecure : le condensé doit coïncider.
+        // Same image as the one espsecure signed: the digest must match.
         let reference = try SecureBootV2.signatureBlocks(in: file("signed-\(scheme).bin"))[0]
         let unsigned = try file("signed-\(scheme).bin").dropLast(4096)
         let signed = try SecureBootV2.sign(Data(unsigned), with: [key])
@@ -48,7 +48,7 @@ struct EspsecureInteropTests {
         try signed.write(to: output)
         let log = try run(["verify-signature", "--version", "2",
                            "--keyfile", folder!.appendingPathComponent("key-\(scheme).pem").path, output.path])
-        #expect(log.contains("verification successful"), "espsecure : \(log)")
+        #expect(log.contains("verification successful"), "espsecure: \(log)")
     }
 
     @Test(.enabled(if: espsecure != nil), arguments: [SecureBootV2.Scheme.rsa3072, .ecdsa256, .ecdsa384])
@@ -77,7 +77,7 @@ struct EspsecureInteropTests {
         }
     }
 
-    /// e32-<config>-<adresse>.bin : `espsecure encrypt-flash-data --flash-crypt-conf <config>` de p256.bin.
+    /// e32-<config>-<address>.bin: `espsecure encrypt-flash-data --flash-crypt-conf <config>` of p256.bin.
     @Test func encryptsLikeEspsecureOnESP32() throws {
         let key = try file("esp32.key")
         let plain = try file("p256.bin")
@@ -95,12 +95,12 @@ struct EspsecureInteropTests {
         let key = try file("xts128.key")
         for (input, address) in [("plain.bin", UInt32(0x1010)), ("plain208.bin", 0x1010), ("plain208.bin", 0x1000)] {
             let expected = try file("enc-mis-0x\(String(address, radix: 16))-\(input)")
-            #expect(try FlashEncryption.encrypt(file(input), at: address, key: key, scheme: .xtsAES128) == expected, "\(input) à 0x\(String(address, radix: 16))")
+            #expect(try FlashEncryption.encrypt(file(input), at: address, key: key, scheme: .xtsAES128) == expected, "\(input) at 0x\(String(address, radix: 16))")
         }
     }
 }
 
-/// Lance espsecure et rend sa sortie ; échoue si la commande échoue.
+/// Runs espsecure and returns its output; fails if the command fails.
 private func run(_ arguments: [String]) throws -> String {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
@@ -111,6 +111,6 @@ private func run(_ arguments: [String]) throws -> String {
     try process.run()
     let log = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
     process.waitUntilExit()
-    #expect(process.terminationStatus == 0, "espsecure \(arguments.first ?? "") : \(log)")
+    #expect(process.terminationStatus == 0, "espsecure \(arguments.first ?? ""): \(log)")
     return log
 }

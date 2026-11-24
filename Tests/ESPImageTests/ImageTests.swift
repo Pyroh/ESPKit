@@ -6,7 +6,7 @@ import ESPSupport
 import ESPTargets
 @testable import ESPImage
 
-/// ELF 32 bits minimal : une section par entrée, une table de noms, un segment PT_LOAD par section.
+/// Minimal 32-bit ELF: one section per entry, a name table, one PT_LOAD segment per section.
 private func makeELF(machine: UInt16 = 94, entry: UInt32,
                      sections: [(name: String, address: UInt32, data: Data, type: UInt32)]) -> Data {
     var names = Data([0])
@@ -43,7 +43,7 @@ private func makeELF(machine: UInt16 = 94, entry: UInt32,
         }
     }
     out.append(body)
-    out.append(Data(count: 40))                                            // section nulle
+    out.append(Data(count: 40))                                            // null section
     for (index, section) in sections.enumerated() {
         for value in [nameOffsets[index], section.type, 2, section.address, offsets[index],
                       UInt32(section.data.count), 0, 0, 4, 0] as [UInt32] { out.appendLE32(value) }
@@ -80,7 +80,7 @@ struct ELFTests {
 
 @Suite("elf2image")
 struct ImageBuilderTests {
-    /// Un segment DROM, un segment IROM et deux segments RAM contigus sur ESP32.
+    /// One DROM segment, one IROM segment and two contiguous RAM segments on the ESP32.
     private func esp32ELF() throws -> ELFFile {
         try ELFFile(parsing: makeELF(entry: 0x4008_0100, sections: [
             (".iram0.vectors", 0x4008_0000, filled(0x400, 0x11), progbits),
@@ -98,12 +98,12 @@ struct ImageBuilderTests {
         let parsed = try FirmwareImage(parsing: data)
         #expect(parsed.validate().isValid, "\(parsed.validate().issues)")
         #expect(parsed.chip == .esp32)
-        // Les deux sections IRAM contiguës sont fusionnées puis découpées pour combler le trou.
+        // The two contiguous IRAM sections are merged, then split to fill the gap.
         let iram = parsed.segments.filter { $0.region == .iram }
         #expect(iram.reduce(0) { $0 + $1.data.count } == 0xC400)
         #expect(iram.count == 2)
-        #expect(parsed.segments.contains { $0.loadAddress == 0x3FFB_0000 && $0.data.count == 0x804 })   // aligné sur 4
-        // Aucun segment de remplissage : la RAM suffit à combler le trou.
+        #expect(parsed.segments.contains { $0.loadAddress == 0x3FFB_0000 && $0.data.count == 0x804 })   // aligned on 4
+        // No padding segment: the RAM is enough to fill the gap.
         #expect(!parsed.segments.contains { $0.loadAddress == 0 })
         #expect(parsed.segments.first?.loadAddress == 0x3F40_0020)
     }
@@ -211,20 +211,20 @@ struct ImageBuilderTests {
     @Test func recognisesImageFamilies() throws {
         let esp32 = try ImageBuilder.makeImage(from: esp32ELF(), chip: .esp32).serialized()
         guard case .esp32Family(let image) = try AnyFirmwareImage(parsing: esp32) else {
-            Issue.record("image ESP32 non reconnue")
+            Issue.record("ESP32 image not recognized")
             return
         }
         #expect(image.chip == .esp32)
         let elf = try ELFFile(parsing: makeELF(entry: 0x4010_0004, sections: [(".text", 0x4010_0000, filled(0x40, 1), progbits)]))
         let esp8266 = try ImageBuilder.makeESP8266Image(from: elf, version: .v1)[0].data
         guard case .esp8266 = try AnyFirmwareImage(parsing: esp8266) else {
-            Issue.record("image ESP8266 non reconnue")
+            Issue.record("ESP8266 image not recognized")
             return
         }
     }
 }
 
-@Suite("Fusion")
+@Suite("Merging")
 struct MergedImageTests {
     private let regions = [
         FlashRegion(address: 0x1_0000, data: filled(40, 0xAB)),
@@ -251,7 +251,7 @@ struct MergedImageTests {
     }
 
     @Test func intelHexRejectsBadRecords() {
-        #expect(throws: ImageError.malformedIntelHex(line: 1, reason: "somme de contrôle")) {
+        #expect(throws: ImageError.malformedIntelHex(line: 1, reason: "checksum")) {
             try IntelHex.parse(":0100000000FE\n")
         }
         #expect(throws: ImageError.self) { try IntelHex.parse("garbage\n") }
@@ -264,8 +264,8 @@ struct MergedImageTests {
         #expect(uf2.readLE32(at: 8) == 0x6000)
         #expect(uf2.readLE32(at: 28) == 0xC47E_5767)
         let last = uf2.subdata(in: 1024..<1536)
-        #expect(last.readLE32(at: 12) == 0x1000 + 904)          // adresse du dernier bloc
-        #expect(last.readLE32(at: 16) == 96)                    // charge utile restante
+        #expect(last.readLE32(at: 12) == 0x1000 + 904)          // address of the last block
+        #expect(last.readLE32(at: 16) == 96)                    // remaining payload
         #expect(last.subdata(in: 32 + 96 + 8..<32 + 96 + 24) == MD5.hash(filled(96, 7)))
         #expect(last.readLE32(at: 508) == 0x0AB1_6F30)
         #expect(throws: ImageError.unsupportedChip(.esp32h4)) { try MergedImage.uf2(regions, chip: .esp32h4) }

@@ -5,7 +5,7 @@ import Testing
 import ESPTargets
 @testable import ESPEfuse
 
-/// Pose `value` sur les bits du champ dans les blocs (poids faible d'abord, comme la lecture).
+/// Sets `value` on the field's bits in the blocks (least significant first, like reading).
 private func set(_ name: String, to value: UInt64, chip: ChipFamily, in blocks: inout [[UInt32]]) {
     let definition = EfuseTable.table(for: chip)!.definition(named: name)!
     var index = 0
@@ -17,7 +17,7 @@ private func set(_ name: String, to value: UInt64, chip: ChipFamily, in blocks: 
     }
 }
 
-@Suite("Tables d'eFuses")
+@Suite("eFuse tables")
 struct EfuseTableTests {
     @Test(arguments: [ChipFamily.esp32, .esp32s2, .esp32s3, .esp32c2, .esp32c3, .esp32c5, .esp32c6,
                       .esp32c61, .esp32h2, .esp32h21, .esp32h4, .esp32p4])
@@ -25,11 +25,11 @@ struct EfuseTableTests {
         let table = try #require(EfuseTable.table(for: chip))
         #expect(!table.fields.isEmpty)
         let names = table.fields.map(\.name)
-        #expect(Set(names).count == names.count, "noms en double")
+        #expect(Set(names).count == names.count, "duplicate names")
         for field in table.fields {
             for range in field.bits { #expect(range.start >= 0 && range.start + range.count <= 256, "\(field.name)") }
         }
-        // Un contrôleur vierge sait tout décoder et produit un JSON valide.
+        // A blank controller decodes everything and produces valid JSON.
         let controller = EfuseController(virtual: chip)
         #expect(!(await controller.fields()).isEmpty)
         let json = await controller.summaryJSON()
@@ -42,13 +42,13 @@ struct EfuseTableTests {
     }
 }
 
-@Suite("Contrôleur d'eFuses")
+@Suite("eFuse controller")
 struct EfuseControllerTests {
     @Test func decodesValuesProtectionsAndNamedValues() async throws {
         var blocks = EfuseLayout.blankBlocks(for: .esp32s3)
         set("SPI_BOOT_CRYPT_CNT", to: 1, chip: .esp32s3, in: &blocks)
         set("KEY_PURPOSE_0", to: 4, chip: .esp32s3, in: &blocks)
-        set("RD_DIS", to: 1, chip: .esp32s3, in: &blocks)                       // BLOCK_KEY0 illisible
+        set("RD_DIS", to: 1, chip: .esp32s3, in: &blocks)                       // BLOCK_KEY0 unreadable
         let wrDisBit = EfuseTable.esp32s3.definition(named: "SPI_BOOT_CRYPT_CNT")!.writeDisableBit!
         set("WR_DIS", to: 1 << UInt64(wrDisBit), chip: .esp32s3, in: &blocks)
         blocks[4] = [0x0403_0201] + Array(repeating: 0, count: 7)
@@ -64,15 +64,15 @@ struct EfuseControllerTests {
         #expect(key.isReadProtected)
         #expect(key.value == .bytes(Data([1, 2, 3, 4] + Array(repeating: 0, count: 28))))
         #expect(await controller.blocks()[4].isReadProtected)
-        // Les alias d'ESP-IDF trouvent aussi le champ.
+        // ESP-IDF aliases find the field too.
         #expect(await controller.field("KEY0")?.name == "BLOCK_KEY0")
     }
 
     @Test func convertsS3Calibration() async throws {
         var blocks = EfuseLayout.blankBlocks(for: .esp32s3)
         set("BLK_VERSION_MAJOR", to: 1, chip: .esp32s3, in: &blocks)
-        set("TEMP_CALIB", to: 0x18B, chip: .esp32s3, in: &blocks)               // signe + 139
-        set("ADC2_INIT_CODE_ATTEN0", to: 0xA3, chip: .esp32s3, in: &blocks)     // signe + 35
+        set("TEMP_CALIB", to: 0x18B, chip: .esp32s3, in: &blocks)               // sign + 139
+        set("ADC2_INIT_CODE_ATTEN0", to: 0xA3, chip: .esp32s3, in: &blocks)     // sign + 35
         let controller = EfuseController(virtual: .esp32s3, initialState: EfuseSnapshot(chip: .esp32s3, blocks: blocks))
         #expect(await controller.field("TEMP_CALIB")?.displayValue == "-13.9")
         #expect(await controller.field("ADC2_INIT_CODE_ATTEN0")?.displayValue == "-140")
@@ -95,8 +95,8 @@ struct EfuseControllerTests {
 
     @Test func reportsCodingErrors() async {
         var errors = [UInt32](repeating: 0, count: 7)
-        errors[1] = 0x10                                   // BLOCK0, mot 2
-        errors[5] = 0x0000_0082                            // BLOCK1 : 2 octets corrigés ; BLOCK2 : échec
+        errors[1] = 0x10                                   // BLOCK0, word 2
+        errors[5] = 0x0000_0082                            // BLOCK1: 2 bytes corrected; BLOCK2: failure
         errors[5] |= 0x8 << 4
         let snapshot = EfuseSnapshot(chip: .esp32s3, blocks: EfuseLayout.blankBlocks(for: .esp32s3), errorRegisters: errors)
         let found = await EfuseController(virtual: .esp32s3, initialState: snapshot).codingErrors()

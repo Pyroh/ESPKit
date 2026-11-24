@@ -3,14 +3,14 @@
 import Foundation
 import ESPTransport
 
-/// Événements bas niveau, l'équivalent de `esptool --trace`.
+/// Low-level events, the equivalent of `esptool --trace`.
 public enum TraceEvent: Sendable, CustomStringConvertible {
     public enum Direction: Sendable { case sent, received }
 
     case resetStep(ResetSequence.Step)
     case sent(opcode: UInt8, payload: Data)
     case received(opcode: UInt8, value: UInt32, payload: Data, status: UInt8)
-    /// Octets hors protocole : journal de boot de la ROM, sortie de l'application…
+    /// Bytes outside the protocol: ROM boot log, application output…
     case rawBytes(direction: Direction, Data)
     case baudRateChanged(Int)
     case stubStarted(StubImage.Version)
@@ -18,12 +18,12 @@ public enum TraceEvent: Sendable, CustomStringConvertible {
     public var description: String {
         switch self {
         case .resetStep(let step): "reset   \(step)"
-        case .sent(let opcode, let payload): "→ \(hex(opcode)) \(payload.count) o \(payload.hexPreview)"
+        case .sent(let opcode, let payload): "→ \(hex(opcode)) \(payload.count) B \(payload.hexPreview)"
         case .received(let opcode, let value, let payload, let status):
-            "← \(hex(opcode)) val=\(hex(value)) status=\(status) \(payload.count) o \(payload.hexPreview)"
+            "← \(hex(opcode)) val=\(hex(value)) status=\(status) \(payload.count) B \(payload.hexPreview)"
         case .rawBytes(let direction, let data):
-            "\(direction == .sent ? "→" : "←") brut \(data.count) o \(String(decoding: data, as: UTF8.self).debugDescription)"
-        case .baudRateChanged(let rate): "débit   \(rate)"
+            "\(direction == .sent ? "→" : "←") raw \(data.count) B \(String(decoding: data, as: UTF8.self).debugDescription)"
+        case .baudRateChanged(let rate): "baud    \(rate)"
         case .stubStarted(let version): "stub    \(version)"
         }
     }

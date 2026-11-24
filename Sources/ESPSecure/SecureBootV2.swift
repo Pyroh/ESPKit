@@ -5,12 +5,12 @@ import Crypto
 import _CryptoExtras
 import enum ESPSupport.Zlib
 
-/// Secure Boot v2 : signature des images et empreinte des clés publiques à brûler en eFuse.
+/// Secure Boot v2: image signing and the public key digests to burn into eFuses.
 ///
-/// Format (en-têtes C d'ESP-IDF) : l'image est complétée par 0xFF jusqu'à 4 Kio, puis suivie d'un
-/// secteur de 4 Kio contenant de 1 à 3 blocs de 1 216 octets, le reste à 0xFF. Chaque bloc porte
-/// le condensé de l'image, la clé publique et la signature, en little-endian pour le matériel,
-/// puis un CRC-32 des 1 196 premiers octets.
+/// Format (ESP-IDF C headers): the image is padded with 0xFF to 4 KiB, then followed by a
+/// 4 KiB sector holding 1 to 3 blocks of 1,216 bytes, the rest 0xFF. Each block carries
+/// the image digest, the public key and the signature, little-endian for the hardware,
+/// then a CRC-32 of its first 1,196 bytes.
 public enum SecureBootV2 {
     public enum Scheme: Hashable, Sendable, CustomStringConvertible {
         case rsa3072, ecdsa192, ecdsa256, ecdsa384
@@ -24,7 +24,7 @@ public enum SecureBootV2 {
             }
         }
 
-        /// SHA-384 pour P-384, SHA-256 sinon.
+        /// SHA-384 for P-384, SHA-256 otherwise.
         func imageDigest(_ data: Data) -> Data {
             self == .ecdsa384 ? Data(Crypto.SHA384.hash(data: data)) : Data(Crypto.SHA256.hash(data: data))
         }
@@ -32,7 +32,7 @@ public enum SecureBootV2 {
         var coordinateLength: Int { self == .ecdsa384 ? 48 : 32 }
     }
 
-    // MARK: Clés
+    // MARK: Keys
 
     public struct SigningKey: Sendable {
         enum Backing: Sendable {
@@ -46,7 +46,7 @@ public enum SecureBootV2 {
 
         public var scheme: Scheme { publicKey.scheme }
 
-        /// - Throws: `SecureBootError.schemeNotSupported` pour P-192 (pas encore pris en charge).
+        /// - Throws: `SecureBootError.schemeNotSupported` for P-192 (not supported yet).
         public static func generate(_ scheme: Scheme) throws -> SigningKey {
             switch scheme {
             case .rsa3072:
@@ -58,7 +58,7 @@ public enum SecureBootV2 {
             }
         }
 
-        /// Clé PEM : RSA-3072 (PKCS#1 ou PKCS#8), ECDSA P-256 ou P-384 (SEC1 ou PKCS#8).
+        /// PEM key: RSA-3072 (PKCS#1 or PKCS#8), ECDSA P-256 or P-384 (SEC1 or PKCS#8).
         /// - Throws: `SecureBootError.invalidKey`.
         public init(pemRepresentation pem: String) throws {
             if let key = try? P256.Signing.PrivateKey(pemRepresentation: pem) {
@@ -67,12 +67,12 @@ public enum SecureBootV2 {
                 self.init(.p384(key))
             } else if let key = try? _RSA.Signing.PrivateKey(pemRepresentation: pem) {
                 guard key.keySizeInBits == 3072 else {
-                    throw SecureBootError.invalidKey("RSA de \(key.keySizeInBits) bits ; Secure Boot v2 veut 3072 bits")
+                    throw SecureBootError.invalidKey("\(key.keySizeInBits)-bit RSA; Secure Boot v2 needs 3072 bits")
                 }
                 let raw = try _RSA.BlindSigning.PrivateKey<Crypto.SHA384>(pemRepresentation: pem)
                 self.init(.rsa(signing: key, raw: raw))
             } else {
-                throw SecureBootError.invalidKey("PEM illisible, ou courbe autre que P-256 et P-384")
+                throw SecureBootError.invalidKey("unreadable PEM, or a curve other than P-256 and P-384")
             }
         }
 
@@ -93,12 +93,12 @@ public enum SecureBootV2 {
             }
         }
 
-        /// Signature standard (big-endian) du condensé de l'image.
+        /// Standard (big-endian) signature of the image digest.
         func signature(forDigest digest: Data) throws -> Data {
             switch backing {
             case .rsa(_, let raw):
-                // RSA-PSS avec SHA-256, MGF1-SHA-256 et un sel de 32 octets : l'encodage EMSA-PSS
-                // (RFC 8017, § 9.1.1) est fait ici, puis l'opération RSA brute par swift-crypto.
+                // RSA-PSS with SHA-256, MGF1-SHA-256 and a 32-byte salt: the EMSA-PSS encoding
+                // (RFC 8017, § 9.1.1) is done here, then the raw RSA operation by swift-crypto.
                 var salt = Data(count: 32)
                 var generator = SystemRandomNumberGenerator()
                 for index in salt.indices { salt[index] = generator.next() }
@@ -130,7 +130,7 @@ public enum SecureBootV2 {
             } else if let key = try? _RSA.Signing.PublicKey(pemRepresentation: pem), key.keySizeInBits == 3072 {
                 self.init(rsa: key)
             } else {
-                throw SecureBootError.invalidKey("clé publique PEM illisible, ou ni RSA-3072, ni P-256, ni P-384")
+                throw SecureBootError.invalidKey("unreadable PEM public key, or neither RSA-3072, P-256 nor P-384")
             }
         }
 
@@ -159,11 +159,11 @@ public enum SecureBootV2 {
             }
         }
 
-        /// SHA-256 de la clé au format attendu par la ROM, à brûler dans `SECURE_BOOT_DIGESTn`.
+        /// SHA-256 of the key in the format the ROM expects, to burn into `SECURE_BOOT_DIGESTn`.
         public var digest: Data { Data(Crypto.SHA256.hash(data: blockEncoding)) }
 
-        /// Clé telle qu'elle figure dans le bloc de signature.
-        /// RSA : n (LE), e, R² mod n (LE), −n⁻¹ mod 2³² ; ECDSA : identifiant de courbe, puis x et y (LE).
+        /// The key as it appears in the signature block.
+        /// RSA: n (LE), e, R² mod n (LE), −n⁻¹ mod 2³²; ECDSA: curve ID, then x and y (LE).
         var blockEncoding: Data {
             switch backing {
             case .rsa(_, let modulus, let exponent):
@@ -183,7 +183,7 @@ public enum SecureBootV2 {
             return Data([curve]) + Data(point.prefix(length).reversed()) + Data(point.suffix(length).reversed())
         }
 
-        /// Relit la clé d'un bloc de signature.
+        /// Reads the key back from a signature block.
         init(blockEncoding data: Data, scheme: Scheme) throws {
             let bytes = Data(data)
             switch scheme {
@@ -206,7 +206,7 @@ public enum SecureBootV2 {
         public static func == (lhs: PublicKey, rhs: PublicKey) -> Bool { lhs.blockEncoding == rhs.blockEncoding }
         public func hash(into hasher: inout Hasher) { hasher.combine(blockEncoding) }
 
-        /// Vérifie une signature standard (big-endian) sur l'image.
+        /// Verifies a standard (big-endian) signature over the image.
         func isValidSignature(_ signature: Data, forImage image: Data) -> Bool {
             switch backing {
             case .rsa(let key, _, _):
@@ -222,31 +222,31 @@ public enum SecureBootV2 {
         }
     }
 
-    /// Signataire abstrait : clé locale, HSM, service distant.
+    /// Abstract signer: local key, HSM, remote service.
     public protocol Signer: Sendable {
         var publicKey: PublicKey { get }
-        /// Signe le condensé de l'image (SHA-256, ou SHA-384 pour P-384) et rend la signature
-        /// standard, en big-endian : RSA-PSS (MGF1-SHA-256, sel de 32 octets) sur 384 octets,
-        /// ou ECDSA r ‖ s.
+        /// Signs the image digest (SHA-256, or SHA-384 for P-384) and returns the standard
+        /// big-endian signature: RSA-PSS (MGF1-SHA-256, 32-byte salt) over 384 bytes,
+        /// or ECDSA r ‖ s.
         func sign(imageDigest: Data) async throws -> Data
     }
 
-    /// Bloc de signature lu dans une image.
+    /// Signature block read from an image.
     public struct SignatureBlock: Hashable, Sendable {
         public var scheme: Scheme
         public var imageDigest: Data
         public var publicKey: PublicKey
-        /// Signature standard, en big-endian.
+        /// Standard signature, big-endian.
         public var signature: Data
     }
 
     // MARK: Signature
 
-    /// Ajoute un bloc de signature par signataire (3 au maximum, existants compris).
-    /// L'image est complétée à 4 Kio si besoin. Pour que la signature tombe sur une frontière
-    /// MMU, construire l'image avec `ImageOptions.securePadding = .v2`.
-    /// - Parameter existing: garder les blocs du secteur de signature déjà présent.
-    /// - Throws: `SecureBootError`, et les erreurs des signataires.
+    /// Appends one signature block per signer (at most 3, existing ones included).
+    /// The image is padded to 4 KiB if needed. For the signature to land on an MMU
+    /// boundary, build the image with `ImageOptions.securePadding = .v2`.
+    /// - Parameter existing: keep the blocks of the signature sector already present.
+    /// - Throws: `SecureBootError`, and the signers' errors.
     public static func sign(_ image: Data, with signers: [any Signer],
                             appendingTo existing: Bool = false) async throws -> Data {
         var (body, blocks) = try split(image, keepingSignatures: existing)
@@ -260,7 +260,7 @@ public enum SecureBootV2 {
         return assemble(body, blocks)
     }
 
-    /// Version synchrone pour des clés locales.
+    /// Synchronous version for local keys.
     public static func sign(_ image: Data, with keys: [SigningKey], appendingTo existing: Bool = false) throws -> Data {
         var (body, blocks) = try split(image, keepingSignatures: existing)
         guard !keys.isEmpty else { throw SecureBootError.noSignatureBlock }
@@ -273,8 +273,8 @@ public enum SecureBootV2 {
         return assemble(body, blocks)
     }
 
-    /// Insère une signature calculée ailleurs (signature à distance), après les blocs existants.
-    /// - Throws: `SecureBootError.signatureInvalid` si elle ne vérifie pas.
+    /// Inserts a signature computed elsewhere (remote signing), after the existing blocks.
+    /// - Throws: `SecureBootError.signatureInvalid` if it does not verify.
     public static func attach(signature: Data, publicKey: PublicKey, to image: Data) throws -> Data {
         var (body, blocks) = try split(image, keepingSignatures: true)
         guard blocks.count < 3 else { throw SecureBootError.tooManySignatures }
@@ -283,7 +283,7 @@ public enum SecureBootV2 {
         return assemble(body, blocks)
     }
 
-    /// Blocs du secteur de signature final (CRC valide).
+    /// Blocks of the final signature sector (valid CRC).
     /// - Throws: `SecureBootError.noSignatureBlock`.
     public static func signatureBlocks(in image: Data) throws -> [SignatureBlock] {
         let blocks = try parseSector(image)
@@ -291,7 +291,7 @@ public enum SecureBootV2 {
         return blocks
     }
 
-    /// Lève `SecureBootError.signatureInvalid` si aucun bloc ne vérifie avec `publicKey`.
+    /// Throws `SecureBootError.signatureInvalid` if no block verifies with `publicKey`.
     public static func verify(_ image: Data, publicKey: PublicKey) throws {
         let blocks = try signatureBlocks(in: image)
         let body = Data(image.prefix(image.count - 4096))
@@ -310,7 +310,7 @@ public enum SecureBootV2 {
     static let crcCoverage = 1196
     static let sectorLength = 4096
 
-    /// Image à signer (complétée à 4 Kio) et blocs existants.
+    /// Image to sign (padded to 4 KiB) and the existing blocks.
     private static func split(_ image: Data, keepingSignatures: Bool) throws -> (Data, [Data]) {
         var body = Data(image)
         var blocks: [Data] = []
@@ -318,7 +318,7 @@ public enum SecureBootV2 {
             let sector = body.suffix(sectorLength)
             blocks = (0..<parsed.count).map { Data(sector.dropFirst($0 * blockLength).prefix(blockLength)) }
             body = Data(body.prefix(body.count - sectorLength))
-            // Tous les blocs signent la même image.
+            // Every block signs the same image.
             for block in parsed where block.imageDigest != block.scheme.imageDigest(body) {
                 throw SecureBootError.signatureInvalid
             }
@@ -335,7 +335,7 @@ public enum SecureBootV2 {
         return body + sector
     }
 
-    /// Bloc de 1 216 octets ; la signature est vérifiée avant d'être rangée.
+    /// 1,216-byte block; the signature is verified before it is stored.
     private static func makeBlock(digest: Data, publicKey: PublicKey, signature: Data, image: Data) throws -> Data {
         let scheme = publicKey.scheme
         var block: Data
@@ -370,7 +370,7 @@ public enum SecureBootV2 {
             case (0x02, _): scheme = .rsa3072
             case (0x03, 0x01): scheme = .ecdsa384
             case (0x03, _): scheme = block[36] == 1 ? .ecdsa192 : .ecdsa256
-            default: throw SecureBootError.invalidKey("version de bloc \(block[1]) inconnue")
+            default: throw SecureBootError.invalidKey("unknown block version \(block[1])")
             }
             let digestLength = scheme == .ecdsa384 ? 48 : 32
             let keyStart = 4 + digestLength
@@ -394,7 +394,7 @@ extension SecureBootV2.SigningKey: SecureBootV2.Signer {
     }
 }
 
-/// Condensé déjà calculé, pour signer en ECDSA sans repasser par la fonction de hachage.
+/// Precomputed digest, to sign with ECDSA without going through the hash function again.
 struct RawDigest: Digest {
     static var byteCount: Int { 48 }
     var bytes: [UInt8]
@@ -406,7 +406,7 @@ struct RawDigest: Digest {
     var description: String { bytes.map { String(format: "%02x", $0) }.joined() }
 }
 
-/// Encodage EMSA-PSS (RFC 8017, § 9.1.1) avec SHA-256 et MGF1-SHA-256.
+/// EMSA-PSS encoding (RFC 8017, § 9.1.1) with SHA-256 and MGF1-SHA-256.
 enum PSS {
     static func encode(digest: Data, salt: Data, modulusBits: Int) -> Data {
         let emBits = modulusBits - 1

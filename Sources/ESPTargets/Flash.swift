@@ -2,12 +2,12 @@
 
 import Foundation
 
-/// Mode d'accès SPI de la flash, tel qu'il est écrit dans l'en-tête d'image.
+/// SPI access mode of the flash, as written in the image header.
 public enum FlashMode: Hashable, Sendable, CaseIterable {
     case qio, qout, dio, dout
 }
 
-/// Fréquence d'horloge de la flash SPI.
+/// SPI flash clock frequency.
 public struct FlashFrequency: Comparable, Hashable, Sendable, CustomStringConvertible {
     public var megahertz: Int
 
@@ -30,10 +30,10 @@ public struct FlashFrequency: Comparable, Hashable, Sendable, CustomStringConver
     public static func < (lhs: FlashFrequency, rhs: FlashFrequency) -> Bool { lhs.megahertz < rhs.megahertz }
 }
 
-/// Taille de flash, telle que l'en-tête d'image sait l'encoder.
+/// Flash size, as the image header can encode it.
 public enum FlashSize: Hashable, Sendable, CaseIterable, CustomStringConvertible {
     case kb256, kb512, mb1, mb2, mb4, mb8, mb16, mb32, mb64, mb128
-    /// Variantes ESP8266 (2 Mo et 4 Mo en découpage « c1 »).
+    /// ESP8266 variants (2 MB and 4 MB with the "c1" layout).
     case mb2c1, mb4c1
 
     public var byteCount: Int {
@@ -68,9 +68,9 @@ public enum FlashSize: Hashable, Sendable, CaseIterable, CustomStringConvertible
         }
     }
 
-    /// Taille d'après l'ID JEDEC rendu par `RDID` (0x9F) : octet 0 fabricant, octet 1 type,
-    /// octet 2 capacité. Les flashs Adesto (fabricant 0x1F) codent la taille dans les 5 bits
-    /// bas de l'octet de type. `nil` si le code ne correspond à aucune taille connue.
+    /// Size from the JEDEC ID returned by `RDID` (0x9F): byte 0 manufacturer, byte 1 type,
+    /// byte 2 capacity. Adesto flashes (manufacturer 0x1F) encode the size in the low 5 bits
+    /// of the type byte. `nil` if the code matches no known size.
     public init?(jedecManufacturer manufacturer: UInt8, type: UInt8, capacity: UInt8) {
         if manufacturer == 0x1F {
             switch type & 0x1F {
@@ -100,22 +100,22 @@ public enum FlashSize: Hashable, Sendable, CaseIterable, CustomStringConvertible
     }
 }
 
-/// Technologie de la flash.
+/// Flash technology.
 public enum FlashType: Hashable, Sendable {
     case nor, nand
 }
 
-/// Réglage d'en-tête : conserver ce qui est dans le binaire ou imposer une valeur.
+/// Header setting: keep what the binary holds, or force a value.
 public enum HeaderSetting<Value: Sendable & Hashable>: Hashable, Sendable {
     case keep
     case set(Value)
 }
 
-/// Modifications à appliquer à l'en-tête du bootloader au moment de l'écriture.
+/// Changes applied to the bootloader header when it is written.
 public struct FlashHeaderOverrides: Hashable, Sendable {
     public var mode: HeaderSetting<FlashMode> = .keep
     public var frequency: HeaderSetting<FlashFrequency> = .keep
-    /// `.detect` remplace la taille par celle mesurée sur la flash connectée.
+    /// `.detect` replaces the size with the one measured on the attached flash.
     public var size: FlashSizeSetting = .keep
 
     public enum FlashSizeSetting: Hashable, Sendable { case keep, detect, set(FlashSize) }
@@ -131,20 +131,20 @@ public struct FlashHeaderOverrides: Hashable, Sendable {
     public static let keep = FlashHeaderOverrides()
 }
 
-/// Câblage de la flash SPI.
+/// SPI flash wiring.
 public enum SPIConnection: Hashable, Sendable {
-    /// Celui des eFuses ou du strapping.
+    /// The one set by eFuses or strapping.
     case `default`
     /// ESP32 uniquement.
     case spi, hspi
     case pins(clk: UInt8, q: UInt8, d: UInt8, hd: UInt8, cs: UInt8)
 }
 
-/// Données à écrire à une adresse de la flash.
+/// Data to write at a flash address.
 public struct FlashRegion: Hashable, Sendable {
     public var address: UInt32
     public var data: Data
-    /// Chiffrer cette région à l'écriture (chiffrement flash actif requis). Phase 6.
+    /// Encrypt this region while writing (flash encryption must be enabled). Phase 6.
     public var encrypt: Bool = false
 
     public init(address: UInt32, data: Data, encrypt: Bool = false) {

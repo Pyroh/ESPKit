@@ -6,29 +6,29 @@ import ESPSupport
 import ESPTargets
 import ESPTransport
 
-/// Puce simulée qui parle le protocole de la ROM puis, une fois le stub chargé, celui du stub v2 :
-/// SYNC, registres, GET_SECURITY_INFO, SPI_ATTACH, transactions SPI « USR » sur RDID,
-/// commandes mémoire, écriture flash (brute et zlib), MD5, lecture avec accusés, effacement.
+/// Simulated chip that speaks the ROM protocol and, once the stub is loaded, the stub v2 one:
+/// SYNC, registers, GET_SECURITY_INFO, SPI_ATTACH, "USR" SPI transactions on RDID,
+/// memory commands, flash writes (raw and zlib), MD5, reads with acknowledgements, erasing.
 actor SimulatedChip: Transport {
     nonisolated let usbIdentity: USBIdentity?
 
     var registers: [UInt32: UInt32]
-    /// Réponse de GET_SECURITY_INFO ; `nil` : la ROM ne connaît pas la commande.
+    /// GET_SECURITY_INFO response; `nil`: the ROM does not know the command.
     var securityInfo: Data?
     var jedecID: UInt32
     var spiBase: UInt32
     var spiW0: UInt32
     var spiUSR2: UInt32
-    /// SYNC ignorés avant de répondre (simule une puce lente à entrer en téléchargement).
+    /// SYNCs ignored before answering (simulates a chip slow to enter download mode).
     var ignoredSyncs = 0
     var statusLength = 4
-    /// La ROM ne répond pas à MEM_END avant de sauter (certaines ROM coupent la réponse).
+    /// The ROM does not answer MEM_END before jumping (some ROMs cut the response).
     var dropMemEndResponse = false
-    /// Le stub ne démarre pas (pas de `OHAI`).
+    /// The stub does not start (no `OHAI`).
     var stubFailsToStart = false
-    /// Inverse un octet à chaque écriture flash (test du contrôle MD5).
+    /// Flips a byte on every flash write (tests the MD5 check).
     var corruptWrites = false
-    /// Perd une fois le bloc de READ_FLASH de ce rang (0 = premier bloc envoyé).
+    /// Loses the READ_FLASH block at this index once (0 = first block sent).
     var dropReadPacket: Int?
     private var readPacketsSent = 0
 
@@ -43,7 +43,7 @@ actor SimulatedChip: Transport {
     private(set) var flashParamsSize: UInt32?
     private(set) var stubRunning = false
     private(set) var chipErases = 0
-    /// RAM écrite par MEM_DATA, par adresse de début de segment.
+    /// RAM written by MEM_DATA, by segment start address.
     private(set) var memory: [UInt32: Data] = [:]
     var flash: Data
 
@@ -67,8 +67,8 @@ actor SimulatedChip: Transport {
         flash = Data(repeating: 0xFF, count: 1 << Int(capacity))
     }
 
-    /// ESP32 en ROM : détection par valeur magique, MAC dans les mots eFuse 1 et 2.
-    /// MAC simulée : 24:0A:C4:12:34:56 ; flash Winbond 4 Mo.
+    /// ESP32 in ROM: magic-value detection, MAC in eFuse words 1 and 2.
+    /// Simulated MAC: 24:0A:C4:12:34:56; 4 MB Winbond flash.
     static func esp32() -> SimulatedChip {
         SimulatedChip(
             registers: [0x4000_1000: 0x00F0_1D83, 0x3FF5_A004: 0xC412_3456, 0x3FF5_A008: 0x00AB_240A],
@@ -76,8 +76,8 @@ actor SimulatedChip: Transport {
             spiBase: 0x3FF4_2000, spiW0: 0x3FF4_2080, spiUSR2: 0x3FF4_2024)
     }
 
-    /// ESP32-S3 en ROM sur l'USB-Serial-JTAG : chip ID 9 par GET_SECURITY_INFO.
-    /// MAC simulée : 34:85:C4:12:34:56 ; flash GigaDevice 16 Mo.
+    /// ESP32-S3 in ROM over USB-Serial-JTAG: chip ID 9 through GET_SECURITY_INFO.
+    /// Simulated MAC: 34:85:C4:12:34:56; 16 MB GigaDevice flash.
     static func esp32s3(usbSerialJTAG: Bool = true, flags: UInt32 = 0) -> SimulatedChip {
         var info = Data.le(flags)                         // flags
         info.append(0)                                    // flash_crypt_cnt
@@ -124,7 +124,7 @@ actor SimulatedChip: Transport {
     func setBaudRate(_ rate: Int) async throws { baudRate = rate }
     func setControlLines(dtr: Bool?, rts: Bool?) async throws { lineChanges.append((dtr, rts)) }
 
-    // MARK: Protocole
+    // MARK: Protocol
 
     private func handle(_ packet: Data) {
         if pendingRead != nil {
@@ -245,7 +245,7 @@ actor SimulatedChip: Transport {
         pendingRead = current
         defer { readPacketsSent += 1 }
         if readPacketsSent == dropReadPacket {
-            dropReadPacket = nil                // perdu en route : l'hôte ne le verra jamais
+            dropReadPacket = nil                // lost on the way: the host never sees it
             return
         }
         output.append(SLIP.encode(packet))
@@ -254,7 +254,7 @@ actor SimulatedChip: Transport {
     private func handleReadAcknowledgement(_ packet: Data) {
         guard let current = pendingRead else { return }
         guard packet.count == 4 else {
-            // Trame qui n'est pas un accusé : le stub interrompt la lecture et envoie le MD5.
+            // A frame that is not an acknowledgement: the stub stops reading and sends the MD5.
             output.append(SLIP.encode(MD5.hash(current.sent)))
             pendingRead = nil
             return
@@ -278,7 +278,7 @@ actor SimulatedChip: Transport {
         }
     }
 
-    /// Échec au format de la ROM (1, code) ou du stub (code sur 16 bits big-endian, 0xC3 00 par défaut).
+    /// Failure in the ROM format (1, code) or the stub format (big-endian 16-bit code, 0xC3 00 by default).
     private func fail(_ opcode: UInt8, code: UInt8 = 0x05) {
         if stubRunning {
             reply(opcode, status: code == 0x05 ? 0xC3 : 0xC1, error: 0)

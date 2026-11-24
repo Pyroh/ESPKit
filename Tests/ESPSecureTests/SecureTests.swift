@@ -19,11 +19,11 @@ struct SecureBootV2Tests {
         let blocks = try SecureBootV2.signatureBlocks(in: signed)
         #expect(blocks.count == 1 && blocks[0].scheme == scheme && blocks[0].publicKey == key.publicKey)
 
-        // Un octet modifié dans l'image : plus aucune signature ne vérifie.
+        // One byte changed in the image: no signature verifies any more.
         var tampered = signed
         tampered[100] ^= 1
         #expect(throws: SecureBootError.signatureInvalid) { try SecureBootV2.verify(tampered, publicKey: key.publicKey) }
-        // Une autre clé ne vérifie pas.
+        // Another key does not verify.
         let other = try SecureBootV2.SigningKey.generate(scheme)
         #expect(throws: SecureBootError.signatureInvalid) { try SecureBootV2.verify(signed, publicKey: other.publicKey) }
     }
@@ -70,14 +70,14 @@ struct SecureBootV2Tests {
     }
 
     @Test func montgomeryParameters() {
-        // n = 0xC5 (197) : R = 2⁸, R² mod n = 65536 mod 197 = 132 ; −197⁻¹ mod 2³² = 0x2E8BA2E9·…
+        // n = 0xC5 (197): R = 2⁸, R² mod n = 65536 mod 197 = 132; −197⁻¹ mod 2³² = 0x2E8BA2E9·…
         let n = BigUInt(bigEndian: Data([0xC5]))
         #expect(BigUInt.powerOfTwo(16, modulo: n).littleEndian(count: 1) == Data([UInt8(65_536 % 197)]))
         #expect(n.negativeInverseModWord &* 197 == UInt32.max)       // n · (−n⁻¹) ≡ −1
     }
 }
 
-@Suite("Chiffrement flash")
+@Suite("Flash encryption")
 struct FlashEncryptionTests {
     @Test(arguments: [FlashEncryption.Scheme.xtsAES128, .xtsAES256])
     func roundTrips(scheme: FlashEncryption.Scheme) throws {
@@ -87,7 +87,7 @@ struct FlashEncryptionTests {
         let encrypted = try FlashEncryption.encrypt(plain, at: 0x1_0010, key: key, scheme: scheme)
         #expect(encrypted != plain)
         #expect(try FlashEncryption.decrypt(encrypted, at: 0x1_0010, key: key, scheme: scheme) == plain)
-        // Le chiffrement dépend de l'adresse.
+        // Encryption depends on the address.
         #expect(try FlashEncryption.encrypt(plain, at: 0x2_0010, key: key, scheme: scheme) != encrypted)
     }
 

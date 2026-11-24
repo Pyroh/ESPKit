@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
-# Références espefuse (boîte noire, lecture seule) pour ESPEfuse.
+# espefuse references (black box, read only) for ESPEfuse.
 #
-#   ESPEFUSE=espefuse ./make-efuse-references.sh <sortie> [<puce> <port>]…
+#   ESPEFUSE=espefuse ./make-efuse-references.sh <output> [<chip> <port>]…
 #
-# Sans carte : <sortie>/virt/<puce>.json pour toutes les puces (espefuse --virt), qui servent de
-# libellés au générateur. Avec des cartes : summary-<puce>.json et dump-<puce>.txt, comparés par
-# les tests (ESPKIT_EFUSE_REFERENCES=<sortie>), et <sortie>/real/<puce>.json pour le générateur.
+# Without a board: <output>/virt/<chip>.json for every chip (espefuse --virt), used as labels
+# by the generator. With boards: summary-<chip>.json and dump-<chip>.txt, compared by
+# the tests (ESPKIT_EFUSE_REFERENCES=<output>), and <output>/real/<chip>.json for the generator.
 set -euo pipefail
 
 ESPEFUSE=${ESPEFUSE:-espefuse}
@@ -22,5 +22,5 @@ while [ $# -ge 2 ]; do
     $ESPEFUSE --port "$port" --chip $chip dump > "$out/dump-$chip.txt"
     cp "$out/summary-$chip.json" "$out/real/$chip.json"
 done
-echo "références dans $out"
-echo "puis : python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse $out/real $out/virt"
+echo "references in $out"
+echo "then: python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse $out/real $out/virt"

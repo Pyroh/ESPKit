@@ -4,18 +4,18 @@ import Foundation
 import ESPSupport
 import ESPTargets
 
-/// Fusion de plusieurs régions flash en un seul fichier (`merge-bin`).
+/// Merges several flash regions into a single file (`merge-bin`).
 public enum MergedImage {
-    /// Binaire brut à partir de `targetOffset`. Les trous sont remplis de 0xFF ; `padTo` complète
-    /// jusqu'à la fin de la flash de cette taille.
-    /// - Throws: `ImageError.layout` (régions qui se chevauchent ou sous `targetOffset`),
+    /// Raw binary starting at `targetOffset`. Gaps are filled with 0xFF; `padTo` pads
+    /// up to the end of a flash of that size.
+    /// - Throws: `ImageError.layout` (overlapping regions or regions below `targetOffset`),
     ///   `ImageError.invalidHeaderSetting`.
     public static func raw(_ regions: [FlashRegion], chip: ChipFamily,
                            targetOffset: UInt32 = 0, padTo: FlashSize? = nil,
                            headerOverrides: FlashHeaderOverrides = .keep) throws -> Data {
         let sorted = try prepared(regions, chip: chip, overrides: headerOverrides)
         if let low = sorted.first, low.address < targetOffset {
-            throw ImageError.layout("la région 0x\(String(low.address, radix: 16)) précède l'offset cible 0x\(String(targetOffset, radix: 16))")
+            throw ImageError.layout("region 0x\(String(low.address, radix: 16)) comes before target offset 0x\(String(targetOffset, radix: 16))")
         }
         var out = Data()
         for region in sorted {
@@ -30,16 +30,16 @@ public enum MergedImage {
         return out
     }
 
-    /// Fichier Intel HEX : enregistrements de 16 octets au plus, sans remplissage des trous,
-    /// avec des enregistrements d'adresse étendue (type 04) au-delà de 64 Kio.
+    /// Intel HEX file: records of at most 16 bytes, gaps left unfilled,
+    /// with extended address records (type 04) beyond 64 KiB.
     public static func intelHex(_ regions: [FlashRegion], chip: ChipFamily,
                                 headerOverrides: FlashHeaderOverrides = .keep) throws -> String {
         IntelHex.encode(try prepared(regions, chip: chip, overrides: headerOverrides))
     }
 
-    /// Fichier UF2 : blocs de 512 octets, numérotés pour chaque région. Avec `includeMD5`, chaque
-    /// bloc porte l'adresse, la longueur et le MD5 de sa charge utile (extension 0x4000).
-    /// - Parameter chunkSize: charge utile par bloc ; par défaut 452 octets avec MD5, 476 sans.
+    /// UF2 file: 512-byte blocks, numbered per region. With `includeMD5`, each
+    /// block carries the address, length and MD5 of its payload (extension 0x4000).
+    /// - Parameter chunkSize: payload per block; 452 bytes by default with MD5, 476 without.
     public static func uf2(_ regions: [FlashRegion], chip: ChipFamily,
                            chunkSize: Int? = nil, includeMD5: Bool = true,
                            headerOverrides: FlashHeaderOverrides = .keep) throws -> Data {
@@ -47,7 +47,7 @@ public enum MergedImage {
         let capacity = includeMD5 ? 476 - 24 : 476
         let chunk = chunkSize ?? capacity
         guard chunk > 0, chunk <= capacity else {
-            throw ImageError.layout("charge utile UF2 de \(chunk) octets (1 à \(capacity))")
+            throw ImageError.layout("UF2 payload of \(chunk) bytes (1 to \(capacity))")
         }
         let flags: UInt32 = 0x2000 | (includeMD5 ? 0x4000 : 0)
         var out = Data()
@@ -76,12 +76,12 @@ public enum MergedImage {
         return out
     }
 
-    /// Trie, vérifie les chevauchements et patche l'en-tête du bootloader.
+    /// Sorts, checks overlaps and patches the bootloader header.
     private static func prepared(_ regions: [FlashRegion], chip: ChipFamily,
                                  overrides: FlashHeaderOverrides) throws -> [FlashRegion] {
         var sorted = regions.sorted { $0.address < $1.address }
         for (a, b) in zip(sorted, sorted.dropFirst()) where Int(a.address) + a.data.count > Int(b.address) {
-            throw ImageError.layout("les régions 0x\(String(a.address, radix: 16)) et 0x\(String(b.address, radix: 16)) se chevauchent")
+            throw ImageError.layout("regions 0x\(String(a.address, radix: 16)) and 0x\(String(b.address, radix: 16)) overlap")
         }
         if overrides != .keep, let index = sorted.firstIndex(where: { $0.address == chip.bootloaderOffset }) {
             _ = try ImageHeader.patch(&sorted[index].data, chip: chip, overrides: overrides, detectedSize: nil)
@@ -90,9 +90,9 @@ public enum MergedImage {
     }
 }
 
-/// Lecture et écriture du format Intel HEX.
+/// Reading and writing the Intel HEX format.
 public enum IntelHex {
-    /// Régions contiguës décrites par le fichier (enregistrements 00, 01, 02, 04 ; 03 et 05 ignorés).
+    /// Contiguous regions described by the file (records 00, 01, 02, 04; 03 and 05 ignored).
     /// - Throws: `ImageError.malformedIntelHex`.
     public static func parse(_ text: String) throws -> [FlashRegion] {
         var bytes: [(address: UInt32, data: Data)] = []
@@ -102,26 +102,26 @@ public enum IntelHex {
             let line = rawLine.trimmingCharacters(in: .whitespaces)
             let number = index + 1
             guard !line.isEmpty else { continue }
-            guard !finished else { throw ImageError.malformedIntelHex(line: number, reason: "données après la fin de fichier") }
+            guard !finished else { throw ImageError.malformedIntelHex(line: number, reason: "data after the end of file") }
             guard line.hasPrefix(":"), let record = decodeHex(line.dropFirst()), record.count >= 5 else {
-                throw ImageError.malformedIntelHex(line: number, reason: "enregistrement illisible")
+                throw ImageError.malformedIntelHex(line: number, reason: "unreadable record")
             }
             let count = Int(record[0])
-            guard record.count == count + 5 else { throw ImageError.malformedIntelHex(line: number, reason: "longueur incohérente") }
-            guard record.reduce(0, { $0 &+ $1 }) == 0 else { throw ImageError.malformedIntelHex(line: number, reason: "somme de contrôle") }
+            guard record.count == count + 5 else { throw ImageError.malformedIntelHex(line: number, reason: "inconsistent length") }
+            guard record.reduce(0, { $0 &+ $1 }) == 0 else { throw ImageError.malformedIntelHex(line: number, reason: "checksum") }
             let offset = UInt32(record[1]) << 8 | UInt32(record[2])
             let payload = record.subdata(in: 4..<4 + count)
             switch record[3] {
             case 0x00: bytes.append((base + offset, payload))
             case 0x01: finished = true
             case 0x02:
-                guard count == 2 else { throw ImageError.malformedIntelHex(line: number, reason: "adresse de segment") }
+                guard count == 2 else { throw ImageError.malformedIntelHex(line: number, reason: "segment address") }
                 base = (UInt32(payload[0]) << 8 | UInt32(payload[1])) << 4
             case 0x04:
-                guard count == 2 else { throw ImageError.malformedIntelHex(line: number, reason: "adresse étendue") }
+                guard count == 2 else { throw ImageError.malformedIntelHex(line: number, reason: "extended address") }
                 base = (UInt32(payload[0]) << 8 | UInt32(payload[1])) << 16
             case 0x03, 0x05: break
-            default: throw ImageError.malformedIntelHex(line: number, reason: "type \(record[3]) inconnu")
+            default: throw ImageError.malformedIntelHex(line: number, reason: "unknown type \(record[3])")
             }
         }
         var regions: [FlashRegion] = []
@@ -147,7 +147,7 @@ public enum IntelHex {
                     high = address >> 16
                     lines.append(record(type: 0x04, offset: 0, payload: Data([UInt8(address >> 24), UInt8(truncatingIfNeeded: address >> 16)])))
                 }
-                // Un enregistrement ne traverse pas une frontière de 64 Kio.
+                // A record never crosses a 64 KiB boundary.
                 let length = min(16, remaining.count, 0x1_0000 - Int(address & 0xFFFF))
                 lines.append(record(type: 0x00, offset: UInt16(address & 0xFFFF), payload: Data(remaining.prefix(length))))
                 remaining = remaining.dropFirst(length)
@@ -180,12 +180,12 @@ public enum IntelHex {
     }
 }
 
-/// Modification des réglages flash de l'en-tête d'une image (octets 2 et 3), partagée par
-/// `writeFlash` et `MergedImage`.
+/// Changes the flash settings in an image header (bytes 2 and 3), shared by
+/// `writeFlash` and `MergedImage`.
 package enum ImageHeader {
-    /// Patche mode, taille et fréquence, puis recalcule le SHA-256 final si l'image en porte un.
-    /// - Parameter detectedSize: taille mesurée sur la puce, pour `FlashSizeSetting.detect`.
-    /// - Returns: `true` si l'en-tête a changé.
+    /// Patches mode, size and frequency, then recomputes the final SHA-256 if the image has one.
+    /// - Parameter detectedSize: size measured on the chip, for `FlashSizeSetting.detect`.
+    /// - Returns: `true` if the header changed.
     package static func patch(_ data: inout Data, chip: ChipFamily, overrides: FlashHeaderOverrides,
                               detectedSize: FlashSize?) throws -> Bool {
         guard overrides != .keep, data.count >= 8, data[data.startIndex] == 0xE9 else { return false }
@@ -198,18 +198,18 @@ package enum ImageHeader {
         case .keep: size = nil
         case .set(let value): size = value
         case .detect:
-            guard let detectedSize else { throw ImageError.invalidHeaderSetting("taille de flash non détectée") }
+            guard let detectedSize else { throw ImageError.invalidHeaderSetting("flash size not detected") }
             size = detectedSize
         }
         if let size {
             guard let code = traits.code(for: size) else {
-                throw ImageError.invalidHeaderSetting("taille \(size) non encodable pour \(chip)")
+                throw ImageError.invalidHeaderSetting("size \(size) cannot be encoded for \(chip)")
             }
             sizeAndFrequency = sizeAndFrequency & 0x0F | code << 4
         }
         if case .set(let frequency) = overrides.frequency {
             guard let code = traits.code(for: frequency) else {
-                throw ImageError.invalidHeaderSetting("fréquence \(frequency) non encodable pour \(chip)")
+                throw ImageError.invalidHeaderSetting("frequency \(frequency) cannot be encoded for \(chip)")
             }
             sizeAndFrequency = sizeAndFrequency & 0xF0 | code
         }
@@ -222,7 +222,7 @@ package enum ImageHeader {
         return true
     }
 
-    /// Fin d'une image ESP32-x, octet de somme de contrôle compris (avant l'empreinte SHA-256).
+    /// End of an ESP32-x image, checksum byte included (before the SHA-256 digest).
     package static func imageEnd(_ data: Data) -> Int? {
         let bytes = Data(data)
         guard bytes.count >= 24 else { return nil }

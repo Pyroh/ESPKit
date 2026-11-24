@@ -4,7 +4,7 @@ import Foundation
 import Testing
 import ESPTargets
 
-@Suite("Types de base")
+@Suite("Base types")
 struct TargetsTests {
     @Test func imageChipIDsAreUniqueAndReversible() {
         for chip in ChipFamily.allCases {
@@ -51,8 +51,8 @@ struct TargetsTests {
         (UInt8(0xEF), UInt8(0x40), UInt8(0x16), FlashSize?.some(.mb4)),
         (0xC8, 0x40, 0x18, .mb16),
         (0x20, 0xBA, 0x20, .mb64),
-        (0x1F, 0x86, 0x01, .mb2),       // Adesto : taille dans les 5 bits bas du type
-        (0xEF, 0x40, 0x1C, nil),        // 256 Mo : hors FlashSize
+        (0x1F, 0x86, 0x01, .mb2),       // Adesto: size in the low 5 bits of the type
+        (0xEF, 0x40, 0x1C, nil),        // 256 MB: outside FlashSize
         (0xEF, 0x40, 0x42, nil),
     ])
     func jedecSizes(manufacturer: UInt8, type: UInt8, capacity: UInt8, expected: FlashSize?) {

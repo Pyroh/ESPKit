@@ -9,14 +9,14 @@ import Darwin
 import Glibc
 #endif
 
-/// Pseudo-terminal : le côté esclave joue le port série, le maître joue la puce.
+/// Pseudo-terminal: the slave side plays the serial port, the master side plays the chip.
 private struct PseudoTerminal {
     let master: Int32
     let slavePath: String
 
     init() throws {
         #if os(Linux)
-        // La glibc masque posix_openpt et ptsname sans _XOPEN_SOURCE : on passe par /dev/ptmx.
+        // glibc hides posix_openpt and ptsname without _XOPEN_SOURCE: go through /dev/ptmx instead.
         master = open("/dev/ptmx", O_RDWR | O_NOCTTY)
         var unlock: Int32 = 0
         var number: UInt32 = 0
@@ -38,7 +38,7 @@ private struct PseudoTerminal {
     func close() { _ = Foundation.close(master) }
 }
 
-@Suite("SerialPort sur pseudo-terminal")
+@Suite("SerialPort on a pseudo-terminal")
 struct SerialPortTests {
     #if os(Linux)
     @Test func setsArbitraryBaudRateWithTermios2() throws {

@@ -4,20 +4,20 @@ import Foundation
 import ESPProtocol
 import ESPTransport
 
-/// Échange commande/réponse sur un `Transport` : encadrement SLIP, attente de la réponse
-/// correspondante, contrôle de l'état et trace.
+/// Command/response exchange over a `Transport`: SLIP framing, waiting for the matching
+/// response, status checking and tracing.
 actor ProtocolChannel {
     let transport: any Transport
     private let trace: AsyncStream<TraceEvent>.Continuation?
     private var decoder = SLIPDecoder()
     private var pending: [Data] = []
 
-    /// Taille du bloc d'état en fin de réponse ; `nil` tant que la puce n'est pas identifiée.
+    /// Size of the status block at the end of a response; `nil` until the chip is identified.
     var statusLength: Int?
 
     static let defaultTimeout: Duration = .seconds(3)
-    /// Nombre maximal de paquets lus pour trouver la réponse attendue
-    /// (l'ESP8266 renvoie des réponses SYNC en trop).
+    /// Maximum number of packets read to find the expected response
+    /// (the ESP8266 sends extra SYNC responses).
     static let maxSkippedPackets = 100
 
     init(transport: any Transport, trace: AsyncStream<TraceEvent>.Continuation?) {
@@ -37,7 +37,7 @@ actor ProtocolChannel {
         statusLength = length
     }
 
-    /// Oublie tout ce qui a été reçu et pas encore lu.
+    /// Forgets everything received but not yet read.
     func discardInput() async throws {
         try await transport.discardInput()
         decoder.reset()
@@ -45,15 +45,15 @@ actor ProtocolChannel {
         flushStrayBytes()
     }
 
-    // MARK: Commandes
+    // MARK: Commands
 
     struct Reply: Sendable {
         var value: UInt32
         var payload: Data
     }
 
-    /// Envoie `command` et attend sa réponse. Lève `ProtocolError.deviceError` si la puce
-    /// signale un échec.
+    /// Sends `command` and waits for its response. Throws `ProtocolError.deviceError` if the chip
+    /// reports a failure.
     func execute(_ command: Command, timeout: Duration = defaultTimeout) async throws -> Reply {
         try await send(command)
         let response = try await receive(opcode: command.opcode, timeout: timeout)
@@ -65,7 +65,7 @@ actor ProtocolChannel {
         try await transport.write(SLIP.encode(command.encoded()))
     }
 
-    /// Lit des paquets jusqu'à trouver une réponse à `opcode`. Les autres paquets sont ignorés.
+    /// Reads packets until a response to `opcode` shows up. Other packets are ignored.
     func receive(opcode: UInt8, timeout: Duration) async throws -> Response {
         let clock = ContinuousClock()
         let deadline = clock.now + timeout
@@ -77,30 +77,30 @@ actor ProtocolChannel {
             }
             skipped += 1
             if skipped >= Self.maxSkippedPackets {
-                throw ProtocolError.invalidResponse("aucune réponse à \(hex(opcode)) parmi \(skipped) paquets")
+                throw ProtocolError.invalidResponse("no response to \(hex(opcode)) among \(skipped) packets")
             }
         }
     }
 
-    /// Envoie une trame SLIP hors protocole de commande (accusé de réception de READ_FLASH).
+    /// Sends a SLIP frame outside the command protocol (READ_FLASH acknowledgement).
     func sendRaw(_ payload: Data) async throws {
         emit(.rawBytes(direction: .sent, payload))
         try await transport.write(SLIP.encode(payload))
     }
 
-    /// Prochaine trame reçue, quelle qu'elle soit : `OHAI` du stub, bloc de READ_FLASH…
+    /// Next received frame, whatever it is: the stub's `OHAI`, a READ_FLASH block…
     func receivePacket(timeout: Duration, opcode: UInt8? = nil) async throws -> Data {
         let deadline = ContinuousClock().now + timeout
         return try await nextPacket(until: deadline, opcode: opcode, timeout: timeout)
     }
 
-    /// Contrôle l'état d'une réponse et rend sa valeur et ses données utiles.
+    /// Checks a response's status and returns its value and payload.
     func checked(_ response: Response) throws -> Reply {
         try check(response, opcode: response.opcode)
     }
 
-    /// Lit les octets disponibles jusqu'à ce qu'aucun paquet n'arrive pendant `quietPeriod`.
-    /// Sert à vider les réponses SYNC excédentaires.
+    /// Reads the available bytes until no packet arrives for `quietPeriod`.
+    /// Used to drain extra SYNC responses.
     func drain(quietPeriod: Duration) async throws {
         while true {
             let data = try await transport.read(maxCount: 4096, timeout: quietPeriod)
@@ -111,17 +111,17 @@ actor ProtocolChannel {
         flushStrayBytes()
     }
 
-    // MARK: Interne
+    // MARK: Internals
 
     private func check(_ response: Response, opcode: UInt8) throws -> Reply {
         let length = statusLength ?? (response.body.count >= 4 ? 4 : 2)
         guard let split = response.split(statusLength: length) else {
-            throw ProtocolError.invalidResponse("réponse à \(hex(opcode)) trop courte (\(response.body.count) o)")
+            throw ProtocolError.invalidResponse("response to \(hex(opcode)) too short (\(response.body.count) bytes)")
         }
         emit(.received(opcode: response.opcode, value: response.value, payload: split.payload, status: split.status))
         guard split.status == 0 else {
-            // La ROM met 1 dans l'octet d'état et la raison dans le suivant ; le stub v2 envoie
-            // un code sur 16 bits en big-endian (0xC000…), dont seul le premier octet est non nul.
+            // The ROM puts 1 in the status byte and the reason in the next one; stub v2 sends
+            // a big-endian 16-bit code (0xC000…), whose first byte only is non-zero.
             let code = split.error != 0 ? split.error : split.status
             throw ProtocolError.deviceError(opcode: opcode, code: DeviceErrorCode(rawValue: code))
         }
@@ -150,7 +150,7 @@ actor ProtocolChannel {
             return packets
         } catch {
             flushStrayBytes()
-            throw ProtocolError.invalidResponse("trame SLIP invalide (\(error))")
+            throw ProtocolError.invalidResponse("invalid SLIP frame (\(error))")
         }
     }
 

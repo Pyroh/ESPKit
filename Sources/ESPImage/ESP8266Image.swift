@@ -4,10 +4,10 @@ import Foundation
 import ESPSupport
 import ESPTargets
 
-/// Image ESP8266 : pas d'en-tête étendu ni de SHA-256.
-/// - v1 : en-tête 0xE9 et segments RAM ; le code en flash (IROM) est un fichier brut à part.
-/// - v2 : en-tête 0xEA suivi du segment IROM, puis un en-tête 0xE9 et les segments RAM,
-///   et enfin un CRC32 de tout le fichier.
+/// ESP8266 image: no extended header and no SHA-256.
+/// - v1: 0xE9 header and RAM segments; the flash code (IROM) is a separate raw file.
+/// - v2: 0xEA header followed by the IROM segment, then a 0xE9 header and the RAM segments,
+///   and finally a CRC32 of the whole file.
 public struct ESP8266Image: Hashable, Sendable {
     public enum Format: Hashable, Sendable { case v1, v2 }
 
@@ -16,9 +16,9 @@ public struct ESP8266Image: Hashable, Sendable {
     public var flashMode: FlashMode
     public var flashFrequency: FlashFrequency?
     public var flashSize: FlashSize?
-    /// Segments RAM, dans l'ordre du fichier.
+    /// RAM segments, in file order.
     public var segments: [FirmwareImage.Segment]
-    /// v2 seulement : le code en flash, rangé en tête du fichier.
+    /// v2 only: the flash code, stored at the start of the file.
     public var iromSegment: FirmwareImage.Segment?
 
     private var rawSizeCode: UInt8
@@ -48,26 +48,26 @@ public struct ESP8266Image: Hashable, Sendable {
     public init(parsing data: Data) throws {
         let bytes = Data(data)
         let traits = ChipImageTraits(.esp8266)
-        guard bytes.count >= 8 else { throw ImageError.malformedImage("moins de 8 octets") }
+        guard bytes.count >= 8 else { throw ImageError.malformedImage("fewer than 8 bytes") }
         var offset = 0
         var irom: FirmwareImage.Segment?
         switch bytes[0] {
         case 0xEA:
             format = .v2
-            guard bytes.count >= 16 else { throw ImageError.malformedImage("en-tête v2 tronqué") }
+            guard bytes.count >= 16 else { throw ImageError.malformedImage("v2 header truncated") }
             let length = Int(bytes.readLE32(at: 12))
-            guard 16 + length <= bytes.count else { throw ImageError.malformedImage("segment IROM tronqué") }
+            guard 16 + length <= bytes.count else { throw ImageError.malformedImage("IROM segment truncated") }
             irom = FirmwareImage.Segment(loadAddress: bytes.readLE32(at: 8), data: bytes.subdata(in: 16..<16 + length),
                                          region: .irom)
             offset = 16 + length
         case 0xE9:
             format = .v1
         default:
-            throw ImageError.malformedImage("magic 0x\(String(bytes[0], radix: 16)) inconnu pour l'ESP8266")
+            throw ImageError.malformedImage("unknown ESP8266 magic 0x\(String(bytes[0], radix: 16))")
         }
-        guard offset + 8 <= bytes.count, bytes[offset] == 0xE9 else { throw ImageError.malformedImage("en-tête 0xE9 absent") }
+        guard offset + 8 <= bytes.count, bytes[offset] == 0xE9 else { throw ImageError.malformedImage("missing 0xE9 header") }
         guard let mode = ChipImageTraits.mode(forCode: bytes[offset + 2]) else {
-            throw ImageError.malformedImage("mode flash \(bytes[offset + 2]) inconnu")
+            throw ImageError.malformedImage("unknown flash mode \(bytes[offset + 2])")
         }
         flashMode = mode
         rawSizeCode = bytes[offset + 3] >> 4
@@ -79,10 +79,10 @@ public struct ESP8266Image: Hashable, Sendable {
         offset += 8
         var segments: [FirmwareImage.Segment] = []
         for index in 0..<count {
-            guard offset + 8 <= bytes.count else { throw ImageError.malformedImage("en-tête du segment \(index) tronqué") }
+            guard offset + 8 <= bytes.count else { throw ImageError.malformedImage("segment \(index) header truncated") }
             let address = bytes.readLE32(at: offset)
             let length = Int(bytes.readLE32(at: offset + 4))
-            guard offset + 8 + length <= bytes.count else { throw ImageError.malformedImage("segment \(index) tronqué") }
+            guard offset + 8 + length <= bytes.count else { throw ImageError.malformedImage("segment \(index) truncated") }
             segments.append(.init(loadAddress: address, data: bytes.subdata(in: offset + 8..<offset + 8 + length),
                                   region: traits.region(of: address)))
             offset += 8 + length
@@ -90,7 +90,7 @@ public struct ESP8266Image: Hashable, Sendable {
         self.segments = segments
         iromSegment = irom
         let checksumOffset = FirmwareImage.checksumOffset(after: offset)
-        guard checksumOffset < bytes.count else { throw ImageError.malformedImage("somme de contrôle absente") }
+        guard checksumOffset < bytes.count else { throw ImageError.malformedImage("missing checksum") }
         var parsed = Parsed(storedChecksum: bytes[checksumOffset])
         if format == .v2, checksumOffset + 5 <= bytes.count {
             parsed.storedCRC = bytes.readLE32(at: checksumOffset + 1)
@@ -117,16 +117,16 @@ public struct ESP8266Image: Hashable, Sendable {
         return ImageValidation(issues: issues)
     }
 
-    /// Pour la v1, seulement le fichier « 0x00000.bin » : le code IROM est un fichier brut à part.
+    /// For v1, only the "0x00000.bin" file: the IROM code is a separate raw file.
     public func serialized() throws -> Data {
         let traits = ChipImageTraits(.esp8266)
         var size = rawSizeCode, frequency = rawFrequencyCode
         if let flashSize {
-            guard let code = traits.code(for: flashSize) else { throw ImageError.invalidHeaderSetting("taille \(flashSize)") }
+            guard let code = traits.code(for: flashSize) else { throw ImageError.invalidHeaderSetting("size \(flashSize)") }
             size = code
         }
         if let flashFrequency {
-            guard let code = traits.code(for: flashFrequency) else { throw ImageError.invalidHeaderSetting("fréquence \(flashFrequency)") }
+            guard let code = traits.code(for: flashFrequency) else { throw ImageError.invalidHeaderSetting("frequency \(flashFrequency)") }
             frequency = code
         }
         let flags = [ChipImageTraits.code(for: flashMode), size << 4 | frequency]
@@ -135,7 +135,7 @@ public struct ESP8266Image: Hashable, Sendable {
             out.append(contentsOf: [0xEA, 4] + flags)
             out.appendLE32(entryPoint)
             if let irom = iromSegment {
-                // Le segment IROM est rangé à l'adresse 0 et se termine sur 16 octets.
+                // The IROM segment is stored at address 0 and ends on a 16-byte boundary.
                 var code = irom.data
                 if code.count % 16 != 0 { code.append(Data(count: 16 - code.count % 16)) }
                 out.appendLE32(0)
@@ -162,20 +162,20 @@ public struct ESP8266Image: Hashable, Sendable {
         return value
     }
 
-    /// CRC des bootloaders récents du SDK ESP8266 : CRC-32 standard, complémenté si son bit
-    /// de poids fort est à 1, incrémenté sinon.
+    /// CRC used by recent ESP8266 SDK bootloaders: standard CRC-32, complemented if its top bit
+    /// is set, incremented otherwise.
     static func crc(_ data: Data) -> UInt32 {
         let crc = Zlib.crc32(data)
         return crc & 0x8000_0000 != 0 ? crc ^ 0xFFFF_FFFF : crc &+ 1
     }
 }
 
-/// Analyse un binaire sans connaître son format à l'avance (l'équivalent d'`image-info`).
+/// Parses a binary without knowing its format in advance (the equivalent of `image-info`).
 public enum AnyFirmwareImage: Hashable, Sendable {
     case esp32Family(FirmwareImage)
     case esp8266(ESP8266Image)
 
-    /// `chip` lève l'ambiguïté quand l'en-tête ne suffit pas (l'ESP8266 n'écrit pas d'ID de puce).
+    /// `chip` resolves the ambiguity when the header is not enough (the ESP8266 writes no chip ID).
     /// - Throws: `ImageError.malformedImage`.
     public init(parsing data: Data, chip: ChipFamily? = nil) throws {
         guard let first = data.first else { throw ImageError.malformedImage("fichier vide") }
@@ -187,7 +187,7 @@ public enum AnyFirmwareImage: Hashable, Sendable {
             self = .esp32Family(try FirmwareImage(parsing: data))
             return
         }
-        // Sans indice : l'en-tête étendu des puces ESP32 porte un ID connu et 4 octets réservés nuls.
+        // Without a hint: the extended header of ESP32 chips holds a known ID and 4 zero reserved bytes.
         let bytes = Data(data)
         if bytes.count >= 24, ChipFamily(imageChipID: bytes.readLE16(at: 12)) != nil,
            bytes[19..<23].allSatisfy({ $0 == 0 }), bytes[23] <= 1 {

@@ -5,19 +5,19 @@ import Crypto
 import _CryptoExtras
 import ESPTargets
 
-/// Reproduction hors ligne du chiffrement flash matériel : pour pré-chiffrer une image en usine,
-/// ou relire un dump chiffré.
+/// Offline reproduction of the hardware flash encryption: to pre-encrypt an image at the factory,
+/// or to read back an encrypted dump.
 public enum FlashEncryption {
     public enum Scheme: Hashable, Sendable, CustomStringConvertible {
-        /// ESP32 : AES-256 « inversé » avec une clé modifiée selon l'adresse ; `cryptConfig` est la
-        /// valeur de l'eFuse `FLASH_CRYPT_CONFIG` (4 bits, 0xF une fois le chiffrement activé).
+        /// ESP32: "inverted" AES-256 with a key tweaked by the address; `cryptConfig` is the
+        /// value of the `FLASH_CRYPT_CONFIG` eFuse (4 bits, 0xF once encryption is enabled).
         case esp32(cryptConfig: UInt8 = 0xF)
-        /// XTS-AES-128 : clé de 256 bits (deux clés AES-128).
+        /// XTS-AES-128: 256-bit key (two AES-128 keys).
         case xtsAES128
-        /// XTS-AES-256 : clé de 512 bits (deux clés AES-256).
+        /// XTS-AES-256: 512-bit key (two AES-256 keys).
         case xtsAES256
 
-        /// Schéma par défaut de la puce (`nil` si elle n'a pas de chiffrement flash).
+        /// The chip's default scheme (`nil` if it has no flash encryption).
         public static func `default`(for chip: ChipFamily) -> Scheme? {
             switch chip {
             case .esp8266: nil
@@ -47,8 +47,8 @@ public enum FlashEncryption {
         return Data((0..<scheme.keyLength).map { _ in UInt8.random(in: 0...255, using: &generator) })
     }
 
-    /// `address` = adresse flash où les données seront écrites (le chiffrement en dépend).
-    /// `address` et `data.count` doivent être des multiples de 16 (32 pour le schéma ESP32).
+    /// `address` = flash address where the data will be written (encryption depends on it).
+    /// `address` and `data.count` must be multiples of 16 (32 for the ESP32 scheme).
     /// - Throws: `FlashEncryptionError`.
     public static func encrypt(_ data: Data, at address: UInt32, key: Data, scheme: Scheme) throws -> Data {
         try transform(data, at: address, key: key, scheme: scheme, encrypt: true)
@@ -72,9 +72,9 @@ public enum FlashEncryption {
         }
     }
 
-    /// XTS par unités de 128 octets alignées : chaque unité est retournée octet par octet,
-    /// chiffrée en XTS avec le tweak `LE32(adresse de l'unité)` suivi de 12 zéros, puis retournée
-    /// à nouveau. Une unité incomplète est placée à sa position dans l'unité.
+    /// XTS over aligned 128-byte units: each unit is byte-reversed,
+    /// encrypted in XTS with the tweak `LE32(unit address)` followed by 12 zeros, then reversed
+    /// again. An incomplete unit is placed at its position within the unit.
     private static func xts(_ data: Data, at address: UInt32, key: Data, encrypt: Bool) throws -> Data {
         let half = key.count / 2
         let dataKey = SymmetricKey(data: key.prefix(half))
@@ -107,9 +107,9 @@ public enum FlashEncryption {
         return out
     }
 
-    /// Schéma ESP32. Par bloc de 32 octets, la clé AES-256 est modifiée selon l'adresse du bloc ;
-    /// chaque bloc de 16 octets est retourné, passé dans AES (déchiffrement pour chiffrer : le
-    /// matériel est « inversé »), puis retourné à nouveau.
+    /// ESP32 scheme. For each 32-byte block, the AES-256 key is tweaked by the block address;
+    /// each 16-byte block is reversed, run through AES (decryption to encrypt: the
+    /// hardware is "inverted"), then reversed again.
     private static func esp32(_ data: Data, at address: UInt32, key: Data, config: UInt8, encrypt: Bool) throws -> Data {
         var out = Data(capacity: data.count)
         for offset in stride(from: 0, to: data.count, by: 32) {
@@ -123,9 +123,9 @@ public enum FlashEncryption {
         return out
     }
 
-    /// Le bit n de la clé (bit de poids fort de l'octet 0 en premier) est inversé si le bit
-    /// `esp32TweakPattern[n]` de l'adresse vaut 1, pour les groupes de bits activés par
-    /// `FLASH_CRYPT_CONFIG` : le bit i de la config active le groupe i.
+    /// Key bit n (most significant bit of byte 0 first) is flipped if bit
+    /// `esp32TweakPattern[n]` of the address is 1, for the bit groups enabled by
+    /// `FLASH_CRYPT_CONFIG`: bit i of the config enables group i.
     static func tweakedKey(_ key: Data, address: UInt32, config: UInt8) -> Data {
         var bytes = [UInt8](key)
         let groups = [0, 67, 132, 195, 256]
@@ -137,8 +137,8 @@ public enum FlashEncryption {
         return Data(bytes)
     }
 
-    /// Bit d'adresse associé à chaque bit de clé : table matérielle de l'ESP32, reprise des
-    /// constantes d'espsecure (un fait sur le matériel, pas du code).
+    /// Address bit associated with each key bit: the ESP32 hardware table, taken from
+    /// espsecure's constants (a hardware fact, not code).
     static let esp32TweakPattern: [UInt32] = {
         let full: [UInt32] = Array((5...23).reversed())
         return full + full + full + Array((5...14).reversed())
@@ -147,7 +147,7 @@ public enum FlashEncryption {
             + full + full + full + Array((5...8).reversed())
     }()
 
-    /// Multiplication par α dans GF(2¹²⁸), convention XTS (little-endian, polynôme 0x87).
+    /// Multiplication by α in GF(2¹²⁸), XTS convention (little-endian, polynomial 0x87).
     private static func multiplyByAlpha(_ tweak: inout [UInt8]) {
         var carry: UInt8 = 0
         for i in 0..<16 {

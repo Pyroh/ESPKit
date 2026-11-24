@@ -10,7 +10,7 @@ private func issues(_ controller: EfuseController, _ plan: EfuseBurnPlan) async 
     do { _ = try await controller.preview(plan); return [] } catch EfuseError.planInvalid(let found) { return found } catch { return [] }
 }
 
-@Suite("Programmation des eFuses (virtuel)")
+@Suite("eFuse burning (virtual)")
 struct EfuseBurnTests {
     @Test func previewDoesNotBurn() async throws {
         let controller = EfuseController(virtual: .esp32s3)
@@ -30,18 +30,18 @@ struct EfuseBurnTests {
         _ = try await controller.burn(setup, confirm: .irreversible)
 
         var plan = EfuseBurnPlan()
-        plan.set(EfuseFieldName.ESP32S3.spiBootCryptCnt, to: .uint(1))      // 3 → 1 : bit à remettre à 0
-        plan.set("DIS_USB_JTAG", to: .bool(true))                            // protégé en écriture
-        plan.set("NOT_A_FIELD", to: .uint(1))                               // inconnu
-        plan.set("KEY_PURPOSE_3", to: .uint(99))                            // trop large (4 bits)
-        plan.writeKey(Data(count: 16), to: .key3, purpose: .user)           // longueur
-        plan.writeKey(Data(repeating: 1, count: 32), to: .key2, purpose: .user)   // bloc déjà utilisé
-        plan.writeKey(Data(repeating: 1, count: 32), to: .flashEncryption, purpose: .user)   // pas sur S3
-        plan.burnBits([256], in: 4)                                         // hors du bloc
-        plan.readProtect("DIS_ICACHE")                                      // pas de bit RD_DIS
+        plan.set(EfuseFieldName.ESP32S3.spiBootCryptCnt, to: .uint(1))      // 3 → 1: a bit would go back to 0
+        plan.set("DIS_USB_JTAG", to: .bool(true))                            // write-protected
+        plan.set("NOT_A_FIELD", to: .uint(1))                               // unknown
+        plan.set("KEY_PURPOSE_3", to: .uint(99))                            // too wide (4 bits)
+        plan.writeKey(Data(count: 16), to: .key3, purpose: .user)           // length
+        plan.writeKey(Data(repeating: 1, count: 32), to: .key2, purpose: .user)   // block already used
+        plan.writeKey(Data(repeating: 1, count: 32), to: .flashEncryption, purpose: .user)   // not on the S3
+        plan.burnBits([256], in: 4)                                         // outside the block
+        plan.readProtect("DIS_ICACHE")                                      // no RD_DIS bit
         let found = await issues(controller, plan)
         #expect(Set(found.map(\.operation)) == Set(0..<9), "\(found)")
-        // Rien n'a été brûlé.
+        // Nothing was burned.
         await #expect(throws: EfuseError.self) { _ = try await controller.burn(plan, confirm: .irreversible) }
         #expect(await controller.field("SPI_BOOT_CRYPT_CNT")?.value == .uint(3))
     }
@@ -56,7 +56,7 @@ struct EfuseBurnTests {
         #expect(report.steps.map(\.block) == [4, 3, 0, 0])
         #expect(report.steps.last?.postponed == true)
         #expect(report.steps.last?.changes.first?.newBits == 1)                // DIS_DOWNLOAD_MODE, bit 128
-        // La clé XTS est protégée en lecture : relue à zéro, affichée « ?? ».
+        // The XTS key is read-protected: read back as zeros, shown as "??".
         let key = try #require(await controller.field("BLOCK_KEY0"))
         #expect(key.isReadProtected && key.isWriteProtected)
         #expect(key.value == .bytes(Data(count: 32)))
@@ -90,7 +90,7 @@ struct EfuseBurnTests {
         (Data(repeating: 0xFF, count: 32), "13a36292597404257375e0aa"),
     ])
     func reedSolomonParityMatchesReference(data: Data, expected: String) {
-        // Références : reedsolo 1.7.0, RSCodec(12), paramètres par défaut.
+        // References: reedsolo 1.7.0, RSCodec(12), default parameters.
         #expect(ReedSolomon.parity(for: data).map { String(format: "%02x", $0) }.joined() == expected)
     }
 }

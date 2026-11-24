@@ -2,19 +2,19 @@
 
 import ESPTargets
 
-/// Zone mémoire d'un segment, d'après son adresse de chargement.
+/// Memory region of a segment, from its load address.
 public enum MemoryRegion: Hashable, Sendable, CustomStringConvertible {
-    /// Code mappé depuis la flash.
+    /// Code mapped from flash.
     case irom
-    /// Données en lecture seule mappées depuis la flash.
+    /// Read-only data mapped from flash.
     case drom
-    /// Bus unifié (C5, C6, C61, H2, P4) : code et données partagent la même plage.
+    /// Unified bus (C5, C6, C61, H2, P4): code and data share the same range.
     case flash
     case iram, dram
     case rtcFast, rtcSlow
-    /// RAM externe (PSRAM).
+    /// External RAM (PSRAM).
     case extram
-    /// Segment de remplissage à l'adresse 0.
+    /// Padding segment at address 0.
     case padding
 
     public var description: String {
@@ -31,11 +31,11 @@ public enum MemoryRegion: Hashable, Sendable, CustomStringConvertible {
         }
     }
 
-    /// Le segment est servi par le MMU depuis la flash : il doit être aligné sur la page.
+    /// The segment is served by the MMU from flash: it must be page-aligned.
     public var isFlashMapped: Bool { self == .irom || self == .drom || self == .flash }
 }
 
-/// Faits par puce nécessaires au format d'image : cartes mémoire, codes d'en-tête.
+/// Per-chip facts needed by the image format: memory maps, header codes.
 package struct ChipImageTraits: Sendable {
     package let chip: ChipFamily
 
@@ -47,8 +47,8 @@ package struct ChipImageTraits: Sendable {
         let region: MemoryRegion
     }
 
-    /// Plages mémoire, de la plus spécifique à la plus générale. `nil` : puce dont ESPKit
-    /// n'a pas encore la carte (H21, H4, S31, E22).
+    /// Memory ranges, from the most specific to the most general. `nil`: a chip whose map
+    /// ESPKit does not have yet (H21, H4, S31, E22).
     private var ranges: [Range]? {
         switch chip {
         case .esp8266:
@@ -107,7 +107,7 @@ package struct ChipImageTraits: Sendable {
         }
     }
 
-    /// Vrai si ESPKit sait construire des images pour cette puce.
+    /// True if ESPKit can build images for this chip.
     package var hasMemoryMap: Bool { ranges != nil }
 
     package func region(of address: UInt32) -> MemoryRegion? {
@@ -119,7 +119,7 @@ package struct ChipImageTraits: Sendable {
         region(of: address)?.isFlashMapped ?? false
     }
 
-    /// Tailles de page MMU possibles (en octets), la première étant celle par défaut.
+    /// Possible MMU page sizes (in bytes), the first being the default.
     package var mmuPageSizes: [Int] {
         switch chip {
         case .esp32c2: [0x1_0000, 0x8000, 0x4000]
@@ -128,7 +128,7 @@ package struct ChipImageTraits: Sendable {
         }
     }
 
-    // MARK: Codes d'en-tête
+    // MARK: Header codes
 
     package static func code(for mode: FlashMode) -> UInt8 {
         switch mode {
@@ -143,7 +143,7 @@ package struct ChipImageTraits: Sendable {
         FlashMode.allCases.first { Self.code(for: $0) == code }
     }
 
-    /// Code de taille (quartet haut de l'octet 3).
+    /// Size code (high nibble of byte 3).
     package func code(for size: FlashSize) -> UInt8? {
         sizeTable.first { $0.size == size }?.code
     }
@@ -161,8 +161,8 @@ package struct ChipImageTraits: Sendable {
                 (.mb32, 0x5), (.mb64, 0x6), (.mb128, 0x7)]
     }
 
-    /// Code de fréquence (quartet bas de l'octet 3). `nil` si la fréquence n'existe pas sur la
-    /// puce, ou si ESPKit n'a pas encore la table de cette puce (C5, C6, C61, P4, S31, E22).
+    /// Frequency code (low nibble of byte 3). `nil` if the frequency does not exist on the
+    /// chip, or if ESPKit does not have this chip's table yet (C5, C6, C61, P4, S31, E22).
     package func code(for frequency: FlashFrequency) -> UInt8? {
         frequencyTable?[frequency]
     }
@@ -184,7 +184,7 @@ package struct ChipImageTraits: Sendable {
         }
     }
 
-    /// Identifiant de famille UF2 (registre Microsoft `uf2families.json`).
+    /// UF2 family ID (Microsoft's `uf2families.json` registry).
     package var uf2FamilyID: UInt32? {
         switch chip {
         case .esp8266: 0x7EAB_61ED

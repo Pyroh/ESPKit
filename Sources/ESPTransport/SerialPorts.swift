@@ -5,9 +5,9 @@ import Foundation
 import IOKit
 #endif
 
-/// Un port série présent sur la machine.
+/// A serial port present on the machine.
 public struct SerialPortInfo: Hashable, Sendable {
-    /// Par exemple « /dev/cu.usbmodem1101 ».
+    /// For example "/dev/cu.usbmodem1101".
     public var path: String
     public var usb: USBIdentity?
 
@@ -17,7 +17,7 @@ public struct SerialPortInfo: Hashable, Sendable {
     }
 }
 
-/// Critères de choix d'un port. Un critère `nil` est ignoré.
+/// Port selection criteria. A `nil` criterion is ignored.
 public struct PortFilter: Hashable, Sendable {
     public var vendorID: UInt16?
     public var productID: UInt16?
@@ -44,7 +44,7 @@ public struct PortFilter: Hashable, Sendable {
 }
 
 public enum SerialPorts {
-    /// Ports série présents (macOS : IOKit ; Linux : sysfs). Ne les ouvre pas.
+    /// Serial ports present (macOS: IOKit; Linux: sysfs). Does not open them.
     public static func available() throws -> [SerialPortInfo] {
         #if canImport(IOKit)
         try availableFromIOKit()
@@ -72,7 +72,7 @@ extension SerialPorts {
         var ports: [SerialPortInfo] = []
         while case let service = IOIteratorNext(iterator), service != 0 {
             defer { IOObjectRelease(service) }
-            // Le périphérique « callout » (/dev/cu.*) n'attend pas la porteuse, contrairement à /dev/tty.*.
+            // The "callout" device (/dev/cu.*) does not wait for carrier, unlike /dev/tty.*.
             guard let path = property(service, "IOCalloutDevice", searchParents: false) as? String else { continue }
             ports.append(SerialPortInfo(path: path, usb: usbIdentity(of: service)))
         }
@@ -104,7 +104,7 @@ extension SerialPorts {
 
 #if os(Linux)
 extension SerialPorts {
-    /// Parcourt /sys/class/tty : seuls les ports adossés à un périphérique réel sont rendus.
+    /// Walks /sys/class/tty: only ports backed by a real device are returned.
     private static func availableFromSysfs() -> [SerialPortInfo] {
         let fileManager = FileManager.default
         let root = URL(fileURLWithPath: "/sys/class/tty")
@@ -115,8 +115,8 @@ extension SerialPorts {
             guard let device = try? fileManager.destinationOfSymbolicLink(atPath: deviceLink.path) else { continue }
             let deviceURL = URL(fileURLWithPath: device, relativeTo: deviceLink.deletingLastPathComponent())
                 .standardizedFileURL
-            // Les ports 8250 sans matériel derrière apparaissent aussi : on ne garde que USB et ACM,
-            // plus les UART dont le pilote n'est pas « serial8250 ».
+            // 8250 ports with no hardware behind them show up too: keep only USB and ACM,
+            // plus UARTs whose driver is not "serial8250".
             let isUSB = name.hasPrefix("ttyUSB") || name.hasPrefix("ttyACM")
             if !isUSB {
                 let driver = (try? fileManager.destinationOfSymbolicLink(atPath: deviceURL.appendingPathComponent("driver").path))
@@ -127,7 +127,7 @@ extension SerialPorts {
         return ports.sorted { $0.path < $1.path }
     }
 
-    /// Remonte l'arborescence sysfs jusqu'au nœud USB qui porte idVendor/idProduct.
+    /// Walks up the sysfs tree to the USB node that holds idVendor/idProduct.
     private static func usbIdentity(startingAt start: URL) -> USBIdentity? {
         var directory = start
         for _ in 0..<6 {

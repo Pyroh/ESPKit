@@ -8,10 +8,10 @@ import Darwin
 import Glibc
 #endif
 
-/// Port série POSIX (`/dev/cu.*` sur macOS, `/dev/ttyUSB*` ou `/dev/ttyACM*` sur Linux).
+/// POSIX serial port (`/dev/cu.*` on macOS, `/dev/ttyUSB*` or `/dev/ttyACM*` on Linux).
 ///
-/// Les appels système bloquants (`poll`, `read`, `write`) tournent sur une file dédiée : ils
-/// n'occupent jamais un fil du pool coopératif de Swift Concurrency.
+/// Blocking system calls (`poll`, `read`, `write`) run on a dedicated queue: they never
+/// occupy a thread of the Swift Concurrency cooperative pool.
 public actor SerialPort: Transport {
     public nonisolated let path: String
     public nonisolated let usbIdentity: USBIdentity?
@@ -19,8 +19,8 @@ public actor SerialPort: Transport {
     private var descriptor: Int32 = -1
     private let io: DispatchQueue
 
-    /// Ne fait pas d'I/O : le port s'ouvre avec `open()`.
-    /// L'identité USB est relevée ici, à partir de la liste des ports présents.
+    /// Performs no I/O: the port opens with `open()`.
+    /// The USB identity is looked up here, from the list of present ports.
     public init(path: String) {
         self.path = path
         self.usbIdentity = (try? SerialPorts.available())?.first(where: { $0.path == path })?.usb
@@ -80,7 +80,7 @@ public actor SerialPort: Transport {
         }
     }
 
-    // MARK: Implémentation
+    // MARK: Implementation
 
     private func openDescriptor() throws -> Int32 {
         guard descriptor >= 0 else { throw TransportError.closed }
@@ -109,7 +109,7 @@ public actor SerialPort: Transport {
             throw code == EBUSY ? TransportError.portBusy(path: path) : TransportError.openFailed(path: path, errno: code)
         }
         do {
-            // Accès exclusif : un second `open` échouera avec EBUSY.
+            // Exclusive access: a second `open` fails with EBUSY.
             guard ioctl(fd, PortIoctl.exclusive) == 0 else {
                 throw errno == EBUSY ? TransportError.portBusy(path: path) : ioError()
             }
@@ -117,7 +117,7 @@ public actor SerialPort: Transport {
             guard tcgetattr(fd, &options) == 0 else { throw ioError() }
             cfmakeraw(&options)
             options.c_cflag |= tcflag_t(CLOCAL) | tcflag_t(CREAD)
-            // Les constantes n'ont pas le même type selon le système (CRTSCTS est non signé sous Linux).
+            // The constants have different types per system (CRTSCTS is unsigned on Linux).
             options.c_cflag &= ~(tcflag_t(CRTSCTS) | tcflag_t(CSTOPB) | tcflag_t(PARENB))
             withUnsafeMutableBytes(of: &options.c_cc) { cc in
                 cc[Int(VMIN)] = 0
@@ -136,7 +136,7 @@ public actor SerialPort: Transport {
     static func applyBaudRate(_ rate: Int, fd: Int32) throws {
         guard rate > 0 else { throw TransportError.unsupportedBaudRate(rate) }
         #if canImport(Darwin)
-        // IOSSIOSPEED accepte n'importe quel débit, standard ou non.
+        // IOSSIOSPEED accepts any baud rate, standard or not.
         var speed = speed_t(rate)
         guard ioctl(fd, PortIoctl.setSpeed, &speed) == 0 else {
             throw errno == EINVAL ? TransportError.unsupportedBaudRate(rate) : ioError()
@@ -155,7 +155,7 @@ public actor SerialPort: Transport {
     }
 
     #if !canImport(Darwin)
-    /// Débits standard sous Linux, posés par l'API termios classique.
+    /// Standard baud rates on Linux, set through the classic termios API.
     private static func standardSpeed(_ rate: Int) -> speed_t? {
         switch rate {
         case 9_600: speed_t(B9600)
@@ -172,7 +172,7 @@ public actor SerialPort: Transport {
         }
     }
 
-    /// Débit quelconque : termios2 avec BOTHER, la vitesse est donnée en clair.
+    /// Arbitrary baud rate: termios2 with BOTHER, the speed is given as a plain number.
     private static func applyArbitraryBaudRate(_ rate: Int, fd: Int32) throws {
         guard rate <= Int(UInt32.max) else { throw TransportError.unsupportedBaudRate(rate) }
         var options = Termios2()
@@ -188,7 +188,7 @@ public actor SerialPort: Transport {
         }
     }
 
-    /// Lit le débit effectivement posé (tests).
+    /// Reads back the baud rate actually set (for tests).
     static func currentBaudRate(fd: Int32) throws -> Int {
         var options = Termios2()
         let status = withUnsafeMutablePointer(to: &options) { ioctl(fd, PortIoctl.getTermios2, $0) }
@@ -247,15 +247,15 @@ public actor SerialPort: Transport {
     private static func ioError() -> TransportError { .ioFailed(errno: errno) }
 }
 
-// MARK: - Appels système
+// MARK: - System calls
 
-// Les noms POSIX `open`, `close`, `read` et `write` sont masqués par les méthodes de l'acteur.
+// The POSIX names `open`, `close`, `read` and `write` are shadowed by the actor's methods.
 private func systemOpen(_ path: String, _ flags: Int32) -> Int32 { open(path, flags) }
 private func systemClose(_ fd: Int32) -> Int32 { close(fd) }
 private func systemRead(_ fd: Int32, _ buffer: UnsafeMutableRawPointer?, _ count: Int) -> Int { read(fd, buffer, count) }
 private func systemWrite(_ fd: Int32, _ buffer: UnsafeRawPointer, _ count: Int) -> Int { write(fd, buffer, count) }
 
-/// Requêtes `ioctl` des ports série. Les macros `_IOR`/`_IOW` ne sont pas importées en Swift.
+/// Serial port `ioctl` requests. The `_IOR`/`_IOW` macros are not imported into Swift.
 private enum PortIoctl {
     #if canImport(Darwin)
     static let exclusive: UInt = 0x2000_740D        // TIOCEXCL   = _IO('t', 13)
@@ -274,7 +274,7 @@ private enum PortIoctl {
 }
 
 #if !canImport(Darwin)
-/// `struct termios2` du noyau Linux (x86-64, arm64 : 44 octets), absente des en-têtes de la glibc.
+/// The Linux kernel's `struct termios2` (x86-64, arm64: 44 bytes), missing from the glibc headers.
 struct Termios2 {
     var c_iflag: UInt32 = 0
     var c_oflag: UInt32 = 0
@@ -289,7 +289,7 @@ struct Termios2 {
 
     static let cbaud: UInt32 = 0o010017
     static let bother: UInt32 = 0o010000
-    /// Les bits du débit d'entrée sont décalés de 16 (IBSHIFT).
+    /// The input baud rate bits are shifted by 16 (IBSHIFT).
     static let inputShift: UInt32 = 16
 }
 #endif

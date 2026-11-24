@@ -2,17 +2,17 @@
 
 import Foundation
 
-/// Opération longue sur la puce : écrire, lire, vérifier, effacer.
+/// Long-running operation on the chip: write, read, verify, erase.
 ///
-/// L'opération est **froide** : rien n'est envoyé à la puce avant qu'on la parcoure
-/// ou qu'on attende `value`, et chaque parcours la relance.
-/// Elle s'exécute dans l'isolation de l'`ESPDevice`, donc à la suite des autres opérations.
+/// The operation is **cold**: nothing is sent to the chip until it is iterated
+/// or `value` is awaited, and each iteration runs it again.
+/// It runs in the isolation of the `ESPDevice`, so after the other operations.
 ///
-/// - Annuler la tâche qui parcourt, ou sortir de la boucle, arrête l'opération au bloc suivant ;
-///   l'itération lève alors `CancellationError`.
-/// - Les événements `.progress` ne bloquent jamais le transfert : si le consommateur est plus
-///   lent que la puce, seule la progression la plus récente est conservée. `.finished` n'est
-///   jamais perdu.
+/// - Cancelling the iterating task, or leaving the loop, stops the operation at the next block;
+///   the iteration then throws `CancellationError`.
+/// - `.progress` events never block the transfer: if the consumer is slower than the chip,
+///   only the most recent progress is kept. `.finished` is never
+///   lost.
 public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
     public typealias Element = ESPOperationEvent<Success>
     public typealias Failure = any Error
@@ -23,13 +23,13 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         self.body = body
     }
 
-    /// Exécute l'opération jusqu'au bout sans suivre la progression.
+    /// Runs the operation to completion without following its progress.
     public var value: Success {
         get async throws { try await body(ProgressSink.discarding) }
     }
 
-    /// Progression seule. Le résultat est jeté : à utiliser quand `Success == Void`
-    /// ou quand on lit le résultat ailleurs.
+    /// Progress only. The result is discarded: use it when `Success == Void`
+    /// or when the result is read elsewhere.
     public var progress: some AsyncSequence<OperationProgress, any Error> & Sendable {
         ProgressOnly(operation: self)
     }
@@ -41,7 +41,7 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         let task = Task {
             do {
                 let value = try await body(ProgressSink(continuation))
-                // Avec un tampon d'un élément, `.finished` remplace une progression non lue.
+                // With a one-element buffer, `.finished` replaces any unread progress.
                 continuation.yield(.finished(value))
                 continuation.finish()
             } catch {
@@ -63,11 +63,11 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
             try await next(isolation: nil)
         }
 
-        /// Les événements arrivent dans l'isolation de l'appelant (le main actor pour une UI).
+        /// Events arrive in the caller's isolation (the main actor for a UI).
         public mutating func next(isolation actor: isolated (any Actor)?) async throws(any Error) -> Element? {
             guard !finished else { return nil }
-            // Une tâche annulée lève toujours CancellationError, même si l'opération a eu le temps
-            // de se terminer : l'appelant n'attend plus son résultat.
+            // A cancelled task always throws CancellationError, even if the operation had time
+            // to finish: the caller no longer waits for its result.
             if Task.isCancelled {
                 finished = true
                 throw CancellationError()
@@ -79,7 +79,7 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
             case .progress:
                 break
             case nil:
-                // Flux terminé sans résultat : l'appelant a été annulé.
+                // Stream finished without a result: the caller was cancelled.
                 finished = true
                 throw CancellationError()
             }
@@ -90,7 +90,7 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
 
 public enum ESPOperationEvent<Success: Sendable>: Sendable {
     case progress(OperationProgress)
-    /// Toujours le dernier événement d'un parcours qui réussit.
+    /// Always the last event of a successful iteration.
     case finished(Success)
 }
 
@@ -116,7 +116,7 @@ public struct OperationProgress: Hashable, Sendable {
     }
 }
 
-/// Destination des événements de progression ; vide quand on attend `value`.
+/// Destination of progress events; empty when awaiting `value`.
 struct ProgressSink: Sendable {
     private let yieldProgress: (@Sendable (OperationProgress) -> Void)?
 
@@ -126,7 +126,7 @@ struct ProgressSink: Sendable {
 
     private init() { yieldProgress = nil }
 
-    /// Ne transmet rien : pour `value`.
+    /// Forwards nothing: for `value`.
     static let discarding = ProgressSink()
 
     func report(_ progress: OperationProgress) {
@@ -134,7 +134,7 @@ struct ProgressSink: Sendable {
     }
 }
 
-/// Vue « progression seule » d'une opération.
+/// "Progress only" view of an operation.
 private struct ProgressOnly<Success: Sendable>: AsyncSequence, Sendable {
     typealias Element = OperationProgress
     typealias Failure = any Error

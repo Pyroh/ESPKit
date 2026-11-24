@@ -6,7 +6,7 @@ import ESPTargets
 import ESPTransport
 @testable import ESPDevice
 
-/// Options de la phase 0 : ROM seule, débit initial.
+/// Phase 0 options: ROM only, initial baud rate.
 private func romOnly() -> ConnectOptions {
     var options = ConnectOptions()
     options.stub = .romOnly
@@ -14,7 +14,7 @@ private func romOnly() -> ConnectOptions {
     return options
 }
 
-@Suite("ESPDevice sur puce simulée")
+@Suite("ESPDevice on a simulated chip")
 struct ESPDeviceTests {
     @Test func connectsToESP32ByMagicValue() async throws {
         let chip = SimulatedChip.esp32()
@@ -34,9 +34,9 @@ struct ESPDeviceTests {
         #expect(flash.deviceID == 0x4016)
         #expect(flash.jedecID == 0x16_40EF)
         #expect(flash.detectedSize == .mb4)
-        // La ROM ESP32 attend 8 octets pour SPI_ATTACH.
+        // The ESP32 ROM expects 8 bytes for SPI_ATTACH.
         #expect(await chip.attachPayloads == [Data(count: 8)])
-        // USR et USR2 sont restaurés après la transaction.
+        // USR and USR2 are restored after the transaction.
         let writes = await chip.registerWrites
         #expect(writes.last?.address == 0x3FF4_2024)
     }
@@ -58,10 +58,10 @@ struct ESPDeviceTests {
         #expect(try await esp.macAddress().description == "34:85:C4:12:34:56")
         #expect(try await esp.flashInfo().detectedSize == .mb16)
 
-        // Séquence USB-Serial-JTAG : commence par RTS puis DTR relâchés, séparément.
+        // USB-Serial-JTAG sequence: starts with RTS then DTR released, separately.
         let lines = await chip.lineChanges
         #expect(lines.first?.rts == false && lines.first?.dtr == nil)
-        // Watchdog RTC neutralisé, super-watchdog en alimentation automatique.
+        // RTC watchdog disabled, super watchdog on auto-feed.
         let writes = await chip.registerWrites
         #expect(writes.contains { $0.address == 0x6000_8098 && $0.value == 0 })
         #expect(writes.contains { $0.address == 0x6000_80B4 && $0.value == 0x8000_0001 })
@@ -77,7 +77,7 @@ struct ESPDeviceTests {
 
     @Test func retriesSyncAcrossAttempts() async throws {
         let chip = SimulatedChip.esp32()
-        await chip.ignoreSyncs(7)    // 5 SYNC par tentative : il faut la deuxième
+        await chip.ignoreSyncs(7)    // 5 SYNCs per attempt: the second attempt is needed
         let esp = try await ESPDevice.connect(chip, options: romOnly())
         #expect(esp.chip == .esp32)
     }

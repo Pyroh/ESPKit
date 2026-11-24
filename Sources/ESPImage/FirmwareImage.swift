@@ -4,7 +4,7 @@ import Foundation
 import ESPSupport
 import ESPTargets
 
-/// Force de sortie des broches SPI de la flash (0 à 15 par broche), dans l'en-tête étendu.
+/// Output drive strength of the SPI flash pins (0 to 15 per pin), in the extended header.
 public struct SPIPinDrive: Hashable, Sendable {
     public var clk: UInt8 = 0
     public var q: UInt8 = 0
@@ -18,21 +18,21 @@ public struct SPIPinDrive: Hashable, Sendable {
     }
 }
 
-/// Image applicative ou bootloader au format ESP32 (en-tête 0xE9 + en-tête étendu).
+/// Application or bootloader image in the ESP32 format (0xE9 header + extended header).
 public struct FirmwareImage: Hashable, Sendable {
-    /// Déduit de l'en-tête étendu ; `nil` si l'ID de puce est inconnu.
+    /// Deduced from the extended header; `nil` if the chip ID is unknown.
     public var chip: ChipFamily?
     public var entryPoint: UInt32
     public var flashMode: FlashMode
-    /// `nil` si le code d'en-tête n'est pas connu pour la puce.
+    /// `nil` if the header code is unknown for the chip.
     public var flashFrequency: FlashFrequency?
     public var flashSize: FlashSize?
-    /// Segments dans l'ordre du fichier.
+    /// Segments in file order.
     public var segments: [Segment]
     public var extendedHeader: ExtendedHeader
     public var appDescription: AppDescription?
     public var bootloaderDescription: BootloaderDescription?
-    /// Remplissage final par 0xFF jusqu'à un multiple de cette taille (`--pad-to-size`).
+    /// Final 0xFF padding up to a multiple of this size (`--pad-to-size`).
     public var padToMultipleOf: Int?
 
     public struct Segment: Hashable, Sendable {
@@ -48,15 +48,15 @@ public struct FirmwareImage: Hashable, Sendable {
     }
 
     public struct ExtendedHeader: Hashable, Sendable {
-        /// 0xEE : broche WP désactivée.
+        /// 0xEE: WP pin disabled.
         public var wpPin: UInt8 = 0xEE
         public var spiPinDrive = SPIPinDrive()
-        /// ID de puce brut (`ChipFamily.imageChipID`).
+        /// Raw chip ID (`ChipFamily.imageChipID`).
         public var chipID: UInt16
         public var minRevision: ChipRevision
         public var maxRevision: ChipRevision
         public var hashAppended: Bool
-        /// Ancien champ de révision minimale, sur un octet (majeur seulement).
+        /// Legacy one-byte minimum revision field (major only).
         public var legacyMinRevision: UInt8 = 0
 
         public init(chipID: UInt16, minRevision: ChipRevision = .init(major: 0, minor: 0),
@@ -68,10 +68,10 @@ public struct FirmwareImage: Hashable, Sendable {
         }
     }
 
-    /// Codes d'en-tête conservés quand la puce ou le code ne se décode pas.
+    /// Header codes kept when the chip or the code does not decode.
     var rawSizeCode: UInt8 = 0
     var rawFrequencyCode: UInt8 = 0
-    /// Ce qu'on a lu dans le fichier, pour `validate()`.
+    /// What was read from the file, for `validate()`.
     private var parsed: ParsedFooter?
 
     private struct ParsedFooter: Hashable, Sendable {
@@ -95,14 +95,14 @@ public struct FirmwareImage: Hashable, Sendable {
         self.bootloaderDescription = segments.first.flatMap { BootloaderDescription(data: $0.data) }
     }
 
-    /// Analyse sans valider les sommes : voir `validate()`.
+    /// Parses without checking the checksums: see `validate()`.
     /// - Throws: `ImageError.malformedImage`.
     public init(parsing data: Data) throws {
         let bytes = Data(data)
-        guard bytes.count >= 24 else { throw ImageError.malformedImage("moins de 24 octets") }
-        guard bytes[0] == 0xE9 else { throw ImageError.malformedImage("magic 0x\(String(bytes[0], radix: 16)) au lieu de 0xE9") }
+        guard bytes.count >= 24 else { throw ImageError.malformedImage("fewer than 24 bytes") }
+        guard bytes[0] == 0xE9 else { throw ImageError.malformedImage("magic 0x\(String(bytes[0], radix: 16)) instead of 0xE9") }
         guard let mode = ChipImageTraits.mode(forCode: bytes[2]) else {
-            throw ImageError.malformedImage("mode flash \(bytes[2]) inconnu")
+            throw ImageError.malformedImage("unknown flash mode \(bytes[2])")
         }
         var header = ExtendedHeader(chipID: bytes.readLE16(at: 12),
                                     minRevision: ChipRevision(encoded: bytes.readLE16(at: 15)),
@@ -118,16 +118,16 @@ public struct FirmwareImage: Hashable, Sendable {
         var offset = 24
         var segments: [Segment] = []
         for index in 0..<Int(bytes[1]) {
-            guard offset + 8 <= bytes.count else { throw ImageError.malformedImage("en-tête du segment \(index) tronqué") }
+            guard offset + 8 <= bytes.count else { throw ImageError.malformedImage("segment \(index) header truncated") }
             let address = bytes.readLE32(at: offset)
             let length = Int(bytes.readLE32(at: offset + 4))
-            guard offset + 8 + length <= bytes.count else { throw ImageError.malformedImage("segment \(index) tronqué") }
+            guard offset + 8 + length <= bytes.count else { throw ImageError.malformedImage("segment \(index) truncated") }
             segments.append(Segment(loadAddress: address, data: bytes.subdata(in: offset + 8..<offset + 8 + length),
                                     region: traits?.region(of: address)))
             offset += 8 + length
         }
         let checksumOffset = Self.checksumOffset(after: offset)
-        guard checksumOffset < bytes.count else { throw ImageError.malformedImage("somme de contrôle absente") }
+        guard checksumOffset < bytes.count else { throw ImageError.malformedImage("missing checksum") }
 
         self.chip = chip
         self.entryPoint = bytes.readLE32(at: 4)
@@ -153,7 +153,7 @@ public struct FirmwareImage: Hashable, Sendable {
         parsed = ParsedFooter(storedChecksum: bytes[checksumOffset], digestMatches: digestMatches)
     }
 
-    /// Contrôles : somme de contrôle, SHA-256, chevauchements, alignement MMU des segments flash.
+    /// Checks: checksum, SHA-256, overlaps, MMU alignment of flash segments.
     public func validate() -> ImageValidation {
         var issues: [ImageValidation.Issue] = []
         if let parsed {
@@ -179,8 +179,8 @@ public struct FirmwareImage: Hashable, Sendable {
         return ImageValidation(issues: issues)
     }
 
-    /// Resérialise en recalculant somme de contrôle et SHA-256.
-    /// - Throws: `ImageError.invalidHeaderSetting` si la puce ne sait pas encoder les réglages flash.
+    /// Serializes again, recomputing the checksum and the SHA-256.
+    /// - Throws: `ImageError.invalidHeaderSetting` if the chip cannot encode the flash settings.
     public func serialized() throws -> Data {
         var out = Data([0xE9, UInt8(clamping: segments.count), ChipImageTraits.code(for: flashMode),
                         try sizeFrequencyByte()])
@@ -209,7 +209,7 @@ public struct FirmwareImage: Hashable, Sendable {
         return out
     }
 
-    /// XOR des données de tous les segments, valeur initiale 0xEF.
+    /// XOR of every segment's data, seeded with 0xEF.
     var checksum: UInt8 {
         var value: UInt8 = 0xEF
         for segment in segments { for byte in segment.data { value ^= byte } }
@@ -222,13 +222,13 @@ public struct FirmwareImage: Hashable, Sendable {
             let traits = ChipImageTraits(chip)
             if let flashSize {
                 guard let code = traits.code(for: flashSize) else {
-                    throw ImageError.invalidHeaderSetting("taille \(flashSize) non encodable pour \(chip)")
+                    throw ImageError.invalidHeaderSetting("size \(flashSize) cannot be encoded for \(chip)")
                 }
                 size = code
             }
             if let flashFrequency {
                 guard let code = traits.code(for: flashFrequency) else {
-                    throw ImageError.invalidHeaderSetting("fréquence \(flashFrequency) non encodable pour \(chip)")
+                    throw ImageError.invalidHeaderSetting("frequency \(flashFrequency) cannot be encoded for \(chip)")
                 }
                 frequency = code
             }
@@ -236,8 +236,8 @@ public struct FirmwareImage: Hashable, Sendable {
         return size << 4 | frequency & 0xF
     }
 
-    /// Position de l'octet de somme de contrôle : la fin des segments complétée par des zéros
-    /// pour que l'octet suivant tombe sur un multiple de 16.
+    /// Position of the checksum byte: the end of the segments, padded with zeros
+    /// so that the next byte falls on a multiple of 16.
     static func checksumOffset(after offset: Int) -> Int {
         (offset + 16) / 16 * 16 - 1
     }
@@ -250,7 +250,7 @@ public struct FirmwareImage: Hashable, Sendable {
     }
 }
 
-/// Structure `esp_app_desc_t` d'ESP-IDF, en tête du premier segment de données en flash.
+/// ESP-IDF's `esp_app_desc_t` structure, at the start of the first flash data segment.
 public struct AppDescription: Hashable, Sendable {
     public static let magic: UInt32 = 0xABCD_5432
 
@@ -263,7 +263,7 @@ public struct AppDescription: Hashable, Sendable {
     public var elfSHA256: Data
     public var minEfuseBlockRevision: ChipRevision
     public var maxEfuseBlockRevision: ChipRevision
-    /// Taille de page MMU déclarée par l'application (ESP-IDF ≥ 5.4), en octets.
+    /// MMU page size declared by the application (ESP-IDF ≥ 5.4), in bytes.
     public var mmuPageSize: Int?
 
     init?(data: Data) {
@@ -294,7 +294,7 @@ public struct AppDescription: Hashable, Sendable {
     }
 }
 
-/// Structure `esp_bootloader_desc_t` d'ESP-IDF, en tête du premier segment du bootloader.
+/// ESP-IDF's `esp_bootloader_desc_t` structure, at the start of the bootloader's first segment.
 public struct BootloaderDescription: Hashable, Sendable {
     public static let magic: UInt8 = 0x50
 

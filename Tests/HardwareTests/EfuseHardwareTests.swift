@@ -4,19 +4,19 @@ import Foundation
 import Testing
 import ESPKit
 
-// Jalon de la phase 4 : lire les eFuses sur la carte et obtenir le même résumé qu'espefuse.
-// ESPKIT_EFUSE_REFERENCES désigne un dossier avec `summary-<puce>.json` et `dump-<puce>.txt`
-// relevés par espefuse sur les mêmes cartes (lecture seule).
+// Phase 4 milestone: read the eFuses on the board and get the same summary as espefuse.
+// ESPKIT_EFUSE_REFERENCES names a folder with `summary-<chip>.json` and `dump-<chip>.txt`
+// taken by espefuse from the same boards (read-only).
 
 private let environment = ProcessInfo.processInfo.environment
 private let references = environment["ESPKIT_EFUSE_REFERENCES"].map { URL(fileURLWithPath: $0) }
 
-@Suite("eFuses sur carte", .serialized)
+@Suite("eFuses on a board", .serialized)
 struct EfuseHardwareTests {
-    @Test("ESP32 : eFuses identiques à espefuse", .enabled(if: environment["ESPKIT_PORT_ESP32"] != nil && references != nil))
+    @Test("ESP32: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_ESP32"] != nil && references != nil))
     func esp32() async throws { try await compare(port: environment["ESPKIT_PORT_ESP32"]!, chip: .esp32) }
 
-    @Test("ESP32-S3 : eFuses identiques à espefuse", .enabled(if: environment["ESPKIT_PORT_S3"] != nil && references != nil))
+    @Test("ESP32-S3: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_S3"] != nil && references != nil))
     func s3() async throws { try await compare(port: environment["ESPKIT_PORT_S3"]!, chip: .esp32s3) }
 }
 
@@ -29,7 +29,7 @@ private func compare(port: String, chip: ChipFamily) async throws {
 
     let summary = await efuses.summaryJSON()
     let expected = try Data(contentsOf: references!.appendingPathComponent("summary-\(chip.rawValue).json"))
-    #expect(summary == expected, "résumé différent de celui d'espefuse")
+    #expect(summary == expected, "summary differs from espefuse's")
 
     let dump = try String(contentsOf: references!.appendingPathComponent("dump-\(chip.rawValue).txt"), encoding: .utf8)
     let words = dump.split(separator: "\n").compactMap { line -> [UInt32]? in
@@ -39,5 +39,5 @@ private func compare(port: String, chip: ChipFamily) async throws {
     #expect(await efuses.blocks().map(\.words) == words)
     #expect(await efuses.codingErrors().isEmpty)
     let mac = try #require(await efuses.field("MAC"))
-    print("\(chip) : \(await efuses.fields().count) champs, MAC \(mac.displayValue), calibration \(await efuses.adcCalibration().map { "v\($0.blockVersion ?? 0), \($0.values.count) valeurs" } ?? "—")")
+    print("\(chip): \(await efuses.fields().count) fields, MAC \(mac.displayValue), calibration \(await efuses.adcCalibration().map { "v\($0.blockVersion ?? 0), \($0.values.count) values" } ?? "—")")
 }

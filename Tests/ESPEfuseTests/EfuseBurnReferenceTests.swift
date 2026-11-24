@@ -6,8 +6,8 @@ import ESPSecure
 import ESPTargets
 @testable import ESPEfuse
 
-// Scénarios de programmation comparés à espefuse --virt (Tools/oracle/make-burn-references.sh).
-// ESPKIT_BURN_REFERENCES désigne le dossier : final-<puce>.json, dump-<puce>.txt, key-ecdsa256.pem.
+// Burn scenarios compared with espefuse --virt (Tools/oracle/make-burn-references.sh).
+// ESPKIT_BURN_REFERENCES names the folder: final-<chip>.json, dump-<chip>.txt, key-ecdsa256.pem.
 
 private let folder = ProcessInfo.processInfo.environment["ESPKIT_BURN_REFERENCES"].map { URL(fileURLWithPath: $0) }
 
@@ -36,7 +36,7 @@ private func esp32Plan() -> EfuseBurnPlan {
     return plan
 }
 
-@Suite("Programmation comparée à espefuse --virt", .enabled(if: folder != nil))
+@Suite("Burning compared with espefuse --virt", .enabled(if: folder != nil))
 struct EfuseBurnReferenceTests {
     @Test(arguments: [ChipFamily.esp32, .esp32s3])
     func scenarioMatchesEspefuse(chip: ChipFamily) async throws {
@@ -48,7 +48,7 @@ struct EfuseBurnReferenceTests {
         let ours = await controller.summaryJSON()
         let theirs = try Data(contentsOf: folder!.appendingPathComponent("final-\(chip.rawValue).json"))
         let issues = differences(ours, theirs)
-        #expect(issues.isEmpty, "\(issues.count) écart(s) :\n\(issues.prefix(30).joined(separator: "\n"))")
+        #expect(issues.isEmpty, "\(issues.count) difference(s):\n\(issues.prefix(30).joined(separator: "\n"))")
         #expect(ours == theirs)
     }
 }

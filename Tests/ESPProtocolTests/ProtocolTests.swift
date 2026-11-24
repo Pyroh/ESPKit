@@ -46,7 +46,7 @@ struct SLIPTests {
     }
 }
 
-@Suite("Paquets")
+@Suite("Packets")
 struct PacketTests {
     @Test func encodesCommandHeader() {
         let command = Command(.readReg, payload: .le(UInt32(0x4000_1000)))

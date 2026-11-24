@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-/// Conformé par toutes les erreurs propres à ESPKit.
+/// Adopted by every ESPKit error.
 ///
-/// `catch let error as any ESPKitError` les attrape toutes, quel que soit le domaine.
-/// Chaque module définit ses propres types (`TransportError`, `ProtocolError`…).
+/// `catch let error as any ESPKitError` catches all of them, whatever the domain.
+/// Each module defines its own types (`TransportError`, `ProtocolError`…).
 public protocol ESPKitError: Error, CustomStringConvertible, Sendable {}

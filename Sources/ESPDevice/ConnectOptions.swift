@@ -3,38 +3,38 @@
 import ESPTargets
 import ESPTransport
 
-/// Réglages de `ESPDevice.connect`.
+/// Settings for `ESPDevice.connect`.
 public struct ConnectOptions: Sendable {
     public var entryReset: EntryReset = .automatic
-    /// Débit de synchro, plafonné à 115 200 comme le fait esptool.
+    /// Sync baud rate, capped at 115,200 as esptool does.
     public var initialBaudRate: Int = 115_200
-    /// Débit de travail, appliqué après le chargement du stub. `nil` = rester au débit initial.
+    /// Working baud rate, applied after the stub is loaded. `nil` = stay at the initial rate.
     public var baudRate: Int? = 460_800
     public var stub: StubPolicy = .load
-    /// `nil` : détection automatique. Sinon, erreur si la puce détectée diffère.
+    /// `nil`: automatic detection. Otherwise, an error if the detected chip differs.
     public var expectedChip: ChipFamily? = nil
-    /// 0 = infini.
+    /// 0 = unlimited.
     public var connectAttempts: Int = 7
-    /// Saute la synchro (`--before no-reset-no-sync`) : la puce parle déjà le protocole.
+    /// Skips the sync (`--before no-reset-no-sync`): the chip already speaks the protocol.
     public var skipSync: Bool = false
-    /// ESP32 seulement : forcer le régulateur VDDSDIO.
+    /// ESP32 only: force the VDDSDIO regulator.
     public var vddsdioOverride: VDDSDIOOverride? = nil
-    /// Reçoit la trace bas niveau dès le premier reset. `nil` = pas de trace.
+    /// Receives the low-level trace from the first reset on. `nil` = no trace.
     public var trace: AsyncStream<TraceEvent>.Continuation? = nil
 
     public init() {}
 }
 
 public enum StubPolicy: Sendable, Hashable {
-    /// Stub v2 embarqué pour la puce détectée (défaut).
+    /// Bundled stub v2 for the detected chip (default).
     case load
     /// `--no-stub`.
     case romOnly
-    /// Stub fourni par l'appelant.
+    /// Stub supplied by the caller.
     case custom(StubImage)
 }
 
-/// Tension forcée du régulateur VDDSDIO de l'ESP32 (alimentation de la flash).
+/// Forced voltage of the ESP32 VDDSDIO regulator (the flash supply).
 public enum VDDSDIOOverride: Hashable, Sendable {
     case volts1_8, volts1_9, off
 }

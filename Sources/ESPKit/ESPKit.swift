@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
-// Module parapluie : `import ESPKit` donne accès à toute l'API publique.
+// Umbrella module: `import ESPKit` gives access to the whole public API.
 @_exported import ESPTargets
 @_exported import ESPTransport
 @_exported import ESPImage

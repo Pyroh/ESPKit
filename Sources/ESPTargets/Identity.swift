@@ -2,7 +2,7 @@
 
 import Foundation
 
-/// Révision de silicium, comparable (« v0.2 » < « v1.0 »).
+/// Silicon revision, comparable ("v0.2" < "v1.0").
 public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConvertible {
     public var major: Int
     public var minor: Int
@@ -12,7 +12,7 @@ public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConverti
         self.minor = minor
     }
 
-    /// Encodage `major * 100 + minor` des en-têtes d'image.
+    /// `major * 100 + minor` encoding used by image headers.
     public init(encoded: UInt16) {
         self.init(major: Int(encoded) / 100, minor: Int(encoded) % 100)
     }
@@ -26,9 +26,9 @@ public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConverti
     }
 }
 
-/// Adresse MAC sur 6 octets.
+/// 6-byte MAC address.
 public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessStringConvertible {
-    /// Toujours 6 octets (vérifié à l'init).
+    /// Always 6 bytes (checked by the initializer).
     public let bytes: Data
 
     public init?(bytes: Data) {
@@ -36,7 +36,7 @@ public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessS
         self.bytes = Data(bytes)
     }
 
-    /// Lit « AA:BB:CC:DD:EE:FF » (séparateurs `:` ou `-`, casse indifférente).
+    /// Parses "AA:BB:CC:DD:EE:FF" (`:` or `-` separators, case-insensitive).
     public init?(_ description: String) {
         let parts = description.split(whereSeparator: { $0 == ":" || $0 == "-" })
         guard parts.count == 6 else { return nil }
@@ -53,16 +53,16 @@ public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessS
     }
 }
 
-/// Usage d'un bloc de clé eFuse. Défini ici car `SecurityInfo` (ESPDevice) et `ESPEfuse` l'utilisent tous deux.
+/// Purpose of an eFuse key block. Defined here because both `SecurityInfo` (ESPDevice) and `ESPEfuse` use it.
 public enum KeyPurpose: Hashable, Sendable {
     case user, reserved
     case xtsAES128Key, xtsAES256Key1, xtsAES256Key2
     case hmacDownAll, hmacDownJTAG, hmacDownDigitalSignature, hmacUp
     case secureBootDigest0, secureBootDigest1, secureBootDigest2
-    /// Code non répertorié, conservé tel quel.
+    /// Unlisted code, kept as is.
     case unknown(UInt8)
 
-    /// Décode la valeur du champ `KEY_PURPOSE_n` (codes communs aux puces ESP32-S2 et suivantes).
+    /// Decodes a `KEY_PURPOSE_n` field value (codes shared by the ESP32-S2 and later chips).
     public init(rawCode: UInt8) {
         switch rawCode {
         case 0: self = .user
@@ -100,9 +100,9 @@ public enum KeyPurpose: Hashable, Sendable {
     }
 }
 
-/// Empreinte MD5, comme la calcule la puce.
+/// MD5 digest, as computed by the chip.
 public struct MD5Digest: Hashable, Sendable, CustomStringConvertible {
-    /// 16 octets.
+    /// 16 bytes.
     public let bytes: Data
 
     public init?(bytes: Data) {

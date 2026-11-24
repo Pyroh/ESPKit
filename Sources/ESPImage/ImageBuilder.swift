@@ -4,34 +4,34 @@ import Foundation
 import ESPSupport
 import ESPTargets
 
-/// Réglages d'`elf2image`.
+/// `elf2image` settings.
 public struct ImageOptions: Hashable, Sendable {
     public var flashMode: FlashMode = .dio
-    /// `nil` : fréquence par défaut de la puce (code 0 : 40 MHz, 30 MHz sur C2, 24 MHz sur H2…).
+    /// `nil`: the chip's default frequency (code 0: 40 MHz, 30 MHz on C2, 24 MHz on H2…).
     public var flashFrequency: FlashFrequency? = nil
     public var flashSize: FlashSize = .mb1
     public var minRevision: ChipRevision = .init(major: 0, minor: 0)
     public var maxRevision: ChipRevision = .init(encoded: 0xFFFF)
     public var securePadding: SecurePadding = .none
-    /// Offset dans le binaire où écrire le SHA-256 de l'ELF (0xB0 pour ESP-IDF). L'emplacement
-    /// doit être rempli de zéros. `nil` : dans le champ `app_elf_sha256` de l'app description
-    /// quand l'ELF a une section `.flash.appdesc` (et sans `useSegments`), comme esptool.
+    /// Offset in the binary where the ELF's SHA-256 is written (0xB0 for ESP-IDF). The slot
+    /// must be zero-filled. `nil`: into the app description's `app_elf_sha256` field
+    /// when the ELF has a `.flash.appdesc` section (and without `useSegments`), like esptool.
     public var elfSHA256Offset: UInt32? = nil
     public var appendSHA256: Bool = true
-    /// Construire depuis les segments `PT_LOAD` plutôt que depuis les sections.
+    /// Build from the `PT_LOAD` segments rather than from the sections.
     public var useSegments: Bool = false
-    /// 8, 16, 32 ou 64 Kio. `nil` : celle de l'app description, sinon 64 Kio.
+    /// 8, 16, 32 or 64 KiB. `nil`: the app description's, otherwise 64 KiB.
     public var mmuPageSize: Int? = nil
-    /// Compléter le fichier par 0xFF jusqu'à un multiple de cette taille.
+    /// Pad the file with 0xFF up to a multiple of this size.
     public var padToMultipleOf: Int? = nil
-    /// N'annoncer que les segments RAM dans l'en-tête. Pas encore pris en charge (phase 6).
+    /// Announce only the RAM segments in the header. Not supported yet (phase 6).
     public var ramOnlyHeader: Bool = false
 
     public enum SecurePadding: Hashable, Sendable {
         case none
-        /// Secure Boot v1 (ESP32) : place pour la signature après l'image.
+        /// Secure Boot v1 (ESP32): room for the signature after the image.
         case v1
-        /// Secure Boot v2 : l'image signée se termine sur une page MMU.
+        /// Secure Boot v2: the signed image ends on an MMU page.
         case v2
     }
 
@@ -40,24 +40,24 @@ public struct ImageOptions: Hashable, Sendable {
 
 public typealias ESP8266ImageVersion = ESP8266Image.Format
 
-/// Construction d'images à partir d'un ELF.
+/// Building images from an ELF.
 public enum ImageBuilder {
-    /// Équivalent d'`elf2image` pour les puces ESP32 et suivantes.
-    /// - Throws: `ImageError` (puce sans carte mémoire, disposition impossible, réglage non encodable).
+    /// The equivalent of `elf2image` for the ESP32 and later chips.
+    /// - Throws: `ImageError` (chip without a memory map, impossible layout, setting that cannot be encoded).
     public static func makeImage(from elf: ELFFile, chip: ChipFamily,
                                  options: ImageOptions = .init()) throws -> FirmwareImage {
         guard chip != .esp8266, let chipID = chip.imageChipID else { throw ImageError.unsupportedChip(chip) }
         let traits = ChipImageTraits(chip)
         guard traits.hasMemoryMap else { throw ImageError.unsupportedChip(chip) }
-        if options.ramOnlyHeader { throw ImageError.layout("l'en-tête « RAM seule » n'est pas encore pris en charge") }
+        if options.ramOnlyHeader { throw ImageError.layout("the RAM-only header is not supported yet") }
         if options.securePadding != .none && !options.appendSHA256 {
-            throw ImageError.layout("le remplissage sécurisé suppose le SHA-256 en fin d'image")
+            throw ImageError.layout("secure padding requires the SHA-256 at the end of the image")
         }
 
         var pieces = merged(loadablePieces(of: elf, useSegments: options.useSegments), traits: traits)
         let page = try pageSize(options: options, pieces: pieces, traits: traits)
 
-        // Segments servis par le MMU d'un côté, segments RAM de l'autre, chacun par adresse.
+        // Segments served by the MMU on one side, RAM segments on the other, each sorted by address.
         var flash = pieces.filter { traits.isFlashMapped($0.address) }.sorted { $0.address < $1.address }
         var ram = pieces.filter { !traits.isFlashMapped($0.address) }.sorted { $0.address < $1.address }
         pieces = []
@@ -65,11 +65,11 @@ public enum ImageBuilder {
         moveToFront(named: ".dram0.bootdesc", in: &ram)
         for (a, b) in zip(flash, flash.dropFirst())
         where b.address / UInt32(page) == (a.address + UInt32(a.data.count) - 1) / UInt32(page) {
-            throw ImageError.layout("les segments 0x\(String(a.address, radix: 16)) et 0x\(String(b.address, radix: 16)) tombent dans la même page MMU")
+            throw ImageError.layout("segments 0x\(String(a.address, radix: 16)) and 0x\(String(b.address, radix: 16)) fall in the same MMU page")
         }
 
-        // Disposition : chaque segment flash doit vérifier (offset + 8) ≡ adresse (mod page).
-        // Le trou avant lui se comble avec le début du premier segment RAM, sinon avec du remplissage.
+        // Layout: each flash segment must satisfy (offset + 8) ≡ address (mod page).
+        // The gap before it is filled with the start of the first RAM segment, or else with padding.
         var layout: [Piece] = []
         var offset = 24
         while let next = flash.first {
@@ -88,8 +88,8 @@ public enum ImageBuilder {
             }
             var segment = next
             if chip == .esp32 {
-                // Le bootloader de second niveau de l'ESP32 ne mappe pas la dernière page si un
-                // segment flash s'y termine dans ses 0x24 premiers octets : on allonge le segment.
+                // The ESP32 second-stage bootloader does not map the last page if a flash segment
+                // ends within its first 0x24 bytes: the segment is extended.
                 let remainder = (offset + 8 + segment.data.count) % page
                 if remainder < 0x24 { segment.data.append(Data(count: 0x24 - remainder)) }
             }
@@ -116,12 +116,12 @@ public enum ImageBuilder {
                                                   maxRevision: options.maxRevision, hashAppended: options.appendSHA256)
         header.legacyMinRevision = 0
         guard let sizeCode = traits.code(for: options.flashSize) else {
-            throw ImageError.invalidHeaderSetting("taille \(options.flashSize) non encodable pour \(chip)")
+            throw ImageError.invalidHeaderSetting("size \(options.flashSize) cannot be encoded for \(chip)")
         }
         var frequencyCode: UInt8 = 0
         if let frequency = options.flashFrequency {
             guard let code = traits.code(for: frequency) else {
-                throw ImageError.invalidHeaderSetting("fréquence \(frequency) non encodable pour \(chip)")
+                throw ImageError.invalidHeaderSetting("frequency \(frequency) cannot be encoded for \(chip)")
             }
             frequencyCode = code
         }
@@ -134,22 +134,22 @@ public enum ImageBuilder {
         return image
     }
 
-    /// ESP8266 : un ou deux fichiers selon le format. v1 : « 0x00000.bin » (en-tête et segments
-    /// RAM) et « 0x<offset>.bin » (le code en flash, brut) ; v2 : un seul fichier, suffixe vide.
+    /// ESP8266: one or two files depending on the format. v1: "0x00000.bin" (header and RAM
+    /// segments) and "0x<offset>.bin" (the raw flash code); v2: a single file with an empty suffix.
     public static func makeESP8266Image(from elf: ELFFile, version: ESP8266ImageVersion,
                                         options: ImageOptions = .init()) throws -> [(suffix: String, data: Data)] {
         let traits = ChipImageTraits(.esp8266)
         let pieces = merged(loadablePieces(of: elf, useSegments: options.useSegments), traits: traits)
         let irom = pieces.filter { traits.region(of: $0.address) == .irom }
         let ram = pieces.filter { traits.region(of: $0.address) != .irom }
-        guard irom.count <= 1 else { throw ImageError.layout("plusieurs segments IROM") }
+        guard irom.count <= 1 else { throw ImageError.layout("several IROM segments") }
         guard let sizeCode = traits.code(for: options.flashSize) else {
-            throw ImageError.invalidHeaderSetting("taille \(options.flashSize) non encodable pour l'ESP8266")
+            throw ImageError.invalidHeaderSetting("size \(options.flashSize) cannot be encoded for the ESP8266")
         }
         var frequencyCode: UInt8 = 0
         if let frequency = options.flashFrequency {
             guard let code = traits.code(for: frequency) else {
-                throw ImageError.invalidHeaderSetting("fréquence \(frequency) non encodable pour l'ESP8266")
+                throw ImageError.invalidHeaderSetting("frequency \(frequency) cannot be encoded for the ESP8266")
             }
             frequencyCode = code
         }
@@ -170,14 +170,14 @@ public enum ImageBuilder {
         }
     }
 
-    // MARK: Étapes
+    // MARK: Steps
 
     struct Piece {
         var address: UInt32
         var data: Data
         var name: String?
 
-        /// Détache les `count` premiers octets ; le reste reste ici, à l'adresse suivante.
+        /// Detaches the first `count` bytes; the rest stays here, at the following address.
         mutating func split(at count: Int) -> Piece {
             let length = min(count, data.count)
             let head = Piece(address: address, data: data.prefix(length), name: nil)
@@ -187,8 +187,8 @@ public enum ImageBuilder {
         }
     }
 
-    /// Sections chargeables (PROGBITS et tableaux d'initialisation, adresse et taille non nulles),
-    /// ou segments PT_LOAD. Chaque morceau est complété à 4 octets.
+    /// Loadable sections (PROGBITS and init arrays, non-zero address and size),
+    /// or PT_LOAD segments. Each piece is padded to 4 bytes.
     static func loadablePieces(of elf: ELFFile, useSegments: Bool) -> [Piece] {
         var pieces: [Piece]
         if useSegments {
@@ -208,7 +208,7 @@ public enum ImageBuilder {
         return pieces
     }
 
-    /// Fusionne les morceaux contigus d'une même zone mémoire, dans l'ordre du fichier ELF.
+    /// Merges contiguous pieces of the same memory region, in ELF file order.
     static func merged(_ pieces: [Piece], traits: ChipImageTraits) -> [Piece] {
         var result = pieces
         var index = result.count - 1
@@ -224,11 +224,11 @@ public enum ImageBuilder {
         return result
     }
 
-    /// Page MMU : option, sinon champ de l'app description, sinon déduite de son adresse, sinon 64 Kio.
+    /// MMU page: the option, else the app description field, else deduced from its address, else 64 KiB.
     static func pageSize(options: ImageOptions, pieces: [Piece], traits: ChipImageTraits) throws -> Int {
         if let size = options.mmuPageSize {
             guard traits.mmuPageSizes.contains(size) else {
-                throw ImageError.invalidHeaderSetting("page MMU de \(size / 1024) Kio impossible sur \(traits.chip)")
+                throw ImageError.invalidHeaderSetting("\(size / 1024) KiB MMU page impossible on \(traits.chip)")
             }
             return size
         }
@@ -238,14 +238,14 @@ public enum ImageBuilder {
         if description.data.count > 180, description.data[description.data.startIndex + 180] != 0 {
             return 1 << Int(description.data[description.data.startIndex + 180])
         }
-        // App description d'avant ESP-IDF 5.4 : elle suit l'en-tête de segment en début de page.
+        // App description older than ESP-IDF 5.4: it follows the segment header at the start of a page.
         let start = description.address &- 32
         return traits.mmuPageSizes.first { start % UInt32($0) == 0 } ?? 0x1_0000
     }
 
-    /// Offset dans le fichier du champ `app_elf_sha256` (144 octets après le début de l'app
-    /// description). Comme esptool, seulement quand l'image vient des sections et que la section
-    /// `.flash.appdesc` est présente : pas avec `useSegments`.
+    /// File offset of the `app_elf_sha256` field (144 bytes after the start of the app
+    /// description). Like esptool, only when the image comes from the sections and the
+    /// `.flash.appdesc` section is present: not with `useSegments`.
     private static func appDescriptionDigestOffset(in layout: [Piece], traits: ChipImageTraits) -> UInt32? {
         var offset = 24
         for piece in layout {
@@ -263,9 +263,9 @@ public enum ImageBuilder {
         }
     }
 
-    /// Octets à intercaler avant un segment flash pour qu'il tombe au bon offset (0 = déjà aligné).
-    /// Le segment, comme le remplissage, est précédé d'un en-tête de 8 octets. Le calcul reproduit
-    /// celui d'esptool à l'octet près, y compris quand il ajoute une page entière.
+    /// Bytes to insert before a flash segment so that it lands at the right offset (0 = already aligned).
+    /// The segment, like the padding, is preceded by an 8-byte header. The arithmetic matches
+    /// esptool's byte for byte, including when it adds a whole page.
     static func alignmentGap(fileOffset: Int, address: UInt32, page: Int) -> Int {
         let alignPast = Int(address % UInt32(page)) - 8
         var gap = (page - fileOffset % page) + alignPast
@@ -285,13 +285,13 @@ public enum ImageBuilder {
                 let base = layout[index].data.startIndex
                 let slot = layout[index].data[(base + range.lowerBound)..<(base + range.upperBound)]
                 guard slot.allSatisfy({ $0 == 0 }) else {
-                    throw ImageError.layout("l'emplacement du SHA-256 de l'ELF (0x\(String(fileOffset, radix: 16))) n'est pas vide")
+                    throw ImageError.layout("the ELF SHA-256 slot (0x\(String(fileOffset, radix: 16))) is not empty")
                 }
                 layout[index].data.replaceSubrange((base + range.lowerBound)..<(base + range.upperBound), with: digest)
                 return
             }
             offset = end
         }
-        throw ImageError.layout("l'offset 0x\(String(fileOffset, radix: 16)) du SHA-256 de l'ELF ne tombe dans aucun segment")
+        throw ImageError.layout("the ELF SHA-256 offset 0x\(String(fileOffset, radix: 16)) falls in no segment")
     }
 }

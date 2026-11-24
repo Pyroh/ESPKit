@@ -2,8 +2,8 @@
 
 import Foundation
 
-/// SHA-256 (FIPS 180-4). Sert à recalculer l'empreinte d'une image après la modification
-/// de son en-tête.
+/// SHA-256 (FIPS 180-4). Used to recompute an image digest after its header
+/// has been changed.
 package enum SHA256 {
     package static func hash(_ data: Data) -> Data {
         var h: [UInt32] = [0x6A09_E667, 0xBB67_AE85, 0x3C6E_F372, 0xA54F_F53A,

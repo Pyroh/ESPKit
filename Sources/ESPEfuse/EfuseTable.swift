@@ -2,7 +2,7 @@
 
 import ESPTargets
 
-/// Intervalle de bits dans un bloc.
+/// Bit range within a block.
 struct Bits: Hashable, Sendable {
     let start: Int
     let count: Int
@@ -12,7 +12,7 @@ struct Bits: Hashable, Sendable {
     }
 }
 
-/// Champ décrit par la table d'ESP-IDF (fichier généré).
+/// Field described by the ESP-IDF table (generated file).
 struct EfuseDefinition: Sendable {
     let name: String
     let idfName: String
@@ -34,7 +34,7 @@ struct EfuseDefinition: Sendable {
     }
 }
 
-/// Champ qu'espefuse calcule à partir d'autres (libellés seulement ; le calcul est dans ESPKit).
+/// Field espefuse computes from others (labels only; the computation lives in ESPKit).
 struct CompositeLabel: Sendable {
     let name: String
     let block: Int
@@ -72,7 +72,7 @@ struct EfuseTable: Sendable {
     }
 }
 
-/// Registres de lecture du contrôleur d'eFuses (en-têtes `efuse_reg.h` d'ESP-IDF).
+/// Read registers of the eFuse controller (ESP-IDF's `efuse_reg.h` headers).
 struct EfuseLayout: Sendable {
     struct Block: Sendable {
         let name: String
@@ -104,7 +104,7 @@ struct EfuseLayout: Sendable {
                 blocks.append(Block(name: "BLOCK_KEY\(key)", address: base + 0x9C + UInt32(key) * 0x20, wordCount: 8))
             }
             blocks.append(Block(name: "BLOCK_SYS_DATA2", address: base + 0x15C, wordCount: 8))
-            // RD_REPEAT_ERR0..4, puis RD_RS_ERR0 et RD_RS_ERR1.
+            // RD_REPEAT_ERR0..4, then RD_RS_ERR0 and RD_RS_ERR1.
             return EfuseLayout(blocks: blocks,
                                errorRegisters: (0..<5).map { base + 0x17C + UInt32($0) * 4 } + [base + 0x1C0, base + 0x1C4],
                                apbControlDate: nil)
@@ -113,10 +113,10 @@ struct EfuseLayout: Sendable {
         }
     }
 
-    /// Nombre de mots par bloc, pour un contrôleur virtuel vierge.
+    /// Number of words per block, for a blank virtual controller.
     static func blankBlocks(for chip: ChipFamily) -> [[UInt32]] {
         if let layout = layout(for: chip) { return layout.blocks.map { Array(repeating: 0, count: $0.wordCount) } }
-        // Puces sans registres connus : BLOCK0 de 6 mots, puis blocs de 8 mots.
+        // Chips without known registers: a 6-word BLOCK0, then 8-word blocks.
         let count = (EfuseTable.table(for: chip)?.fields.map(\.block).max() ?? 10) + 1
         return [Array(repeating: 0, count: 6)] + Array(repeating: Array(repeating: 0, count: 8), count: max(count - 1, 0))
     }

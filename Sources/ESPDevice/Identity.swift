@@ -3,7 +3,7 @@
 import Foundation
 import ESPTargets
 
-/// État de sécurité rendu par GET_SECURITY_INFO (ESP32-S2 et suivantes).
+/// Security state returned by GET_SECURITY_INFO (ESP32-S2 and later).
 public struct SecurityInfo: Hashable, Sendable {
     public struct Flags: OptionSet, Hashable, Sendable {
         public let rawValue: UInt32
@@ -23,19 +23,19 @@ public struct SecurityInfo: Hashable, Sendable {
     }
 
     public var flags: Flags
-    /// Valeur brute du compteur `SPI_BOOT_CRYPT_CNT` (`FLASH_CRYPT_CNT` sur ESP32) :
-    /// le chiffrement est actif quand le nombre de bits à 1 est impair.
+    /// Raw value of the `SPI_BOOT_CRYPT_CNT` counter (`FLASH_CRYPT_CNT` on the ESP32):
+    /// encryption is enabled when an odd number of bits is set.
     public var flashCryptCount: Int
-    /// Une entrée par octet de purpose rendu par la ROM.
+    /// One entry per purpose byte returned by the ROM.
     public var keyPurposes: [KeyPurpose]
-    /// Identifiant de famille (`ChipFamily.imageChipID`). Absent sur les ROM les plus anciennes.
+    /// Family identifier (`ChipFamily.imageChipID`). Missing on the oldest ROMs.
     public var chipID: UInt32?
     public var apiVersion: UInt32?
 
     public var flashEncryptionEnabled: Bool { flashCryptCount.nonzeroBitCount % 2 == 1 }
 
-    /// Décode la réponse : 4 octets de flags, 1 octet de compteur, 7 octets de purposes,
-    /// puis éventuellement chip ID et version d'API (4 octets chacun).
+    /// Decodes the response: 4 flag bytes, 1 counter byte, 7 purpose bytes,
+    /// then optionally the chip ID and API version (4 bytes each).
     init?(payload: Data) {
         guard payload.count >= 12 else { return nil }
         let bytes = Data(payload)
@@ -47,16 +47,16 @@ public struct SecurityInfo: Hashable, Sendable {
     }
 }
 
-/// Identité de la flash SPI.
+/// SPI flash identity.
 public struct FlashInfo: Hashable, Sendable {
     public var manufacturerID: UInt8
-    /// Octet de type (poids fort) et octet de capacité (poids faible) de l'ID JEDEC.
+    /// Type byte (high) and capacity byte (low) of the JEDEC ID.
     public var deviceID: UInt16
-    /// Taille déduite de l'ID JEDEC, `nil` si inconnue.
+    /// Size deduced from the JEDEC ID, `nil` if unknown.
     public var detectedSize: FlashSize?
     public var type: FlashType
 
-    /// ID JEDEC brut sur 24 bits, tel que rendu par RDID (fabricant dans l'octet de poids faible).
+    /// Raw 24-bit JEDEC ID, as returned by RDID (manufacturer in the low byte).
     public var jedecID: UInt32 {
         UInt32(manufacturerID) | UInt32(deviceID >> 8) << 8 | UInt32(deviceID & 0xFF) << 16
     }

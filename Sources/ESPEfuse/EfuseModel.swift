@@ -3,8 +3,8 @@
 import Foundation
 import ESPTargets
 
-/// Nom de champ. Les champs connus d'une puce sont des constantes générées :
-/// `EfuseFieldName.ESP32S3.spiBootCryptCnt`. Un nom libre reste possible pour les tables étendues.
+/// Field name. A chip's known fields are generated constants:
+/// `EfuseFieldName.ESP32S3.spiBootCryptCnt`. A free-form name still works for extended tables.
 public struct EfuseFieldName: Hashable, Sendable, ExpressibleByStringLiteral, CustomStringConvertible {
     public var rawValue: String
     public init(_ rawValue: String) { self.rawValue = rawValue }
@@ -22,43 +22,43 @@ public enum EfuseValue: Hashable, Sendable {
 
 public struct EfuseField: Hashable, Sendable {
     public var name: EfuseFieldName
-    /// Catégorie d'affichage, alignée sur espefuse : "security", "flash", "MAC", "calibration"…
+    /// Display category, aligned with espefuse: "security", "flash", "MAC", "calibration"…
     public var category: String
     public var description: String
     public var block: Int
-    /// Bits dans le bloc, dans l'ordre où ils forment la valeur (poids faible d'abord).
-    /// Vide pour un champ calculé à partir d'autres champs (`PKG_VERSION`…).
+    /// Bits within the block, in the order they form the value (least significant first).
+    /// Empty for a field computed from other fields (`PKG_VERSION`…).
     public var bitRanges: [Range<Int>]
-    /// Premier intervalle de `bitRanges` : la position du champ quand il est d'un seul tenant.
+    /// First range of `bitRanges`: the field's position when it is contiguous.
     public var bitRange: Range<Int> { bitRanges.first ?? 0..<0 }
-    /// Valeur brute.
+    /// Raw value.
     public var value: EfuseValue
-    /// Présentation d'espefuse : valeur nommée (`"Disable"`), calibration convertie (`-13.9`), MAC…
+    /// espefuse's presentation: named value (`"Disable"`), converted calibration (`-13.9`), MAC…
     public var displayValue: String
     public var isReadProtected: Bool
     public var isWriteProtected: Bool
-    /// Type au sens d'espefuse : `bool`, `uint:8`, `bytes:32`.
+    /// Type in espefuse's sense: `bool`, `uint:8`, `bytes:32`.
     public var type: String
 }
 
-/// Bloc d'eFuses brut.
+/// Raw eFuse block.
 public struct EfuseBlock: Hashable, Sendable {
     public var index: Int
     public var name: String
-    /// Mots de 32 bits tels que lus dans les registres.
+    /// 32-bit words as read from the registers.
     public var words: [UInt32]
     public var isReadProtected: Bool
     public var isWriteProtected: Bool
 }
 
-/// Erreur d'encodage signalée par le contrôleur.
+/// Coding error reported by the controller.
 public struct EfuseCodingError: Hashable, Sendable, CustomStringConvertible {
     public enum Kind: Hashable, Sendable {
-        /// BLOCK0 : bits dont les copies diffèrent (`RD_REPEAT_ERR`), par mot.
+        /// BLOCK0: bits whose copies differ (`RD_REPEAT_ERR`), per word.
         case repeatMismatch(word: Int, bits: UInt32)
-        /// Reed-Solomon RS(44,32) : nombre d'octets corrigés, et échec si non corrigeable.
+        /// Reed-Solomon RS(44,32): number of corrected bytes, and failure if uncorrectable.
         case reedSolomon(correctedBytes: Int, failed: Bool)
-        /// ESP32, codage 3/4 : avertissement de décodage.
+        /// ESP32, 3/4 coding: decoding warning.
         case threeQuarters(UInt32)
     }
 
@@ -67,30 +67,30 @@ public struct EfuseCodingError: Hashable, Sendable, CustomStringConvertible {
 
     public var description: String {
         switch kind {
-        case .repeatMismatch(let word, let bits): "BLOCK\(block) mot \(word) : copies différentes (0x\(String(bits, radix: 16)))"
+        case .repeatMismatch(let word, let bits): "BLOCK\(block) word \(word): copies differ (0x\(String(bits, radix: 16)))"
         case .reedSolomon(let count, let failed):
-            "BLOCK\(block) : \(failed ? "erreur RS non corrigeable" : "\(count) octet(s) corrigé(s) par RS")"
-        case .threeQuarters(let value): "BLOCK\(block) : erreur de codage 3/4 (0x\(String(value, radix: 16)))"
+            "BLOCK\(block): \(failed ? "uncorrectable RS error" : "\(count) byte(s) corrected by RS")"
+        case .threeQuarters(let value): "BLOCK\(block): 3/4 coding error (0x\(String(value, radix: 16)))"
         }
     }
 }
 
-/// Calibration ADC et capteur de température, telle qu'`espefuse adc-info` l'affiche.
+/// ADC and temperature sensor calibration, as `espefuse adc-info` shows it.
 public struct ADCCalibration: Hashable, Sendable {
-    /// Version du bloc de calibration (`BLK_VERSION_MAJOR`…), quand la puce en a une.
+    /// Calibration block version (`BLK_VERSION_MAJOR`…), when the chip has one.
     public var blockVersion: Int?
-    /// Valeurs converties, par nom de champ (mV, codes, °C).
+    /// Converted values, by field name (mV, codes, °C).
     public var values: [String: Double]
 }
 
-/// État complet, sérialisable : sert aux tests, à `EfuseController(virtual:)` et aux jetons.
+/// Complete, serializable state: used by tests, `EfuseController(virtual:)` and tokens.
 public struct EfuseSnapshot: Hashable, Sendable, Codable {
     public var chip: ChipFamily
-    /// Mots de chaque bloc, dans l'ordre des blocs.
+    /// Words of each block, in block order.
     public var blocks: [[UInt32]]
-    /// Registres d'erreur du contrôleur, dans l'ordre propre à la puce.
+    /// Controller error registers, in the chip's own order.
     public var errorRegisters: [UInt32]
-    /// ESP32 : bit 31 du registre APB_CTRL_DATE, qui distingue les révisions 2 et 3.
+    /// ESP32: bit 31 of the APB_CTRL_DATE register, which tells revisions 2 and 3 apart.
     public var apbControlDate: UInt32?
 
     public init(chip: ChipFamily, blocks: [[UInt32]], errorRegisters: [UInt32] = [], apbControlDate: UInt32? = nil) {
@@ -101,23 +101,23 @@ public struct EfuseSnapshot: Hashable, Sendable, Codable {
     }
 }
 
-/// Erreurs des eFuses.
+/// eFuse errors.
 public enum EfuseError: ESPKitError, Equatable {
     case planInvalid([EfusePlanIssue])
     case verificationFailed(block: Int)
     case malformedToken
-    /// Contrôleur créé depuis un jeton.
+    /// Controller created from a token.
     case readOnly
-    /// Puce dont ESPKit n'a pas la table ou les registres.
+    /// Chip whose table or registers ESPKit does not have.
     case unsupportedChip(ChipFamily)
 
     public var description: String {
         switch self {
-        case .planInvalid(let issues): "Plan de programmation invalide : \(issues.map(\.description).joined(separator: " ; "))"
-        case .verificationFailed(let block): "Vérification du BLOCK\(block) échouée après programmation"
-        case .malformedToken: "Jeton d'eFuses illisible"
-        case .readOnly: "Contrôleur en lecture seule"
-        case .unsupportedChip(let chip): "eFuses de \(chip) non pris en charge"
+        case .planInvalid(let issues): "Invalid burn plan: \(issues.map(\.description).joined(separator: "; "))"
+        case .verificationFailed(let block): "BLOCK\(block) failed verification after burning"
+        case .malformedToken: "Unreadable eFuse token"
+        case .readOnly: "Read-only controller"
+        case .unsupportedChip(let chip): "\(chip) eFuses are not supported"
         }
     }
 }

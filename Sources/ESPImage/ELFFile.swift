@@ -3,8 +3,8 @@
 import Foundation
 import ESPSupport
 
-/// Fichier ELF 32 bits petit-boutiste, tel que le produisent les chaînes Xtensa et RISC-V
-/// d'Espressif. Seul ce dont `ImageBuilder` a besoin est lu : sections, segments, symboles.
+/// 32-bit little-endian ELF file, as produced by Espressif's Xtensa and RISC-V
+/// toolchains. Only what `ImageBuilder` needs is read: sections, segments, symbols.
 public struct ELFFile: Sendable {
     public enum Machine: Hashable, Sendable {
         case xtensa, riscv
@@ -16,7 +16,7 @@ public struct ELFFile: Sendable {
         public var type: UInt32
         public var flags: UInt32
         public var address: UInt32
-        /// Contenu ; vide pour une section NOBITS (`.bss`).
+        /// Contents; empty for a NOBITS section (`.bss`).
         public var data: Data
         public var size: UInt32
 
@@ -47,7 +47,7 @@ public struct ELFFile: Sendable {
     public var entryPoint: UInt32
     public var sections: [Section]
     public var programHeaders: [ProgramHeader]
-    /// SHA-256 du fichier ELF complet (inséré dans l'app description par `elf2image`).
+    /// SHA-256 of the whole ELF file (inserted into the app description by `elf2image`).
     public var sha256: Data
     private var symbols: [String: Symbol]
 
@@ -57,10 +57,10 @@ public struct ELFFile: Sendable {
     public init(parsing data: Data) throws {
         let bytes = Data(data)
         guard bytes.count >= 52, bytes.prefix(4) == Data([0x7F, 0x45, 0x4C, 0x46]) else {
-            throw ImageError.malformedELF("signature ELF absente")
+            throw ImageError.malformedELF("missing ELF signature")
         }
-        guard bytes[4] == 1 else { throw ImageError.malformedELF("seul l'ELF 32 bits est pris en charge") }
-        guard bytes[5] == 1 else { throw ImageError.malformedELF("seul l'ELF petit-boutiste est pris en charge") }
+        guard bytes[4] == 1 else { throw ImageError.malformedELF("only 32-bit ELF is supported") }
+        guard bytes[5] == 1 else { throw ImageError.malformedELF("only little-endian ELF is supported") }
         let reader = Reader(bytes)
 
         let machineCode = try reader.u16(18)
@@ -82,7 +82,7 @@ public struct ELFFile: Sendable {
                             offset: UInt32, size: UInt32, link: UInt32, entrySize: UInt32 }
         var raw: [RawSection] = []
         if shOffset != 0 {
-            guard shEntrySize >= 40 else { throw ImageError.malformedELF("en-têtes de section de \(shEntrySize) octets") }
+            guard shEntrySize >= 40 else { throw ImageError.malformedELF("\(shEntrySize)-byte section headers") }
             for index in 0..<shCount {
                 let base = shOffset + index * shEntrySize
                 raw.append(RawSection(nameOffset: try reader.u32(base), type: try reader.u32(base + 4),
@@ -103,7 +103,7 @@ public struct ELFFile: Sendable {
 
         var headers: [ProgramHeader] = []
         if phOffset != 0 {
-            guard phEntrySize >= 32 else { throw ImageError.malformedELF("en-têtes de programme de \(phEntrySize) octets") }
+            guard phEntrySize >= 32 else { throw ImageError.malformedELF("\(phEntrySize)-byte program headers") }
             for index in 0..<phCount {
                 let base = phOffset + index * phEntrySize
                 let fileSize = Int(try reader.u32(base + 16))
@@ -138,24 +138,24 @@ public struct ELFFile: Sendable {
         return String(decoding: table[start..<end], as: UTF8.self)
     }
 
-    /// Lecture bornée : toute lecture hors du fichier lève `malformedELF`.
+    /// Bounded reads: any read outside the file throws `malformedELF`.
     private struct Reader {
         let data: Data
         init(_ data: Data) { self.data = data }
 
         func u16(_ offset: Int) throws -> UInt16 {
-            guard offset >= 0, offset + 2 <= data.count else { throw ImageError.malformedELF("lecture hors du fichier à \(offset)") }
+            guard offset >= 0, offset + 2 <= data.count else { throw ImageError.malformedELF("read outside the file at \(offset)") }
             return UInt16(data[offset]) | UInt16(data[offset + 1]) << 8
         }
 
         func u32(_ offset: Int) throws -> UInt32 {
-            guard offset >= 0, offset + 4 <= data.count else { throw ImageError.malformedELF("lecture hors du fichier à \(offset)") }
+            guard offset >= 0, offset + 4 <= data.count else { throw ImageError.malformedELF("read outside the file at \(offset)") }
             return data.readLE32(at: offset)
         }
 
         func slice(_ offset: Int, _ count: Int) throws -> Data {
             guard offset >= 0, count >= 0, offset + count <= data.count else {
-                throw ImageError.malformedELF("contenu hors du fichier (\(offset)+\(count))")
+                throw ImageError.malformedELF("contents outside the file (\(offset)+\(count))")
             }
             return data.subdata(in: offset..<offset + count)
         }

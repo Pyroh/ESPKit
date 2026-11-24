@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT OR Apache-2.0
 #
-# Scénarios de programmation d'eFuses rejoués par espefuse en mode virtuel (--virt) : aucune
-# puce n'est touchée. À lancer dans un dossier vide contenant key-ecdsa256.pem (une clé
-# Secure Boot v2 ECDSA P-256), puis : ESPKIT_BURN_REFERENCES=<dossier> swift test --filter ESPEfuseTests
+# eFuse programming scenarios replayed by espefuse in virtual mode (--virt): no chip
+# is touched. Run in an empty folder holding key-ecdsa256.pem (a Secure Boot v2
+# ECDSA P-256 key), then: ESPKIT_BURN_REFERENCES=<folder> swift test --filter ESPEfuseTests
 set -e
 python3 -I -c "open('key.bin','wb').write(bytes(range(32))); open('data.bin','wb').write(bytes(range(100,116)))"
-run() { chip=$1; shift; espefuse --virt --path-efuse-file $chip.state --chip $chip --do-not-confirm "$@" >> log-$chip.txt 2>&1 || echo "ÉCHEC $chip $*"; }
+run() { chip=$1; shift; espefuse --virt --path-efuse-file $chip.state --chip $chip --do-not-confirm "$@" >> log-$chip.txt 2>&1 || echo "FAILED $chip $*"; }
 run esp32s3 burn-key BLOCK_KEY0 key.bin XTS_AES_128_KEY
 run esp32s3 burn-key-digest BLOCK_KEY1 key-ecdsa256.pem SECURE_BOOT_DIGEST0
 run esp32s3 burn-custom-mac 02:11:22:33:44:55

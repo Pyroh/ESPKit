@@ -3,53 +3,53 @@
 import Foundation
 import ESPTargets
 
-/// Échecs d'établissement ou d'utilisation de la session.
+/// Failures to establish or use the session.
 public enum ConnectionError: ESPKitError, Equatable {
-    /// Aucune réponse au SYNC après toutes les tentatives.
+    /// No answer to SYNC after every attempt.
     case noResponse(attempts: Int)
     case chipMismatch(expected: ChipFamily, detected: ChipFamily)
     case unknownChip(magic: UInt32?, chipID: UInt32?)
-    /// Aucun port ne correspond au filtre de `connectFirstAvailable`.
+    /// No port matches the `connectFirstAvailable` filter.
     case noMatchingPort
-    /// Opération sur un `ESPDevice` après `disconnect`, `loadRAMAndRun` ou `runFlashApplication`.
+    /// Operation on an `ESPDevice` after `disconnect`, `loadRAMAndRun` or `runFlashApplication`.
     case disconnected
 
     public var description: String {
         switch self {
         case .noResponse(let attempts):
-            "La puce ne répond pas (\(attempts) tentative(s)). Vérifier le câble, le port et le mode de boot."
+            "The chip does not answer (\(attempts) attempt(s)). Check the cable, the port and the boot mode."
         case .chipMismatch(let expected, let detected):
-            "Puce inattendue : \(expected) demandée, \(detected) détectée"
+            "Unexpected chip: \(expected) requested, \(detected) detected"
         case .unknownChip(let magic, let chipID):
-            "Puce non reconnue (magic \(magic.map(hex) ?? "—"), chip ID \(chipID.map(String.init) ?? "—"))"
+            "Unknown chip (magic \(magic.map(hex) ?? "—"), chip ID \(chipID.map(String.init) ?? "—"))"
         case .noMatchingPort:
-            "Aucun port série ne correspond au filtre"
+            "No serial port matches the filter"
         case .disconnected:
-            "La session est fermée"
+            "The session is closed"
         }
     }
 }
 
-/// Erreurs d'échange avec la ROM ou le stub.
+/// Errors exchanging with the ROM or the stub.
 public enum ProtocolError: ESPKitError, Equatable {
     case timeout(opcode: UInt8?, after: Duration)
     case invalidResponse(String)
-    /// La ROM ou le stub a répondu par un échec.
+    /// The ROM or the stub answered with a failure.
     case deviceError(opcode: UInt8, code: DeviceErrorCode)
 
     public var description: String {
         switch self {
         case .timeout(let opcode, let after):
-            "Pas de réponse à la commande \(opcode.map(hex) ?? "?") après \(after)"
+            "No response to command \(opcode.map(hex) ?? "?") after \(after)"
         case .invalidResponse(let reason):
-            "Réponse incohérente : \(reason)"
+            "Inconsistent response: \(reason)"
         case .deviceError(let opcode, let code):
-            "La puce a refusé la commande \(hex(opcode)) : \(code)"
+            "The chip refused command \(hex(opcode)): \(code)"
         }
     }
 }
 
-/// Codes d'échec de la ROM ou du stub. Un code inconnu est conservé tel quel.
+/// Failure codes of the ROM or the stub. An unknown code is kept as is.
 public struct DeviceErrorCode: RawRepresentable, Hashable, Sendable, CustomStringConvertible {
     public var rawValue: UInt8
     public init(rawValue: UInt8) { self.rawValue = rawValue }
@@ -62,7 +62,7 @@ public struct DeviceErrorCode: RawRepresentable, Hashable, Sendable, CustomStrin
     public static let flashReadLengthError = DeviceErrorCode(rawValue: 0x0A)
     public static let deflateError = DeviceErrorCode(rawValue: 0x0B)
 
-    // Codes du stub v2 (octet de poids fort de son code de réponse).
+    // Stub v2 codes (high byte of its response code).
     public static let badDataLength = DeviceErrorCode(rawValue: 0xC0)
     public static let badDataChecksum = DeviceErrorCode(rawValue: 0xC1)
     public static let badBlockSize = DeviceErrorCode(rawValue: 0xC2)
@@ -77,93 +77,93 @@ public struct DeviceErrorCode: RawRepresentable, Hashable, Sendable, CustomStrin
 
     public var description: String {
         let name: String? = switch rawValue {
-        case 0x05: "message invalide"
-        case 0x06: "échec de l'action"
-        case 0x07: "CRC invalide"
-        case 0x08: "erreur d'écriture flash"
-        case 0x09: "erreur de lecture flash"
-        case 0x0A: "longueur de lecture flash invalide"
-        case 0x0B: "erreur de décompression"
-        case 0xC0: "longueur de données incorrecte"
-        case 0xC1: "somme de contrôle incorrecte"
-        case 0xC2: "taille de bloc incorrecte"
-        case 0xC3: "commande invalide"
-        case 0xC4: "échec de l'opération SPI"
-        case 0xC5: "échec du déverrouillage SPI"
-        case 0xC6: "pas d'écriture en cours"
-        case 0xC7: "erreur de décompression"
-        case 0xC8: "données insuffisantes"
-        case 0xC9: "trop de données"
-        case 0xCA: "échec de programmation NAND"
-        case 0xCB: "échec d'effacement NAND"
-        case 0xFF: "commande non implémentée"
+        case 0x05: "invalid message"
+        case 0x06: "failed to act"
+        case 0x07: "invalid CRC"
+        case 0x08: "flash write error"
+        case 0x09: "flash read error"
+        case 0x0A: "invalid flash read length"
+        case 0x0B: "deflate error"
+        case 0xC0: "bad data length"
+        case 0xC1: "bad data checksum"
+        case 0xC2: "bad block size"
+        case 0xC3: "invalid command"
+        case 0xC4: "failed SPI operation"
+        case 0xC5: "failed SPI unlock"
+        case 0xC6: "not in flash mode"
+        case 0xC7: "inflate error"
+        case 0xC8: "not enough data"
+        case 0xC9: "too much data"
+        case 0xCA: "NAND program failed"
+        case 0xCB: "NAND erase failed"
+        case 0xFF: "command not implemented"
         default: nil
         }
         return name.map { "\($0) (\(hex(rawValue)))" } ?? "code \(hex(rawValue))"
     }
 }
 
-/// Mauvais usage de l'API, ou opération impossible dans l'état courant de la puce.
+/// API misuse, or an operation impossible in the chip's current state.
 public enum UsageError: ESPKitError, Equatable {
     case unsupported(feature: String, chip: ChipFamily, state: ESPDevice.State)
     case unavailableInSecureDownloadMode(operation: String)
     case invalidArgument(String)
-    /// Contournable par `force`.
+    /// Can be overridden with `force`.
     case securityRestriction(String)
-    /// Contournable par `force`.
+    /// Can be overridden with `force`.
     case imageIncompatible(String)
 
     public var description: String {
         switch self {
         case .unsupported(let feature, let chip, let state):
-            "\(feature) n'est pas disponible sur \(chip) (\(state))"
+            "\(feature) is not available on \(chip) (\(state))"
         case .unavailableInSecureDownloadMode(let operation):
-            "\(operation) est impossible en Secure Download Mode"
+            "\(operation) is impossible in Secure Download Mode"
         case .invalidArgument(let reason):
-            "Argument invalide : \(reason)"
+            "Invalid argument: \(reason)"
         case .securityRestriction(let reason):
-            "Refusé par sécurité : \(reason) (contournable avec `force`)"
+            "Refused for security: \(reason) (override with `force`)"
         case .imageIncompatible(let reason):
-            "Image incompatible : \(reason) (contournable avec `force`)"
+            "Incompatible image: \(reason) (override with `force`)"
         }
     }
 }
 
-/// Erreurs propres à la flash.
+/// Flash-specific errors.
 public enum FlashError: ESPKitError, Equatable {
     case md5Mismatch(address: UInt32, expected: MD5Digest, actual: MD5Digest)
-    /// RDID rend 0x000000, 0xFFFFFF ou 0xFFFF3F : aucune flash ne répond sur le bus SPI.
+    /// RDID returns 0x000000, 0xFFFFFF or 0xFFFF3F: no flash answers on the SPI bus.
     case notDetected(jedecID: UInt32)
 
     public var description: String {
         switch self {
         case .md5Mismatch(let address, let expected, let actual):
-            "MD5 différent à \(hex(address)) : attendu \(expected), lu \(actual)"
+            "MD5 mismatch at \(hex(address)): expected \(expected), read \(actual)"
         case .notDetected(let id):
-            "Aucune flash ne répond (ID JEDEC \(hex(id))). Vérifier le câblage SPI."
+            "No flash answers (JEDEC ID \(hex(id))). Check the SPI wiring."
         }
     }
 }
 
-/// Erreurs liées au stub.
+/// Stub-related errors.
 public enum StubError: ESPKitError, Equatable {
-    /// JSON illisible, segment vide, adresse mal alignée.
+    /// Unreadable JSON, empty segment, misaligned address.
     case malformed(String)
     case chipMismatch(stub: ChipFamily, device: ChipFamily)
-    /// Segments qui se recouvrent, ou recouvrent le BSS.
+    /// Segments that overlap each other or the BSS.
     case overlapping(String)
-    /// Aucun stub embarqué pour cette puce.
+    /// No bundled stub for this chip.
     case noBundledStub(ChipFamily)
-    /// Pas de `OHAI` après le lancement.
+    /// No `OHAI` after launch.
     case failedToStart(StubImage.Version)
 
     public var description: String {
         switch self {
-        case .malformed(let reason): "Image de stub invalide : \(reason)"
-        case .chipMismatch(let stub, let device): "Stub prévu pour \(stub), puce connectée : \(device)"
-        case .overlapping(let reason): "Segments de stub incohérents : \(reason)"
-        case .noBundledStub(let chip): "Aucun stub embarqué pour \(chip)"
-        case .failedToStart(let version): "Le stub \(version) n'a pas démarré (pas de OHAI)"
+        case .malformed(let reason): "Invalid stub image: \(reason)"
+        case .chipMismatch(let stub, let device): "Stub built for \(stub), connected chip: \(device)"
+        case .overlapping(let reason): "Inconsistent stub segments: \(reason)"
+        case .noBundledStub(let chip): "No bundled stub for \(chip)"
+        case .failedToStart(let version): "Stub \(version) did not start (no OHAI)"
         }
     }
 }

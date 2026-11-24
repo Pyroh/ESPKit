@@ -5,12 +5,12 @@ import Testing
 import ESPTargets
 @testable import ESPImage
 
-// Tests différentiels contre esptool, utilisé comme boîte noire. Ignorés sauf si
-// ESPKIT_IMAGE_REFERENCES désigne un dossier produit par Tools/oracle/make-references.sh :
+// Differential tests against esptool, used as a black box. Skipped unless
+// ESPKIT_IMAGE_REFERENCES names a folder produced by Tools/oracle/make-references.sh:
 //
 //   ESPKIT_IMAGE_REFERENCES=…/ref-v5 swift test --filter ReferenceTests
 //
-// Les chemins d'ELF du manifeste sont relatifs au dossier parent des références.
+// The manifest's ELF paths are relative to the references' parent folder.
 
 private let referenceFolder = ProcessInfo.processInfo.environment["ESPKIT_IMAGE_REFERENCES"]
     .map { URL(fileURLWithPath: $0) }
@@ -45,9 +45,9 @@ private func bytes(_ text: String) -> Int? {
     return Int(text)
 }
 
-/// Traduit les arguments d'esptool en `ImageOptions`.
+/// Translates esptool arguments into `ImageOptions`.
 private func options(_ arguments: [String]) throws -> (ImageOptions, ESP8266ImageVersion?) {
-    // Valeurs par défaut d'esptool : qio, 1 Mo, 40 MHz (ESPKit, lui, prend dio par défaut).
+    // esptool defaults: qio, 1 MB, 40 MHz (ESPKit itself defaults to dio).
     var options = ImageOptions()
     options.flashMode = .qio
     var version: ESP8266ImageVersion?
@@ -70,21 +70,21 @@ private func options(_ arguments: [String]) throws -> (ImageOptions, ESP8266Imag
         case "--pad-to-size": options.padToMultipleOf = bytes(iterator.next()!)
         case "--flash-mmu-page-size": options.mmuPageSize = bytes(iterator.next()!)
         case "--version": version = iterator.next() == "2" ? .v2 : .v1
-        default: Issue.record("argument esptool non traduit : \(argument)")
+        default: Issue.record("untranslated esptool argument: \(argument)")
         }
     }
     return (options, version)
 }
 
-/// Premier écart entre deux binaires, pour un message lisible.
+/// First difference between two binaries, for a readable message.
 private func firstDifference(_ a: Data, _ b: Data) -> String {
     if let index = zip(a, b).enumerated().first(where: { $0.element.0 != $0.element.1 })?.offset {
-        return "premier écart à 0x\(String(index, radix: 16)) (ESPKit \(a.count) o, esptool \(b.count) o)"
+        return "first difference at 0x\(String(index, radix: 16)) (ESPKit \(a.count) B, esptool \(b.count) B)"
     }
-    return "longueurs \(a.count) / \(b.count)"
+    return "lengths \(a.count) / \(b.count)"
 }
 
-@Suite("Différentiel esptool", .enabled(if: referenceFolder != nil))
+@Suite("esptool differential", .enabled(if: referenceFolder != nil))
 struct ReferenceTests {
     @Test(arguments: cases())
     fileprivate func elf2image(_ testCase: Case) throws {
@@ -96,7 +96,7 @@ struct ReferenceTests {
             for file in files {
                 let name = version == .v2 ? "\(testCase.name).bin" : "\(testCase.name)-\(file.suffix)"
                 let expected = try Data(contentsOf: referenceFolder!.appendingPathComponent(name))
-                #expect(file.data == expected, "\(name) : \(firstDifference(file.data, expected))")
+                #expect(file.data == expected, "\(name): \(firstDifference(file.data, expected))")
             }
             return
         }
@@ -105,7 +105,7 @@ struct ReferenceTests {
         let expected = try Data(contentsOf: referenceFolder!.appendingPathComponent("\(testCase.name).bin"))
         #expect(built == expected, "\(firstDifference(built, expected))")
 
-        // La relecture de la référence redonne les mêmes segments et une image valide.
+        // Parsing the reference gives back the same segments and a valid image.
         let parsed = try FirmwareImage(parsing: expected)
         #expect(parsed.validate().isValid, "\(parsed.validate().issues)")
         #expect(parsed.segments.map(\.loadAddress) == image.segments.map(\.loadAddress))
@@ -127,14 +127,14 @@ struct ReferenceTests {
 
         let raw = try MergedImage.raw(regions, chip: chip)
         let expectedRaw = try reference("merge-\(chip.rawValue).raw")
-        #expect(raw == expectedRaw, "raw : \(firstDifference(raw, expectedRaw))")
+        #expect(raw == expectedRaw, "raw: \(firstDifference(raw, expectedRaw))")
         let uf2 = try MergedImage.uf2(regions, chip: chip)
         let expectedUF2 = try reference("merge-\(chip.rawValue).uf2")
-        #expect(uf2 == expectedUF2, "uf2 : \(firstDifference(uf2, expectedUF2))")
+        #expect(uf2 == expectedUF2, "uf2: \(firstDifference(uf2, expectedUF2))")
         let hex = try MergedImage.intelHex(regions, chip: chip)
         let expectedHex = String(decoding: try reference("merge-\(chip.rawValue).hex"), as: UTF8.self)
-        #expect(hex == expectedHex, "hex : \(firstDifference(Data(hex.utf8), Data(expectedHex.utf8)))")
-        // Le HEX relu redonne les régions.
+        #expect(hex == expectedHex, "hex: \(firstDifference(Data(hex.utf8), Data(expectedHex.utf8)))")
+        // Parsing the HEX gives back the regions.
         #expect(try IntelHex.parse(hex) == regions.sorted { $0.address < $1.address })
 
         if chip == .esp32 {
@@ -142,7 +142,7 @@ struct ReferenceTests {
                                               headerOverrides: FlashHeaderOverrides(mode: .set(.qio), frequency: .set(.mhz80),
                                                                                     size: .set(.mb16)))
             let expected = try reference("merge-esp32-patched.raw")
-            #expect(patched == expected, "patché : \(firstDifference(patched, expected))")
+            #expect(patched == expected, "patched: \(firstDifference(patched, expected))")
         }
     }
 }

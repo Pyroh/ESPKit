@@ -7,24 +7,24 @@ import ESPSupport
 import ESPTargets
 
 public struct WriteFlashOptions: Hashable, Sendable {
-    /// `.automatic` : zlib, sauf sous ROM ESP8266.
+    /// `.automatic`: zlib, except under the ESP8266 ROM.
     public var compression: Compression = .automatic
     public enum Compression: Hashable, Sendable { case automatic, zlib, none }
-    /// Effacer toute la flash avant d'écrire (stub requis).
+    /// Erase the whole flash before writing (stub required).
     public var eraseAll: Bool = false
-    /// Appliqué à la région qui contient un bootloader (détectée à `chip.bootloaderOffset`).
+    /// Applied to the region holding a bootloader (detected at `chip.bootloaderOffset`).
     public var headerOverrides: FlashHeaderOverrides = .keep
     public var verification: Verification = .md5
     public enum Verification: Hashable, Sendable { case md5, none }
-    /// Reflash différentiel : contenu supposé déjà présent, par adresse. Phase 6.
+    /// Differential reflash: content assumed to be present already, by address. Phase 6.
     public var previousContents: [FlashRegion]? = nil
-    /// Avec `previousContents` : ne pas relire pour vérifier les secteurs inchangés. Phase 6.
+    /// With `previousContents`: do not read back to check unchanged sectors. Phase 6.
     public var trustPreviousContents: Bool = false
-    /// Comparer d'abord les MD5 et ne rien écrire si la flash contient déjà les données.
+    /// Compare MD5s first and write nothing if the flash already holds the data.
     public var skipIfUnchanged: Bool = false
-    /// Ignorer la config eFuse de chiffrement pour les régions `encrypt`. Phase 6.
+    /// Ignore the encryption eFuse configuration for `encrypt` regions. Phase 6.
     public var ignoreEncryptionEfuses: Bool = false
-    /// Désactiver les garde-fous (sécurité active, image incompatible avec la puce).
+    /// Disable the safeguards (active security, image incompatible with the chip).
     public var force: Bool = false
     public var spiConnection: SPIConnection = .default
     public var flashType: FlashType = .nor
@@ -37,14 +37,14 @@ public struct WriteFlashReport: Hashable, Sendable {
 
     public struct Region: Hashable, Sendable {
         public var address: UInt32
-        /// Octets écrits, après alignement et patch d'en-tête.
+        /// Bytes written, after alignment and header patching.
         public var byteCount: Int
-        /// Octets envoyés sur la liaison, après compression.
+        /// Bytes sent over the link, after compression.
         public var bytesSent: Int
-        /// Vrai si `skipIfUnchanged` a trouvé les données déjà en place.
+        /// True if `skipIfUnchanged` found the data already in place.
         public var skipped: Bool
         public var headerPatched: Bool
-        /// MD5 des données écrites.
+        /// MD5 of the written data.
         public var md5: MD5Digest?
         public var duration: Duration
     }
@@ -68,58 +68,58 @@ public struct ByteDifference: Hashable, Sendable {
 }
 
 extension ESPDevice {
-    /// Écrit les régions dans l'ordre donné. Rien ne part avant qu'on parcoure l'opération
-    /// ou qu'on attende `.value`.
-    /// - Rejette les régions vides, qui se chevauchent ou débordent de la flash (`UsageError.invalidArgument`).
-    /// - Patche l'en-tête du bootloader selon `headerOverrides` et recalcule son SHA-256.
-    /// - Refuse une image prévue pour une autre puce, ou une écriture sous 0x8000 avec Secure Boot actif,
-    ///   sauf `force`.
-    /// - En cas d'annulation : la flash est partiellement écrite, la puce reste dans le stub.
+    /// Writes the regions in the given order. Nothing is sent until the operation is iterated
+    /// or `.value` is awaited.
+    /// - Rejects empty regions, overlapping regions and regions past the end of the flash (`UsageError.invalidArgument`).
+    /// - Patches the bootloader header according to `headerOverrides` and recomputes its SHA-256.
+    /// - Refuses an image built for another chip, or a write below 0x8000 with Secure Boot enabled,
+    ///   unless `force`.
+    /// - On cancellation: the flash is partially written and the chip stays in the stub.
     ///
     /// - Throws: `TransportError`, `ConnectionError.disconnected`, `ProtocolError`, `UsageError`
-    ///   (régions invalides, garde-fous, fonctions de la phase 6), `FlashError.md5Mismatch`, `CancellationError`.
+    ///   (invalid regions, safeguards, phase 6 features), `FlashError.md5Mismatch`, `CancellationError`.
     public nonisolated func writeFlash(_ regions: [FlashRegion],
                                        options: WriteFlashOptions = .init()) -> ESPOperation<WriteFlashReport> {
         ESPOperation { sink in try await self.performWriteFlash(regions, options: options, sink: sink) }
     }
 
-    /// Lit la flash. `count == nil` : jusqu'à la fin de la flash détectée.
-    /// Avec le stub, la lecture est contrôlée par le MD5 que la puce envoie à la fin.
+    /// Reads the flash. `count == nil`: up to the end of the detected flash.
+    /// With the stub, the read is checked against the MD5 the chip sends at the end.
     /// - Throws: `TransportError`, `ConnectionError.disconnected`, `ProtocolError`, `UsageError`,
     ///   `FlashError.md5Mismatch`, `CancellationError`.
     public nonisolated func readFlash(at address: UInt32, count: Int?) -> ESPOperation<Data> {
         ESPOperation { sink in try await self.performReadFlash(at: address, count: count, sink: sink) }
     }
 
-    /// MD5 calculé par la puce, sans transférer les données.
-    /// - Throws: `UsageError.unsupported` sous ROM ESP8266, `ProtocolError`, `TransportError`.
+    /// MD5 computed by the chip, without transferring the data.
+    /// - Throws: `UsageError.unsupported` under the ESP8266 ROM, `ProtocolError`, `TransportError`.
     public func flashMD5(at address: UInt32, count: Int) async throws -> MD5Digest {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("Le MD5 de la flash")
+            try ensureNotSecureDownload("The flash MD5")
             if attachedFlash == nil { _ = try await rawAttachFlash(.default, type: .nor) }
             return try await rawFlashMD5(at: address, count: count)
         }
     }
 
-    /// Rend une entrée par région : correspondance, ou premiers octets différents.
+    /// Returns one entry per region: a match, or the first differing bytes.
     public nonisolated func verifyFlash(_ regions: [FlashRegion]) -> ESPOperation<[VerifyResult]> {
         ESPOperation { sink in try await self.performVerifyFlash(regions, sink: sink) }
     }
 
-    /// Effacement total, qui peut prendre plusieurs dizaines de secondes. Stub requis. Refusé si une
-    /// sécurité est active, sauf `force`. La progression n'a qu'une étape : la puce ne rend pas
-    /// compte de l'avancement.
+    /// Full erase, which can take tens of seconds. Stub required. Refused if a security
+    /// feature is enabled, unless `force`. Progress has a single step: the chip does not report
+    /// how far it got.
     public nonisolated func eraseFlash(force: Bool = false) -> ESPOperation<Void> {
         ESPOperation { sink in try await self.performEraseFlash(force: force, sink: sink) }
     }
 
-    /// Efface une zone. `address` et `count` multiples de 4 096. Stub requis.
+    /// Erases a region. `address` and `count` must be multiples of 4,096. Stub required.
     public func eraseRegion(at address: UInt32, count: Int, force: Bool = false) async throws {
         try await exclusive {
-            try ensureFlashCommandsAvailable("L'effacement de zone")
+            try ensureFlashCommandsAvailable("Erasing a region")
             guard address % 0x1000 == 0, count % 0x1000 == 0, count > 0 else {
-                throw UsageError.invalidArgument("adresse et taille multiples de 4 096 octets")
+                throw UsageError.invalidArgument("address and size must be multiples of 4,096 bytes")
             }
             if !force { try checkEraseGuards() }
             _ = try await channel.execute(Command(.eraseRegion, payload: .le(address, UInt32(count))),
@@ -128,9 +128,9 @@ extension ESPDevice {
     }
 }
 
-// MARK: - Implémentation
+// MARK: - Implementation
 
-/// Délais calqués sur les valeurs par défaut d'esptool.
+/// Timeouts modelled on esptool's defaults.
 enum FlashTimeouts {
     static let minimum: Duration = .seconds(3)
     static let chipErase: Duration = .seconds(120)
@@ -155,19 +155,19 @@ extension ESPDevice {
                            sink: ProgressSink) async throws -> WriteFlashReport {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("L'écriture flash")
+            try ensureNotSecureDownload("Writing the flash")
             guard options.flashType == .nor else {
-                throw UsageError.unsupported(feature: "La flash NAND", chip: chip, state: state)
+                throw UsageError.unsupported(feature: "NAND flash", chip: chip, state: state)
             }
             if options.previousContents != nil {
-                throw UsageError.unsupported(feature: "Le reflash différentiel (phase 6)", chip: chip, state: state)
+                throw UsageError.unsupported(feature: "Differential reflash (phase 6)", chip: chip, state: state)
             }
             if regions.contains(where: \.encrypt) {
-                throw UsageError.unsupported(feature: "L'écriture chiffrée (phase 6)", chip: chip, state: state)
+                throw UsageError.unsupported(feature: "Encrypted writes (phase 6)", chip: chip, state: state)
             }
             if chip == .esp8266 && !stubRunning {
-                // La ROM de l'ESP8266 efface trop large ; le stub n'a pas ce défaut.
-                throw UsageError.unsupported(feature: "L'écriture flash sous ROM (charger le stub)", chip: chip, state: state)
+                // The ESP8266 ROM erases too much; the stub does not have this flaw.
+                throw UsageError.unsupported(feature: "Writing the flash under ROM (load the stub)", chip: chip, state: state)
             }
             let compress = options.compression != .none
 
@@ -184,7 +184,7 @@ extension ESPDevice {
                                           completedBytes: 0, totalBytes: total))
             if options.eraseAll {
                 guard stubRunning else {
-                    throw UsageError.unsupported(feature: "L'effacement total", chip: chip, state: state)
+                    throw UsageError.unsupported(feature: "Full erase", chip: chip, state: state)
                 }
                 if !options.force { try checkEraseGuards() }
                 sink.report(OperationProgress(stage: .erasing, regionIndex: 0, regionCount: prepared.count,
@@ -232,12 +232,12 @@ extension ESPDevice {
     func performReadFlash(at address: UInt32, count: Int?, sink: ProgressSink) async throws -> Data {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("La lecture flash")
+            try ensureNotSecureDownload("Reading the flash")
             let flash = try await currentFlash()
             let flashSize = flash.detectedSize?.byteCount ?? FlashSize.mb4.byteCount
             let length = count ?? (flashSize - Int(address))
             guard length > 0, Int(address) + length <= flashSize else {
-                throw UsageError.invalidArgument("lecture de \(length) octets à \(hex(address)) hors de la flash (\(flashSize) octets)")
+                throw UsageError.invalidArgument("reading \(length) bytes at \(hex(address)) goes past the flash (\(flashSize) bytes)")
             }
             return try await rawReadFlash(at: address, count: length) { read in
                 sink.report(OperationProgress(stage: .reading, regionIndex: 0, regionCount: 1,
@@ -249,7 +249,7 @@ extension ESPDevice {
     func performVerifyFlash(_ regions: [FlashRegion], sink: ProgressSink) async throws -> [VerifyResult] {
         try await exclusive {
             try ensureOpen()
-            try ensureNotSecureDownload("La vérification flash")
+            try ensureNotSecureDownload("Verifying the flash")
             _ = try await currentFlash()
             let total = regions.reduce(0) { $0 + $1.data.count }
             var done = 0
@@ -279,7 +279,7 @@ extension ESPDevice {
 
     func performEraseFlash(force: Bool, sink: ProgressSink) async throws {
         try await exclusive {
-            try ensureFlashCommandsAvailable("L'effacement total")
+            try ensureFlashCommandsAvailable("Full erase")
             if !force { try checkEraseGuards() }
             sink.report(OperationProgress(stage: .erasing, regionIndex: 0, regionCount: 1, completedBytes: 0, totalBytes: 1))
             _ = try await channel.execute(Command(.eraseFlash), timeout: FlashTimeouts.chipErase)
@@ -287,7 +287,7 @@ extension ESPDevice {
         }
     }
 
-    // MARK: Primitives (appelées sous `exclusive`)
+    // MARK: Primitives (called under `exclusive`)
 
     private func currentFlash() async throws -> FlashInfo {
         if let attachedFlash { return attachedFlash }
@@ -297,24 +297,24 @@ extension ESPDevice {
     private func ensureFlashCommandsAvailable(_ operation: String) throws {
         try ensureOpen()
         try ensureNotSecureDownload(operation)
-        guard stubRunning else { throw UsageError.unsupported(feature: "\(operation) (stub requis)", chip: chip, state: state) }
+        guard stubRunning else { throw UsageError.unsupported(feature: "\(operation) (stub required)", chip: chip, state: state) }
     }
 
-    /// Envoie `data` à `address` par blocs : 16 Kio avec le stub, 1 Kio sous ROM.
-    /// - Returns: le nombre d'octets envoyés (après compression).
+    /// Sends `data` to `address` in blocks: 16 KiB with the stub, 1 KiB under ROM.
+    /// - Returns: the number of bytes sent (after compression).
     private func rawWrite(_ data: Data, at address: UInt32, compress: Bool,
                           progress: (Int) -> Void) async throws -> Int {
         let blockSize = stubRunning ? 0x4000 : 0x400
         let wire = compress ? try Zlib.compress(data) : data
         let blocks = max(1, (wire.count + blockSize - 1) / blockSize)
-        // Rapport décompressé/compressé : sert à estimer le travail de la puce par bloc.
+        // Uncompressed/compressed ratio: used to estimate the chip's work per block.
         let ratio = Double(data.count) / Double(max(wire.count, 1))
 
-        // Le stub veut la taille décompressée ; la ROM, la taille à effacer.
+        // The stub wants the uncompressed size; the ROM, the size to erase.
         let size = stubRunning || !compress ? data.count : (data.count + 0xFFF) / 0x1000 * 0x1000
         var begin = Data.le(UInt32(size), UInt32(blocks), UInt32(blockSize), address)
         if !stubRunning && descriptor.romFlashBeginHasEncryptionWord { begin.appendLE(UInt32(0)) }
-        // La ROM efface toute la zone dans FLASH_BEGIN ; le stub efface au fil de l'eau.
+        // The ROM erases the whole area in FLASH_BEGIN; the stub erases as it goes.
         let beginTimeout = stubRunning ? FlashTimeouts.minimum : FlashTimeouts.eraseWrite(bytes: data.count)
         _ = try await channel.execute(Command(compress ? .flashDeflBegin : .flashBegin, payload: begin), timeout: beginTimeout)
 
@@ -327,14 +327,14 @@ extension ESPDevice {
             }
             var payload = Data.le(UInt32(chunk.count), UInt32(sequence), UInt32(0), UInt32(0))
             payload.append(chunk)
-            // Le stub accuse réception avant d'écrire : le délai couvre aussi le bloc précédent.
+            // The stub acknowledges before writing: the timeout also covers the previous block.
             let work = Int(Double(blockSize) * ratio)
             _ = try await channel.execute(Command(compress ? .flashDeflData : .flashData, payload: payload,
                                                   checksum: Command.checksum(of: chunk)),
                                           timeout: FlashTimeouts.eraseWrite(bytes: 2 * work))
             progress(min(data.count, Int(Double((sequence + 1) * blockSize) * ratio)))
         }
-        // Barrière : le stub ne répond qu'une fois le dernier bloc réellement écrit.
+        // Barrier: the stub only answers once the last block is actually written.
         _ = try await channel.execute(Command(.readReg, payload: .le(ChipDescriptor.magicRegister)),
                                       timeout: FlashTimeouts.eraseWrite(bytes: Int(Double(blockSize) * ratio)))
         return wire.count
@@ -342,11 +342,11 @@ extension ESPDevice {
 
     func rawFlashMD5(at address: UInt32, count: Int) async throws -> MD5Digest {
         if chip == .esp8266 && !stubRunning {
-            throw UsageError.unsupported(feature: "SPI_FLASH_MD5 sous ROM", chip: chip, state: state)
+            throw UsageError.unsupported(feature: "SPI_FLASH_MD5 under ROM", chip: chip, state: state)
         }
         let reply = try await channel.execute(Command(.spiFlashMD5, payload: .le(address, UInt32(count), UInt32(0), UInt32(0))),
                                               timeout: FlashTimeouts.md5(bytes: count))
-        // La ROM rend 32 caractères hexadécimaux, le stub 16 octets bruts.
+        // The ROM returns 32 hex characters, the stub 16 raw bytes.
         let bytes: Data?
         switch reply.payload.count {
         case 32...: bytes = Self.decodeHex(reply.payload.prefix(32))
@@ -354,16 +354,16 @@ extension ESPDevice {
         default: bytes = nil
         }
         guard let bytes, let digest = MD5Digest(bytes: Data(bytes)) else {
-            throw ProtocolError.invalidResponse("SPI_FLASH_MD5 : \(reply.payload.count) octets")
+            throw ProtocolError.invalidResponse("SPI_FLASH_MD5: \(reply.payload.count) bytes")
         }
         return digest
     }
 
     private func rawReadFlash(at address: UInt32, count: Int, progress: (Int) -> Void) async throws -> Data {
         guard stubRunning else { return try await rawReadFlashSlow(at: address, count: count, progress: progress) }
-        // Si une trame se perd, le stub attend un accusé que l'hôte ne peut pas envoyer : la lecture
-        // s'interrompt sur un délai dépassé. On relance alors la lecture à partir du dernier
-        // tronçon complet, deux fois au plus.
+        // If a frame is lost, the stub waits for an acknowledgement the host cannot send: the read
+        // stops on a timeout. The read is then restarted from the last complete
+        // chunk, at most twice.
         var out = Data(capacity: count)
         var retries = 0
         while out.count < count {
@@ -380,7 +380,7 @@ extension ESPDevice {
         return out
     }
 
-    /// Une commande READ_FLASH : blocs de 4 Kio, un accusé par bloc, puis le MD5 du stub.
+    /// One READ_FLASH command: 4 KiB blocks, one acknowledgement per block, then the stub's MD5.
     private func rawReadFlashStream(at address: UInt32, count: Int, progress: (Int) -> Void) async throws -> Data {
         _ = try await channel.execute(Command(.readFlash, payload: .le(address, UInt32(count), UInt32(0x1000), UInt32(1))))
         var out = Data(capacity: count)
@@ -390,28 +390,28 @@ extension ESPDevice {
                 let packet = try await channel.receivePacket(timeout: FlashTimeouts.minimum, opcode: Opcode.readFlash.rawValue)
                 out.append(packet)
                 guard out.count <= count else {
-                    throw ProtocolError.invalidResponse("READ_FLASH : \(out.count) octets reçus pour \(count) demandés")
+                    throw ProtocolError.invalidResponse("READ_FLASH: \(out.count) bytes received for \(count) requested")
                 }
-                // Accusé de réception : total reçu jusqu'ici.
+                // Acknowledgement: total received so far.
                 try await channel.sendRaw(.le(UInt32(out.count)))
                 progress(out.count)
             }
             let digest = try await channel.receivePacket(timeout: FlashTimeouts.minimum, opcode: Opcode.readFlash.rawValue)
             guard let expected = MD5Digest(bytes: digest) else {
-                throw ProtocolError.invalidResponse("READ_FLASH : MD5 final de \(digest.count) octets")
+                throw ProtocolError.invalidResponse("READ_FLASH: final MD5 of \(digest.count) bytes")
             }
             let actual = MD5Digest(bytes: MD5.hash(out))!
             guard actual == expected else { throw FlashError.md5Mismatch(address: address, expected: expected, actual: actual) }
             return out
         } catch {
-            // Interrompt la boucle d'envoi du stub : une trame qui n'est pas un accusé l'arrête.
+            // Breaks the stub's send loop: a frame that is not an acknowledgement stops it.
             try? await channel.sendRaw(Data([0]))
             try? await channel.drain(quietPeriod: .milliseconds(200))
             throw error
         }
     }
 
-    /// Lecture ROM : 64 octets par commande.
+    /// ROM read: 64 bytes per command.
     private func rawReadFlashSlow(at address: UInt32, count: Int, progress: (Int) -> Void) async throws -> Data {
         var out = Data(capacity: count)
         while out.count < count {
@@ -419,7 +419,7 @@ extension ESPDevice {
             let wanted = min(64, count - out.count)
             let reply = try await channel.execute(Command(.readFlashSlow, payload: .le(address + UInt32(out.count), UInt32(64))))
             guard reply.payload.count >= wanted else {
-                throw ProtocolError.invalidResponse("READ_FLASH_SLOW : \(reply.payload.count) octets")
+                throw ProtocolError.invalidResponse("READ_FLASH_SLOW: \(reply.payload.count) bytes")
             }
             out.append(reply.payload.prefix(wanted))
             if out.count % 0x1000 == 0 || out.count == count { progress(out.count) }
@@ -427,33 +427,33 @@ extension ESPDevice {
         return out
     }
 
-    // MARK: Préparation et garde-fous
+    // MARK: Preparation and safeguards
 
     private func validate(_ regions: [FlashRegion], flashSize: Int) throws {
         for region in regions {
-            guard !region.data.isEmpty else { throw UsageError.invalidArgument("région vide à \(hex(region.address))") }
+            guard !region.data.isEmpty else { throw UsageError.invalidArgument("empty region at \(hex(region.address))") }
             guard Int(region.address) + region.data.count <= flashSize else {
-                throw UsageError.invalidArgument("la région \(hex(region.address)) (\(region.data.count) octets) déborde de la flash (\(flashSize) octets)")
+                throw UsageError.invalidArgument("region \(hex(region.address)) (\(region.data.count) bytes) goes past the flash (\(flashSize) bytes)")
             }
         }
         let sorted = regions.sorted { $0.address < $1.address }
         for (previous, next) in zip(sorted, sorted.dropFirst())
         where Int(previous.address) + previous.data.count > Int(next.address) {
-            throw UsageError.invalidArgument("les régions \(hex(previous.address)) et \(hex(next.address)) se chevauchent")
+            throw UsageError.invalidArgument("regions \(hex(previous.address)) and \(hex(next.address)) overlap")
         }
     }
 
     private func checkWriteGuards(_ regions: [FlashRegion]) throws {
         if cachedSecurityInfo?.flags.contains(.secureBootEnabled) == true,
            let low = regions.first(where: { $0.address < 0x8000 }) {
-            throw UsageError.securityRestriction("Secure Boot actif : écriture à \(hex(low.address)), sous 0x8000")
+            throw UsageError.securityRestriction("Secure Boot enabled: write at \(hex(low.address)), below 0x8000")
         }
         guard chip != .esp8266, let expected = chip.imageChipID else { return }
         for region in regions where region.data.count >= 24 && region.data[region.data.startIndex] == 0xE9 {
             let id = UInt16(region.data[region.data.startIndex + 12]) | UInt16(region.data[region.data.startIndex + 13]) << 8
             guard id == expected else {
                 let target = ChipFamily(imageChipID: id).map(\.displayName) ?? "chip ID \(id)"
-                throw UsageError.imageIncompatible("l'image à \(hex(region.address)) vise \(target), la puce est un \(chip)")
+                throw UsageError.imageIncompatible("the image at \(hex(region.address)) targets \(target), the chip is an \(chip)")
             }
         }
     }
@@ -461,11 +461,11 @@ extension ESPDevice {
     private func checkEraseGuards() throws {
         guard let info = cachedSecurityInfo else { return }
         if info.flags.contains(.secureBootEnabled) || info.flashEncryptionEnabled {
-            throw UsageError.securityRestriction("Secure Boot ou chiffrement flash actif : effacement refusé")
+            throw UsageError.securityRestriction("Secure Boot or flash encryption enabled: erase refused")
         }
     }
 
-    /// Alignement sur 4 octets, patch d'en-tête, et alignement sur secteur sous ROM.
+    /// 4-byte alignment, header patching, and sector alignment under ROM.
     private func prepare(_ region: FlashRegion, overrides: FlashHeaderOverrides, flash: FlashInfo) throws -> PreparedRegion {
         var data = Data(region.data)
         var patched = false
@@ -475,7 +475,7 @@ extension ESPDevice {
         if data.count % 4 != 0 { data.append(Data(repeating: 0xFF, count: 4 - data.count % 4)) }
         var address = region.address
         if !stubRunning, address % 0x1000 != 0 {
-            // La ROM efface par secteurs entiers : on complète le début du secteur par 0xFF.
+            // The ROM erases whole sectors: the start of the sector is filled with 0xFF.
             let misalignment = Int(address % 0x1000)
             data = Data(repeating: 0xFF, count: misalignment) + data
             address -= UInt32(misalignment)
@@ -483,7 +483,7 @@ extension ESPDevice {
         return PreparedRegion(address: address, data: data, headerPatched: patched)
     }
 
-    /// Octets 2 et 3 de l'en-tête (mode, taille, fréquence), puis SHA-256 final recalculé.
+    /// Header bytes 2 and 3 (mode, size, frequency), then the final SHA-256 recomputed.
     private func patchHeader(_ data: inout Data, overrides: FlashHeaderOverrides, flash: FlashInfo) throws -> Bool {
         do {
             return try ImageHeader.patch(&data, chip: chip, overrides: overrides, detectedSize: flash.detectedSize)

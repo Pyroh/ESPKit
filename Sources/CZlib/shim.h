@@ -1,3 +1,3 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
-// libz du système (macOS : SDK ; Linux : paquet zlib1g-dev).
+// System libz (macOS: SDK; Linux: the zlib1g-dev package).
 #include <zlib.h>

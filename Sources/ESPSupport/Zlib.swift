@@ -3,14 +3,14 @@
 import Foundation
 import CZlib
 
-/// Compression zlib (RFC 1950) par la libz du système.
+/// zlib compression (RFC 1950) through the system libz.
 package enum Zlib {
     package struct Failure: Error, CustomStringConvertible {
         package var code: Int32
         package var description: String { "erreur zlib \(code)" }
     }
 
-    /// Flux zlib complet (en-tête, deflate, Adler-32). Niveau 9 par défaut, comme esptool.
+    /// Complete zlib stream (header, deflate, Adler-32). Level 9 by default, like esptool.
     package static func compress(_ data: Data, level: Int32 = 9) throws -> Data {
         var capacity = compressBound(uLong(data.count))
         var out = Data(count: Int(capacity))
@@ -25,14 +25,14 @@ package enum Zlib {
         return out
     }
 
-    /// CRC-32 (IEEE 802.3), celui de zlib.
+    /// CRC-32 (IEEE 802.3), the zlib one.
     package static func crc32(_ data: Data, seed: UInt32 = 0) -> UInt32 {
         data.withUnsafeBytes { buffer in
             UInt32(CZlib.crc32(uLong(seed), buffer.bindMemory(to: Bytef.self).baseAddress, uInt(buffer.count)))
         }
     }
 
-    /// Décompression d'un flux complet.
+    /// Decompresses a complete stream.
     package static func decompress(_ data: Data) throws -> Data {
         let inflater = try Inflater()
         let out = try inflater.feed(data)
@@ -40,7 +40,7 @@ package enum Zlib {
         return out
     }
 
-    /// Décompression par morceaux, pour suivre un flux reçu bloc par bloc.
+    /// Incremental decompression, to follow a stream received block by block.
     package final class Inflater {
         private var stream = z_stream()
         package private(set) var isFinished = false
@@ -52,7 +52,7 @@ package enum Zlib {
 
         deinit { inflateEnd(&stream) }
 
-        /// Décompresse `chunk` et rend ce qui en sort.
+        /// Decompresses `chunk` and returns what comes out.
         package func feed(_ chunk: Data) throws -> Data {
             guard !isFinished, !chunk.isEmpty else { return Data() }
             var output = Data()
