@@ -4,4 +4,5 @@
 @_exported import ESPTargets
 @_exported import ESPTransport
 @_exported import ESPImage
+@_exported import ESPSecure
 @_exported import ESPDevice

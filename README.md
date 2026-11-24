@@ -3,12 +3,12 @@
 SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266, ESP32 et famille ESP32-x) : détection, flash, images, Secure Boot, chiffrement flash et eFuses. Réimplémentation indépendante des capacités d'esptool, espefuse et espsecure, sans CLI.
 
 - **Plateformes :** macOS 15+, puis Linux.
-- **Langage :** Swift 6, concurrence stricte. `ESPDevice` est un `actor` ; les opérations longues sont des `AsyncSequence`.
+- **Langage :** Swift 6.2 minimum (swift-crypto 5.1), concurrence stricte. `ESPDevice` est un `actor` ; les opérations longues sont des `AsyncSequence`.
 - **Licence :** MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
 
 La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
 
-## État : phase 2 (images)
+## État : phase 3 (espsecure)
 
 Disponible :
 
@@ -37,7 +37,9 @@ for try await event in esp.writeFlash(regions) {
 await esp.disconnect(.hard)
 ```
 
-Pas encore : espsecure (phase 3), eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
+- sécurité (`ESPSecure`, sans I/O) : Secure Boot v2 en RSA-3072, ECDSA P-256 et P-384 (génération et lecture de clés PEM, signature locale ou par un `Signer` externe, jusqu'à 3 blocs, vérification, empreinte de clé à brûler en eFuse) ; chiffrement flash XTS-AES-128 et 256, identique à l'octet à espsecure. Les images signées par ESPKit sont acceptées par `espsecure verify-signature`.
+
+Pas encore : eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 
 ## Tests
 
@@ -63,6 +65,12 @@ Les tests différentiels d'`ESPImage` comparent ESPKit à esptool, utilisé comm
 ESPKIT_IMAGE_REFERENCES=…/ref-v5 swift test --filter ReferenceTests
 ```
 
+Pour `ESPSecure`, `Tools/oracle/make-secure-references.sh` produit clés, signatures et chiffrements de référence avec espsecure, puis :
+
+```bash
+ESPKIT_SECURE_REFERENCES=… ESPKIT_ESPSECURE=espsecure swift test --filter ESPSecureTests
+```
+
 Le stub embarqué se régénère depuis une release d'esp-flasher-stub :
 
 ```bash
@@ -73,4 +81,4 @@ python3 -I Tools/generate-stubs.py v2.0.0 <dossier des JSON téléchargés>
 
 - On code depuis la spécification et la documentation publique, jamais en traduisant le Python d'esptool (GPL).
 - Chaque fichier porte l'en-tête `// SPDX-License-Identifier: MIT OR Apache-2.0`.
-- Dépendances acceptées : `swift-crypto`, libz système (paquet `zlib1g-dev` sous Linux). Rien sous GPL ou LGPL.
+- Dépendances acceptées : `swift-crypto` (5.1.x), libz système (paquet `zlib1g-dev` sous Linux). Rien sous GPL ou LGPL.

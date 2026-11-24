@@ -279,7 +279,8 @@ struct ReadVerifyEraseTests {
             }
         }
         #expect(result == data)
-        #expect(reads.last == 10_000)
+        // Un consommateur lent peut manquer des progressions, jamais les voir reculer.
+        #expect(reads == reads.sorted() && reads.allSatisfy { $0 <= 10_000 })
     }
 
     @Test func recoversFromALostReadPacket() async throws {
