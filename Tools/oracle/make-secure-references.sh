@@ -31,4 +31,13 @@ for input in plain.bin plain208.bin; do
         $ESPSECURE encrypt-flash-data --aes-xts --keyfile xts128.key --address $address --output enc-mis-$address-$input $input > /dev/null
     done
 done
+# Schéma ESP32 : clé modifiée selon l'adresse et FLASH_CRYPT_CONFIG.
+head -c 32 /dev/urandom > esp32.key
+head -c 256 plain.bin > p256.bin
+for config in 0x0 0x1 0x2 0x4 0x8 0xf; do
+    for address in 0x0 0x1000 0x12340 0xfedc0; do
+        $ESPSECURE encrypt-flash-data --keyfile esp32.key --address $address --flash-crypt-conf $config \
+            --output e32-$config-$address.bin p256.bin > /dev/null
+    done
+done
 echo "références dans $out"

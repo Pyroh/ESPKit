@@ -9,7 +9,8 @@ import ESPTargets
 /// ou relire un dump chiffré.
 public enum FlashEncryption {
     public enum Scheme: Hashable, Sendable, CustomStringConvertible {
-        /// ESP32 : AES-256 « inversé » avec une clé modifiée selon l'adresse. Pas encore pris en charge.
+        /// ESP32 : AES-256 « inversé » avec une clé modifiée selon l'adresse ; `cryptConfig` est la
+        /// valeur de l'eFuse `FLASH_CRYPT_CONFIG` (4 bits, 0xF une fois le chiffrement activé).
         case esp32(cryptConfig: UInt8 = 0xF)
         /// XTS-AES-128 : clé de 256 bits (deux clés AES-128).
         case xtsAES128
@@ -47,7 +48,7 @@ public enum FlashEncryption {
     }
 
     /// `address` = adresse flash où les données seront écrites (le chiffrement en dépend).
-    /// `address` et `data.count` doivent être des multiples de 16.
+    /// `address` et `data.count` doivent être des multiples de 16 (32 pour le schéma ESP32).
     /// - Throws: `FlashEncryptionError`.
     public static func encrypt(_ data: Data, at address: UInt32, key: Data, scheme: Scheme) throws -> Data {
         try transform(data, at: address, key: key, scheme: scheme, encrypt: true)
@@ -59,12 +60,13 @@ public enum FlashEncryption {
 
     private static func transform(_ data: Data, at address: UInt32, key: Data, scheme: Scheme, encrypt: Bool) throws -> Data {
         guard key.count == scheme.keyLength else { throw FlashEncryptionError.invalidKeyLength(key.count, scheme: scheme) }
-        guard address % 16 == 0, data.count % 16 == 0 else {
+        let alignment: UInt32 = if case .esp32 = scheme { 32 } else { 16 }
+        guard address % alignment == 0, data.count % Int(alignment) == 0 else {
             throw FlashEncryptionError.misaligned(address: address, count: data.count)
         }
         switch scheme {
-        case .esp32:
-            throw FlashEncryptionError.schemeNotSupported(scheme)
+        case .esp32(let config):
+            return try esp32(Data(data), at: address, key: Data(key), config: config, encrypt: encrypt)
         case .xtsAES128, .xtsAES256:
             return try xts(Data(data), at: address, key: Data(key), encrypt: encrypt)
         }
@@ -104,6 +106,46 @@ public enum FlashEncryption {
         }
         return out
     }
+
+    /// Schéma ESP32. Par bloc de 32 octets, la clé AES-256 est modifiée selon l'adresse du bloc ;
+    /// chaque bloc de 16 octets est retourné, passé dans AES (déchiffrement pour chiffrer : le
+    /// matériel est « inversé »), puis retourné à nouveau.
+    private static func esp32(_ data: Data, at address: UInt32, key: Data, config: UInt8, encrypt: Bool) throws -> Data {
+        var out = Data(capacity: data.count)
+        for offset in stride(from: 0, to: data.count, by: 32) {
+            let blockKey = SymmetricKey(data: tweakedKey(key, address: address + UInt32(offset), config: config))
+            for half in [offset, offset + 16] {
+                var block = Array(data[(data.startIndex + half)..<(data.startIndex + half + 16)].reversed())
+                if encrypt { try AES.inversePermute(&block, key: blockKey) } else { try AES.permute(&block, key: blockKey) }
+                out.append(contentsOf: block.reversed())
+            }
+        }
+        return out
+    }
+
+    /// Le bit n de la clé (bit de poids fort de l'octet 0 en premier) est inversé si le bit
+    /// `esp32TweakPattern[n]` de l'adresse vaut 1, pour les groupes de bits activés par
+    /// `FLASH_CRYPT_CONFIG` : le bit i de la config active le groupe i.
+    static func tweakedKey(_ key: Data, address: UInt32, config: UInt8) -> Data {
+        var bytes = [UInt8](key)
+        let groups = [0, 67, 132, 195, 256]
+        for group in 0..<4 where config >> group & 1 == 1 {
+            for bit in groups[group]..<groups[group + 1] where address >> esp32TweakPattern[bit] & 1 == 1 {
+                bytes[bit / 8] ^= 0x80 >> UInt8(bit % 8)
+            }
+        }
+        return Data(bytes)
+    }
+
+    /// Bit d'adresse associé à chaque bit de clé : table matérielle de l'ESP32, reprise des
+    /// constantes d'espsecure (un fait sur le matériel, pas du code).
+    static let esp32TweakPattern: [UInt32] = {
+        let full: [UInt32] = Array((5...23).reversed())
+        return full + full + full + Array((5...14).reversed())
+            + full + full + full + Array((5...12).reversed())
+            + full + full + full + Array((5...10).reversed())
+            + full + full + full + Array((5...8).reversed())
+    }()
 
     /// Multiplication par α dans GF(2¹²⁸), convention XTS (little-endian, polynôme 0x87).
     private static func multiplyByAlpha(_ tweak: inout [UInt8]) {

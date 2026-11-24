@@ -37,7 +37,7 @@ for try await event in esp.writeFlash(regions) {
 await esp.disconnect(.hard)
 ```
 
-- sécurité (`ESPSecure`, sans I/O) : Secure Boot v2 en RSA-3072, ECDSA P-256 et P-384 (génération et lecture de clés PEM, signature locale ou par un `Signer` externe, jusqu'à 3 blocs, vérification, empreinte de clé à brûler en eFuse) ; chiffrement flash XTS-AES-128 et 256, identique à l'octet à espsecure. Les images signées par ESPKit sont acceptées par `espsecure verify-signature`.
+- sécurité (`ESPSecure`, sans I/O) : Secure Boot v2 en RSA-3072, ECDSA P-256 et P-384 (génération et lecture de clés PEM, signature locale ou par un `Signer` externe, jusqu'à 3 blocs, vérification, empreinte de clé à brûler en eFuse) ; chiffrement flash XTS-AES-128 et 256 et schéma ESP32, identiques à l'octet à espsecure. Les images signées par ESPKit sont acceptées par `espsecure verify-signature`.
 
 Pas encore : eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 

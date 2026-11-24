@@ -91,6 +91,17 @@ struct FlashEncryptionTests {
         #expect(try FlashEncryption.encrypt(plain, at: 0x2_0010, key: key, scheme: scheme) != encrypted)
     }
 
+    @Test func esp32SchemeRoundTripsAndDependsOnConfig() throws {
+        let key = FlashEncryption.generateKey(for: .esp32())
+        let plain = image(256)
+        let encrypted = try FlashEncryption.encrypt(plain, at: 0x1_2340, key: key, scheme: .esp32())
+        #expect(try FlashEncryption.decrypt(encrypted, at: 0x1_2340, key: key, scheme: .esp32()) == plain)
+        #expect(try FlashEncryption.encrypt(plain, at: 0x1_2340, key: key, scheme: .esp32(cryptConfig: 0)) != encrypted)
+        #expect(FlashEncryption.esp32TweakPattern.count == 256)
+        #expect(FlashEncryption.tweakedKey(key, address: 0x1_2340, config: 0) == key)
+        #expect(throws: FlashEncryptionError.self) { try FlashEncryption.encrypt(image(16), at: 0, key: key, scheme: .esp32()) }
+    }
+
     @Test func checksArguments() {
         let key = FlashEncryption.generateKey(for: .xtsAES128)
         #expect(throws: FlashEncryptionError.self) { try FlashEncryption.encrypt(image(20), at: 0, key: key, scheme: .xtsAES128) }

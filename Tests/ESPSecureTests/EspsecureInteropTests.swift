@@ -77,6 +77,20 @@ struct EspsecureInteropTests {
         }
     }
 
+    /// e32-<config>-<adresse>.bin : `espsecure encrypt-flash-data --flash-crypt-conf <config>` de p256.bin.
+    @Test func encryptsLikeEspsecureOnESP32() throws {
+        let key = try file("esp32.key")
+        let plain = try file("p256.bin")
+        for config: UInt8 in [0x0, 0x1, 0x2, 0x4, 0x8, 0xF] {
+            for address: UInt32 in [0x0, 0x1000, 0x1_2340, 0xF_EDC0] {
+                let name = "e32-0x\(String(config, radix: 16))-0x\(String(address, radix: 16)).bin"
+                let expected = try file(name)
+                #expect(try FlashEncryption.encrypt(plain, at: address, key: key, scheme: .esp32(cryptConfig: config)) == expected, "\(name)")
+                #expect(try FlashEncryption.decrypt(expected, at: address, key: key, scheme: .esp32(cryptConfig: config)) == plain)
+            }
+        }
+    }
+
     @Test func handlesPartialUnitsLikeEspsecure() throws {
         let key = try file("xts128.key")
         for (input, address) in [("plain.bin", UInt32(0x1010)), ("plain208.bin", 0x1010), ("plain208.bin", 0x1000)] {

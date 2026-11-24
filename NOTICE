@@ -7,7 +7,10 @@ Apache License, Version 2.0 (LICENSE-APACHE), at your option.
 ESPKit is an independent implementation of the Espressif serial bootloader
 protocol. It contains no code from esptool, espefuse or espsecure
 (GPL-2.0-or-later). Protocol constants, register addresses and timing values
-are technical facts documented by Espressif.
+are technical facts documented by Espressif. The ESP32 flash encryption key
+tweak table (Sources/ESPSecure/FlashEncryption.swift) is a hardware fact
+taken from the constants of espsecure; its use was established by
+differential testing against espsecure, without reading its code.
 
 Third-party components:
 
