@@ -24,7 +24,12 @@ public struct ImageOptions: Hashable, Sendable {
     public var mmuPageSize: Int? = nil
     /// Pad the file with 0xFF up to a multiple of this size.
     public var padToMultipleOf: Int? = nil
-    /// Announce only the RAM segments in the header. Not supported yet (phase 6).
+    /// `--ram-only-header`: the RAM segments come first and are the only ones the header counts,
+    /// so the ROM loads them and nothing else; the flash-mapped segments follow the checksum
+    /// (`FirmwareImage.hiddenSegments`), from the highest address down, aligned on the MMU page
+    /// as if the image sat at `chip.bootloaderOffset`. No SHA-256 is appended (`appendSHA256` is
+    /// ignored), secure padding is refused, and the ELF's SHA-256 is only inserted at an explicit
+    /// `elfSHA256Offset`, which must fall in the RAM segments.
     public var ramOnlyHeader: Bool = false
 
     public enum SecurePadding: Hashable, Sendable {
@@ -49,7 +54,9 @@ public enum ImageBuilder {
         guard chip != .esp8266, let chipID = chip.imageChipID else { throw ImageError.unsupportedChip(chip) }
         let traits = ChipImageTraits(chip)
         guard traits.hasMemoryMap else { throw ImageError.unsupportedChip(chip) }
-        if options.ramOnlyHeader { throw ImageError.layout("the RAM-only header is not supported yet") }
+        if options.ramOnlyHeader && options.securePadding != .none {
+            throw ImageError.layout("secure padding cannot be combined with a RAM-only header")
+        }
         if options.securePadding != .none && !options.appendSHA256 {
             throw ImageError.layout("secure padding requires the SHA-256 at the end of the image")
         }
@@ -66,6 +73,11 @@ public enum ImageBuilder {
         for (a, b) in zip(flash, flash.dropFirst())
         where b.address / UInt32(page) == (a.address + UInt32(a.data.count) - 1) / UInt32(page) {
             throw ImageError.layout("segments 0x\(String(a.address, radix: 16)) and 0x\(String(b.address, radix: 16)) fall in the same MMU page")
+        }
+
+        if options.ramOnlyHeader {
+            return try ramOnlyImage(elf: elf, chip: chip, chipID: chipID, traits: traits, page: page,
+                                    ram: ram, flash: flash, options: options)
         }
 
         // Layout: each flash segment must satisfy (offset + 8) ≡ address (mod page).
@@ -112,6 +124,12 @@ public enum ImageBuilder {
             try insert(elf.sha256, at: Int(shaOffset), into: &layout)
         }
 
+        return try assemble(chip: chip, chipID: chipID, traits: traits, entryPoint: elf.entryPoint,
+                            layout: layout, options: options)
+    }
+
+    private static func assemble(chip: ChipFamily, chipID: UInt16, traits: ChipImageTraits, entryPoint: UInt32,
+                                 layout: [Piece], options: ImageOptions) throws -> FirmwareImage {
         var header = FirmwareImage.ExtendedHeader(chipID: chipID, minRevision: options.minRevision,
                                                   maxRevision: options.maxRevision, hashAppended: options.appendSHA256)
         header.legacyMinRevision = 0
@@ -125,12 +143,46 @@ public enum ImageBuilder {
             }
             frequencyCode = code
         }
-        var image = FirmwareImage(chip: chip, entryPoint: elf.entryPoint, flashMode: options.flashMode,
+        var image = FirmwareImage(chip: chip, entryPoint: entryPoint, flashMode: options.flashMode,
                                   flashFrequencyCode: frequencyCode, flashSizeCode: sizeCode,
                                   segments: layout.map { FirmwareImage.Segment(loadAddress: $0.address, data: $0.data,
                                                                                 region: traits.region(of: $0.address)) },
                                   extendedHeader: header)
         image.padToMultipleOf = options.padToMultipleOf
+        return image
+    }
+
+    /// RAM segments, checksum, then the flash segments (highest address first) with padding
+    /// segments so that each one is MMU-aligned once the image sits at `chip.bootloaderOffset`.
+    private static func ramOnlyImage(elf: ELFFile, chip: ChipFamily, chipID: UInt16, traits: ChipImageTraits, page: Int,
+                                     ram: [Piece], flash: [Piece], options: ImageOptions) throws -> FirmwareImage {
+        var layout = ram
+        var offset = 24 + ram.reduce(0) { $0 + 8 + $1.data.count }
+        offset = FirmwareImage.checksumOffset(after: offset) + 1
+        let base = Int(chip.bootloaderOffset)
+        var hidden: [Piece] = []
+        for next in flash.sorted(by: { $0.address > $1.address }) {
+            let gap = alignmentGap(fileOffset: base + offset, address: next.address, page: page)
+            if gap > 0 {
+                hidden.append(Piece(address: 0, data: Data(count: gap), name: nil))
+                offset += 8 + gap
+            }
+            var segment = next
+            if chip == .esp32 {
+                let remainder = (base + offset + 8 + segment.data.count) % page
+                if remainder < 0x24 { segment.data.append(Data(count: 0x24 - remainder)) }
+            }
+            hidden.append(segment)
+            offset += 8 + segment.data.count
+        }
+        // Only within the RAM segments: the hidden ones do not follow on from them in the file.
+        if let shaOffset = options.elfSHA256Offset { try insert(elf.sha256, at: Int(shaOffset), into: &layout) }
+        var options = options
+        options.appendSHA256 = false
+        var image = try assemble(chip: chip, chipID: chipID, traits: traits, entryPoint: elf.entryPoint,
+                                 layout: layout, options: options)
+        image.hiddenSegments = hidden.map { FirmwareImage.Segment(loadAddress: $0.address, data: $0.data,
+                                                                  region: traits.region(of: $0.address)) }
         return image
     }
 

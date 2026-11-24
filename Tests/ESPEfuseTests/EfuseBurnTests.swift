@@ -94,3 +94,52 @@ struct EfuseBurnTests {
         #expect(ReedSolomon.parity(for: data).map { String(format: "%02x", $0) }.joined() == expected)
     }
 }
+
+@Suite("ESP32 3/4 coding scheme (virtual)")
+struct ThreeQuartersCodingTests {
+    private func threeQuartersController() async throws -> EfuseController {
+        let controller = EfuseController(virtual: .esp32)
+        var coding = EfuseBurnPlan()
+        coding.set(EfuseFieldName.ESP32.codingScheme, to: .uint(1))
+        _ = try await controller.burn(coding, confirm: .irreversible)
+        return controller
+    }
+
+    @Test func blocksOneToThreeHold24Bytes() async throws {
+        let controller = try await threeQuartersController()
+        let blocks = await controller.blocks()
+        #expect(blocks.map(\.words.count) == [7, 6, 6, 6])
+        #expect(await controller.field("BLOCK2")?.type == "bytes:24")
+        // Without 3/4, the same blocks are 32 bytes.
+        #expect(await EfuseController(virtual: .esp32).blocks().map(\.words.count) == [7, 8, 8, 8])
+    }
+
+    @Test func keysAre192Bits() async throws {
+        let controller = try await threeQuartersController()
+        var long = EfuseBurnPlan()
+        long.writeKey(Data(count: 32), to: .flashEncryption, purpose: .user)
+        await #expect(throws: EfuseError.self) { try await controller.preview(long) }
+        var key = EfuseBurnPlan()
+        key.writeKey(Data(1...24), to: .secureBootV1, purpose: .user, readProtect: false)
+        _ = try await controller.burn(key, confirm: .irreversible)
+        let stored = try #require(await controller.blocks()[safe: 2]).words
+        #expect(stored.first == 0x1516_1718)                 // reversed, like espefuse
+
+        var short = EfuseBurnPlan()
+        short.writeKey(Data(count: 24), to: .flashEncryption, purpose: .user)
+        await #expect(throws: EfuseError.self) { try await EfuseController(virtual: .esp32).preview(short) }
+    }
+
+    @Test func blockDataStopsAt24Bytes() async throws {
+        let controller = try await threeQuartersController()
+        var plan = EfuseBurnPlan()
+        plan.writeBlockData(Data(repeating: 1, count: 8), to: 3, offset: 20)
+        await #expect(throws: EfuseError.self) { try await controller.preview(plan) }
+        var bits = EfuseBurnPlan()
+        bits.burnBits([192], in: 3)
+        await #expect(throws: EfuseError.self) { try await controller.preview(bits) }
+        var fits = EfuseBurnPlan()
+        fits.writeBlockData(Data(repeating: 1, count: 8), to: 3, offset: 16)
+        #expect(try await controller.preview(fits).count == 2)
+    }
+}

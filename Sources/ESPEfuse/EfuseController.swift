@@ -74,7 +74,8 @@ public actor EfuseController {
         let names = EfuseLayout.layout(for: chip)?.blocks.map(\.name)
         return state.blocks.enumerated().map { index, words in
             let whole = table?.fields.first { $0.block == index && $0.bitCount >= 192 }
-            return EfuseBlock(index: index, name: names?[safe: index] ?? "BLOCK\(index)", words: words,
+            return EfuseBlock(index: index, name: names?[safe: index] ?? "BLOCK\(index)",
+                              words: Array(words.prefix(byteCount(ofBlock: index) / 4)),
                               isReadProtected: whole.map(isReadProtected) ?? false,
                               isWriteProtected: whole.map(isWriteProtected) ?? false)
         }
@@ -155,11 +156,13 @@ public actor EfuseController {
         for definition in table.fields where definition.inSummary && !(hideCalibration && definition.category == "calibration") {
             let field = field(for: definition)
             entries.append((definition.name, summaryEntry(field, start: definition.bits.map(\.start).min(),
-                                                          bitCount: definition.bitCount)))
+                                                          bitCount: shownSize(bitCount: definition.bitCount, type: definition.type,
+                                                                              block: definition.block).bitCount)))
         }
         for label in table.composites {
             guard let field = composite(for: label) else { continue }
-            entries.append((label.name, summaryEntry(field, start: field.bitRanges.first?.lowerBound, bitCount: label.bitCount)))
+            entries.append((label.name, summaryEntry(field, start: field.bitRanges.first?.lowerBound,
+                                                     bitCount: shownSize(bitCount: label.bitCount, type: label.type, block: label.block).bitCount)))
         }
         return Data(JSONValue.object(entries.sorted { $0.0 < $1.0 }.map { ($0.0, .object($0.1)) }).pythonJSON().utf8)
     }
@@ -168,6 +171,22 @@ public actor EfuseController {
 
     var efuseTable: EfuseTable? { table }
     var isVirtual: Bool { device == nil }
+    var connectedDevice: ESPDevice? { device }
+
+    /// Reads the blocks from the chip into `state` (after a hardware burn).
+    func reloadFromChip() async throws {
+        guard let device, let layout = EfuseLayout.layout(for: chip) else { return }
+        state = try await Self.read(layout, chip: chip, from: device)
+    }
+
+    /// ESP32 with the 3/4 coding scheme: BLOCK1 to BLOCK3 hold 24 bytes each (192-bit keys).
+    var usesThreeQuartersCoding: Bool { chip == .esp32 && raw("CODING_SCHEME") == 1 }
+
+    /// Usable bytes of a block: 24 for BLOCK1 to BLOCK3 under the 3/4 coding scheme.
+    func byteCount(ofBlock block: Int) -> Int {
+        if usesThreeQuartersCoding && (1...3).contains(block) { return 24 }
+        return (state.blocks[safe: block]?.count ?? 0) * 4
+    }
 
     func rawValue(_ definition: EfuseDefinition) -> UInt64 { Self.integer(bits(of: definition)) }
 
@@ -182,7 +201,7 @@ public actor EfuseController {
         return table.fields.filter { $0.bitCount >= 192 && isReadProtected($0) }.map(\.block)
     }
 
-    private static func read(_ layout: EfuseLayout, chip: ChipFamily, from device: ESPDevice) async throws -> EfuseSnapshot {
+    static func read(_ layout: EfuseLayout, chip: ChipFamily, from device: ESPDevice) async throws -> EfuseSnapshot {
         var blocks: [[UInt32]] = []
         for block in layout.blocks {
             var words: [UInt32] = []
@@ -197,7 +216,8 @@ public actor EfuseController {
         return EfuseSnapshot(chip: chip, blocks: blocks, errorRegisters: errors, apbControlDate: date)
     }
 
-    /// The field's bits concatenated, least significant first.
+    /// The field's bits concatenated, least significant first. Under the 3/4 coding scheme a
+    /// whole-block field stops at the block's 192 bits.
     private func bits(of definition: EfuseDefinition) -> [Bool] {
         let words = state.blocks[safe: definition.block] ?? []
         var out: [Bool] = []
@@ -207,7 +227,14 @@ public actor EfuseController {
                 out.append(word < words.count && words[word] >> UInt32(bit % 32) & 1 == 1)
             }
         }
-        return out
+        return out.count > 64 ? Array(out.prefix(byteCount(ofBlock: definition.block) * 8)) : out
+    }
+
+    /// Size and type shown for a field: a whole block shrinks to 24 bytes under the 3/4 coding scheme.
+    private func shownSize(bitCount: Int, type: String, block: Int) -> (bitCount: Int, type: String) {
+        let usable = byteCount(ofBlock: block) * 8
+        guard bitCount > usable, type.hasPrefix("bytes") else { return (bitCount, type) }
+        return (usable, "bytes:\(usable / 8)")
     }
 
     private func raw(_ name: String) -> UInt64? {
@@ -252,7 +279,7 @@ public actor EfuseController {
                           bitRanges: definition.bits.map { $0.start..<$0.start + $0.count }, value: value,
                           displayValue: presentation(of: definition, value: value, bits: bits).text,
                           isReadProtected: isReadProtected(definition), isWriteProtected: isWriteProtected(definition),
-                          type: definition.type)
+                          type: shownSize(bitCount: definition.bitCount, type: definition.type, block: definition.block).type)
     }
 
     /// Fields espefuse computes from other fields.
@@ -274,9 +301,9 @@ public actor EfuseController {
             ranges = definition.bits.map { $0.start..<$0.start + $0.count }
             protection = definition
         case (.esp32, "BLOCK3"):
-            let words = state.blocks[safe: 3] ?? []
+            let words = (state.blocks[safe: 3] ?? []).prefix(byteCount(ofBlock: 3) / 4)
             value = .bytes(Data(words.flatMap { word in (0..<4).map { UInt8(truncatingIfNeeded: word >> UInt32(8 * $0)) } }))
-            ranges = [0..<256]
+            ranges = [0..<byteCount(ofBlock: 3) * 8]
             protection = table?.definition(named: "MAC_CUSTOM")
         case (.esp32s3, "WAFER_VERSION_MINOR"):
             value = .uint((raw("WAFER_VERSION_MINOR_LO") ?? 0) | (raw("WAFER_VERSION_MINOR_HI") ?? 0) << 3)
@@ -287,7 +314,7 @@ public actor EfuseController {
         }
         let text: String
         switch value {
-        case .mac(let mac): text = macPresentation(mac, crcField: label.name == "CUSTOM_MAC" ? "CUSTOM_MAC_CRC" : nil)
+        case .mac(let mac): text = macPresentation(mac, crcField: label.name == "CUSTOM_MAC" ? "CUSTOM_MAC_CRC" : nil, custom: true)
         case .bytes(let data): text = data.map { String(format: "%02x", $0) }.joined(separator: " ")
         case .uint(let number): text = String(number)
         default: text = ""
@@ -295,7 +322,8 @@ public actor EfuseController {
         return EfuseField(name: EfuseFieldName(label.name), category: label.category, description: label.description,
                           block: label.block, bitRanges: ranges, value: value, displayValue: text,
                           isReadProtected: protection.map(isReadProtected) ?? false,
-                          isWriteProtected: protection.map(isWriteProtected) ?? false, type: label.type)
+                          isWriteProtected: protection.map(isWriteProtected) ?? false,
+                          type: shownSize(bitCount: label.bitCount, type: label.type, block: label.block).type)
     }
 
     // MARK: Presentation (aligned with espefuse)
@@ -320,13 +348,15 @@ public actor EfuseController {
         }
     }
 
-    /// ESP32: the MAC carries a CRC-8 (Dallas/Maxim); other chips have none.
-    private func macPresentation(_ mac: MACAddress, crcField: String?) -> String {
+    /// ESP32: the MAC carries a CRC-8 (Dallas/Maxim); other chips have none. espefuse words a
+    /// bad CRC differently for the factory MAC and the custom one.
+    private func macPresentation(_ mac: MACAddress, crcField: String?, custom: Bool = false) -> String {
         let text = mac.bytes.map { String(format: "%02x", $0) }.joined(separator: ":")
         guard let crcField, let stored = raw(crcField) else { return text + " (OK)" }
         let computed = Self.crc8(mac.bytes)
-        return computed == UInt8(stored)
-            ? text + String(format: " (CRC 0x%02x OK)", computed)
+        if computed == UInt8(stored) { return text + String(format: " (CRC 0x%02x OK)", computed) }
+        return custom
+            ? text + String(format: " (CRC 0x%02x invalid - calculated 0x%02x)", UInt8(stored), computed)
             : text + String(format: " (CRC 0x%02x has bad CRC, expected 0x%02x)", UInt8(stored), computed)
     }
 

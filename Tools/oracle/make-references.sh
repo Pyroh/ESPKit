@@ -35,6 +35,8 @@ for chip in esp32 esp32s3; do
     elf2image idf-$chip-segments $chip "$app" --flash_mode dio --flash_freq $freq --flash_size $size --use_segments
     elf2image idf-$chip-padded $chip "$app" --flash_mode dout --flash_freq 20m --flash_size 16MB --pad-to-size 1MB
     elf2image arduino-$chip-app $chip "$arduino/$chip/firmware.elf" --flash_mode dio --flash_freq $freq --flash_size $size --elf-sha256-offset 0xb0
+    # Sections would put the app description's SHA-256 slot (0xb0) inside the RAM segments: esptool refuses.
+    elf2image idf-$chip-ramonly $chip "$app" --flash_mode dio --flash_freq $freq --flash_size $size --use_segments --ram-only-header
 done
 
 # ESP8266: v1 (two files) and v2.

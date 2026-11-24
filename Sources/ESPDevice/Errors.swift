@@ -134,9 +134,14 @@ public enum FlashError: ESPKitError, Equatable {
     case md5Mismatch(address: UInt32, expected: MD5Digest, actual: MD5Digest)
     /// RDID returns 0x000000, 0xFFFFFF or 0xFFFF3F: no flash answers on the SPI bus.
     case notDetected(jedecID: UInt32)
+    /// The status register reads back another value after `writeFlashStatus`.
+    case statusMismatch(expected: UInt32, actual: UInt32)
 
     public var description: String {
         switch self {
+        case .statusMismatch(let expected, let actual):
+            "Flash status reads \(hex(actual)) after writing \(hex(expected))"
+
         case .md5Mismatch(let address, let expected, let actual):
             "MD5 mismatch at \(hex(address)): expected \(expected), read \(actual)"
         case .notDetected(let id):

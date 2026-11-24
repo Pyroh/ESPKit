@@ -27,8 +27,12 @@ public struct FirmwareImage: Hashable, Sendable {
     /// `nil` if the header code is unknown for the chip.
     public var flashFrequency: FlashFrequency?
     public var flashSize: FlashSize?
-    /// Segments in file order.
+    /// Segments in file order, the ones the header counts.
     public var segments: [Segment]
+    /// Segments after the checksum, which the header does not count and the ROM does not load
+    /// (`ImageOptions.ramOnlyHeader`: the flash-mapped segments, with their padding). Not
+    /// covered by the checksum. Parsing does not recover them.
+    public var hiddenSegments: [Segment] = []
     public var extendedHeader: ExtendedHeader
     public var appDescription: AppDescription?
     public var bootloaderDescription: BootloaderDescription?
@@ -202,6 +206,11 @@ public struct FirmwareImage: Hashable, Sendable {
         }
         out.append(Data(count: Self.checksumOffset(after: out.count) - out.count))
         out.append(checksum)
+        for segment in hiddenSegments {
+            out.appendLE32(segment.loadAddress)
+            out.appendLE32(UInt32(segment.data.count))
+            out.append(segment.data)
+        }
         if header.hashAppended { out.append(SHA256.hash(out)) }
         if let multiple = padToMultipleOf, multiple > 0, out.count % multiple != 0 {
             out.append(Data(repeating: 0xFF, count: multiple - out.count % multiple))

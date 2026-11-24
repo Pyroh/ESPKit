@@ -111,3 +111,45 @@ struct FlashEncryptionTests {
         #expect(FlashEncryption.Scheme.default(for: .esp32s3) == .xtsAES128)
     }
 }
+
+@Suite("Secure Boot v1")
+struct SecureBootV1Tests {
+    private let pem = try! SecureBootV2.SigningKey.generate(.ecdsa256).pemRepresentation
+
+    @Test func signsAndVerifies() throws {
+        let data = image(1000)
+        let signed = try SecureBootV1.sign(data, privateKeyPEM: pem)
+        #expect(signed.count == data.count + 68)
+        #expect(signed.prefix(data.count) == data)
+        try SecureBootV1.verify(signed, publicKeyPEM: pem)
+
+        var tampered = signed
+        tampered[10] ^= 1
+        #expect(throws: SecureBootError.signatureInvalid) { try SecureBootV1.verify(tampered, publicKeyPEM: pem) }
+        let other = try SecureBootV2.SigningKey.generate(.ecdsa256).pemRepresentation
+        #expect(throws: SecureBootError.signatureInvalid) { try SecureBootV1.verify(signed, publicKeyPEM: other) }
+    }
+
+    @Test func digestBlockLayout() throws {
+        let iv = Data(repeating: 0x11, count: 128), key = Data(repeating: 0x22, count: 32)
+        let bootloader = image(1000)
+        let out = try SecureBootV1.digest(bootloader: bootloader, key: key, iv: iv)
+        #expect(out.count == 0x1000 + 1024)                     // bootloader padded to 128 bytes
+        #expect(out.prefix(128) == iv)
+        #expect(out[192..<0x1000].allSatisfy { $0 == 0xFF })
+        #expect(out[0x1000..<0x1000 + 1000] == bootloader)
+        #expect(out.suffix(24).allSatisfy { $0 == 0xFF })
+        // The digest depends on the key.
+        let other = try SecureBootV1.digest(bootloader: bootloader, key: Data(repeating: 0x23, count: 32), iv: iv)
+        #expect(other[128..<192] != out[128..<192])
+    }
+
+    @Test func refusesBadInputs() throws {
+        #expect(throws: SecureBootError.self) { try SecureBootV1.digest(bootloader: image(16), key: Data(count: 24)) }
+        #expect(throws: SecureBootError.self) { try SecureBootV1.digest(bootloader: image(16), key: Data(count: 32), iv: Data(count: 16)) }
+        #expect(throws: SecureBootError.self) { try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem, bitLength: 128) }
+        let rsa = try SecureBootV2.SigningKey.generate(.rsa3072).pemRepresentation
+        #expect(throws: SecureBootError.self) { try SecureBootV1.sign(image(16), privateKeyPEM: rsa) }
+        #expect(try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem, bitLength: 192).count == 24)
+    }
+}

@@ -109,14 +109,12 @@ public actor ESPDevice {
             case .stayInBootloader, .stayInStub:
                 break
             case .watchdog where descriptor.rtcWatchdog != nil:
-                try? await watchdogReset()
+                try? await rawWatchdogReset()
             case .hard, .soft, .watchdog:
                 let overUSB = channel.transport.usbIdentity?.isEspressifUSBSerialJTAG ?? false
-                try? await perform(.hardReset(overUSB: overUSB))
+                try? await performReset(.hardReset(overUSB: overUSB))
             }
-            await channel.transport.close()
-            await channel.finishTrace()
-            state = .closed
+            await close()
         }
     }
 
@@ -284,18 +282,8 @@ public actor ESPDevice {
 
     /// Copies the stub into RAM with the ROM memory commands, starts it and waits for its `OHAI`.
     private func rawLoadStub(_ image: StubImage) async throws {
-        let blockSize = 0x1800
         for (segment, address) in [(image.text, image.textAddress), (image.data, image.dataAddress)] where !segment.isEmpty {
-            let blocks = (segment.count + blockSize - 1) / blockSize
-            _ = try await channel.execute(Command(.memBegin, payload: .le(UInt32(segment.count), UInt32(blocks),
-                                                                         UInt32(blockSize), address)))
-            for sequence in 0..<blocks {
-                let start = segment.startIndex + sequence * blockSize
-                let chunk = segment.subdata(in: start..<min(start + blockSize, segment.endIndex))
-                var payload = Data.le(UInt32(chunk.count), UInt32(sequence), UInt32(0), UInt32(0))
-                payload.append(chunk)
-                _ = try await channel.execute(Command(.memData, payload: payload, checksum: Command.checksum(of: chunk)))
-            }
+            try await rawLoadSegment(segment, at: address)
         }
         // MEM_END: first word 0 to jump to the entry point.
         try await channel.send(Command(.memEnd, payload: .le(image.entry == 0 ? UInt32(1) : 0, image.entry)))
@@ -318,7 +306,14 @@ public actor ESPDevice {
         await channel.emit(.stubStarted(image.version))
     }
 
-    private func perform(_ sequence: ResetSequence) async throws {
+    /// Closes the transport and the trace; the actor is unusable afterwards.
+    func close() async {
+        await channel.transport.close()
+        await channel.finishTrace()
+        state = .closed
+    }
+
+    func performReset(_ sequence: ResetSequence) async throws {
         for step in sequence.steps {
             await channel.emit(.resetStep(step))
             try await channel.transport.perform(step)
@@ -426,7 +421,7 @@ public actor ESPDevice {
         return readBits == 32 ? result : result & ((1 << UInt32(readBits)) - 1)
     }
 
-    private func watchdogReset() async throws {
+    func rawWatchdogReset() async throws {
         guard let wdt = descriptor.rtcWatchdog else { return }
         try await rawWriteRegister(wdt.wdtWriteProtect, wdt.wdtKey)        // unlock
         try await rawWriteRegister(wdt.wdtConfig1, 2000)                   // timeout

@@ -40,4 +40,13 @@ for config in 0x0 0x1 0x2 0x4 0x8 0xf; do
             --output e32-$config-$address.bin p256.bin > /dev/null
     done
 done
+# Secure Boot v1 (ESP32): signing key, derived BLOCK2 keys, bootloader digest with a fixed IV, signature.
+$ESPSECURE generate-signing-key --version 1 key-v1.pem > /dev/null
+$ESPSECURE digest-private-key --keyfile key-v1.pem --keylen 256 v1-derived256.bin > /dev/null
+$ESPSECURE digest-private-key --keyfile key-v1.pem --keylen 192 v1-derived192.bin > /dev/null
+head -c 32 /dev/urandom > v1-sbkey.bin
+head -c 128 /dev/urandom > v1-iv.bin
+$ESPSECURE digest-secure-bootloader --keyfile v1-sbkey.bin --iv v1-iv.bin --output v1-digest.bin "$image" > /dev/null
+cp "$image" v1-input.bin
+$ESPSECURE sign-data --version 1 --keyfile key-v1.pem --output v1-signed.bin "$image" > /dev/null
 echo "references in $out"

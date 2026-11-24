@@ -67,6 +67,7 @@ private func options(_ arguments: [String]) throws -> (ImageOptions, ESP8266Imag
         case "--secure-pad": options.securePadding = .v1
         case "--secure-pad-v2": options.securePadding = .v2
         case "--use_segments": options.useSegments = true
+        case "--ram-only-header": options.ramOnlyHeader = true
         case "--pad-to-size": options.padToMultipleOf = bytes(iterator.next()!)
         case "--flash-mmu-page-size": options.mmuPageSize = bytes(iterator.next()!)
         case "--version": version = iterator.next() == "2" ? .v2 : .v1
@@ -109,7 +110,8 @@ struct ReferenceTests {
         let parsed = try FirmwareImage(parsing: expected)
         #expect(parsed.validate().isValid, "\(parsed.validate().issues)")
         #expect(parsed.segments.map(\.loadAddress) == image.segments.map(\.loadAddress))
-        if !testCase.arguments.contains("--pad-to-size") {
+        // Parsing stops at the checksum: the segments a RAM-only header hides are not recovered.
+        if !testCase.arguments.contains("--pad-to-size") && !testCase.arguments.contains("--ram-only-header") {
             #expect(try parsed.serialized() == expected)
         }
     }

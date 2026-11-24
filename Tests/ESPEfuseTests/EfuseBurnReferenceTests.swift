@@ -36,8 +36,35 @@ private func esp32Plan() -> EfuseBurnPlan {
     return plan
 }
 
+/// ESP32 with the 3/4 coding scheme: 24-byte keys and blocks.
+private func esp32ThreeQuartersPlans() -> [EfuseBurnPlan] {
+    var coding = EfuseBurnPlan()
+    coding.set(EfuseFieldName.ESP32.codingScheme, to: .uint(1))
+    var plan = EfuseBurnPlan()
+    plan.writeKey(Data(1...24), to: .flashEncryption, purpose: .user)
+    plan.writeKey(Data(1...24), to: .secureBootV1, purpose: .user, readProtect: false, writeProtect: false)
+    plan.writeBlockData(Data(0x80..<0x88), to: 3, offset: 4)
+    plan.setFlashVoltage(.v3_3)
+    plan.set(EfuseFieldName.ESP32.flashCryptCnt, to: .uint(1))
+    plan.set(EfuseFieldName.ESP32.absDone0, to: .bool(true))
+    return [coding, plan]
+}
+
 @Suite("Burning compared with espefuse --virt", .enabled(if: folder != nil))
 struct EfuseBurnReferenceTests {
+    @Test func esp32ThreeQuartersScenarioMatchesEspefuse() async throws {
+        let dumpFile = folder!.appendingPathComponent("dump-esp32-34.txt")
+        guard FileManager.default.fileExists(atPath: dumpFile.path) else { return }
+        let controller = EfuseController(virtual: .esp32)
+        for plan in esp32ThreeQuartersPlans() { _ = try await controller.burn(plan, confirm: .irreversible) }
+        #expect(await controller.blocks().map(\.words) == blocks(fromDump: try String(contentsOf: dumpFile, encoding: .utf8)))
+        let ours = await controller.summaryJSON()
+        let theirs = try Data(contentsOf: folder!.appendingPathComponent("final-esp32-34.json"))
+        let issues = differences(ours, theirs)
+        #expect(issues.isEmpty, "\(issues.count) difference(s):\n\(issues.prefix(30).joined(separator: "\n"))")
+        #expect(ours == theirs)
+    }
+
     @Test(arguments: [ChipFamily.esp32, .esp32s3])
     func scenarioMatchesEspefuse(chip: ChipFamily) async throws {
         let controller = EfuseController(virtual: chip)

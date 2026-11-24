@@ -68,7 +68,8 @@ public struct EfuseBurnPlan: Sendable {
 
     public mutating func set(_ field: EfuseFieldName, to value: EfuseValue) { operations.append(.set(field, value)) }
 
-    /// 32-byte key into an empty block. Like espefuse: XTS-AES keys are byte-reversed
+    /// 32-byte key into an empty block (24 bytes on an ESP32 with the 3/4 coding scheme).
+    /// Like espefuse: XTS-AES keys are byte-reversed
     /// for the AES peripheral, and only secret keys (encryption, HMAC,
     /// Secure Boot v1) are read-protected.
     public mutating func writeKey(_ key: Data, to block: KeyBlock, purpose: KeyPurpose,
@@ -128,9 +129,10 @@ public struct EfuseBurnReport: Hashable, Sendable {
 }
 
 extension EfuseError {
-    /// Burning a real chip is not open yet: only the virtual controller burns.
-    static let hardwareBurn = EfuseError.planInvalid([EfusePlanIssue(operation: 0,
-        message: "burning a real chip is not available yet; use EfuseController(virtual:)")])
+    /// Burning a real chip is only written for the ESP32 (coding scheme NONE) for now.
+    static func hardwareBurn(_ reason: String) -> EfuseError {
+        .planInvalid([EfusePlanIssue(operation: 0, message: reason)])
+    }
 }
 
 extension EfuseController {
@@ -145,12 +147,22 @@ extension EfuseController {
     /// Validates, then burns block by block (BLOCK0 last, locking bits at the very end),
     /// reads back and checks. Virtually, only the simulated state changes; as on the chip, a
     /// read-protected block then reads back as zeros.
+    ///
+    /// On a real chip: ESP32 only, coding scheme NONE (the 3/4 encoder is not verified on hardware
+    /// yet; the other chips need their own sequence). Each block is programmed on its own, with
+    /// only its new bits; after each one, every block is read back and ESPKit stops at the first
+    /// bit the plan did not ask for. Irreversible.
     /// - Throws: `EfuseError.planInvalid`, `EfuseError.readOnly` (token),
-    ///   `EfuseError.verificationFailed`.
+    ///   `EfuseError.verificationFailed`, `EfuseError.unexpectedBits`, and on a chip the errors of
+    ///   `ESPDevice.readRegister` / `writeRegister`.
     public func burn(_ plan: EfuseBurnPlan, confirm: BurnConfirmation) async throws -> EfuseBurnReport {
         guard !isReadOnly else { throw EfuseError.readOnly }
-        guard isVirtual else { throw EfuseError.hardwareBurn }
+        // On a chip, the plan is checked against the eFuses as they are now.
+        if connectedDevice != nil { try await reloadFromChip() }
         let compiled = try compile(plan)
+        if let device = connectedDevice {
+            return try await burnOnChip(compiled, postponing: plan.postponeLockingBits, device: device)
+        }
         var steps: [EfuseBurnReport.Step] = []
         let postponed = plan.postponeLockingBits ? compiled.lockingMask : [:]
         for block in compiled.target.indices.reversed() {
@@ -260,7 +272,7 @@ extension EfuseController {
 
             case .blockData(let data, let block, let offset):
                 guard block < target.count else { fail(index, "BLOCK\(block) does not exist"); continue }
-                guard offset >= 0, offset + data.count <= target[block].count * 4 else {
+                guard offset >= 0, offset + data.count <= byteCount(ofBlock: block) else {
                     fail(index, "\(data.count) bytes at offset \(offset) go past BLOCK\(block)")
                     continue
                 }
@@ -274,7 +286,7 @@ extension EfuseController {
                 guard block < target.count else { fail(index, "BLOCK\(block) does not exist"); continue }
                 if blocks()[block].isWriteProtected { fail(index, "BLOCK\(block) is write-protected") }
                 for bit in bits {
-                    guard bit >= 0, bit < target[block].count * 32 else { fail(index, "bit \(bit) outside BLOCK\(block)"); continue }
+                    guard bit >= 0, bit < byteCount(ofBlock: block) * 8 else { fail(index, "bit \(bit) outside BLOCK\(block)"); continue }
                     target[block][bit / 32] |= 1 << UInt32(bit % 32)
                 }
 
@@ -352,7 +364,9 @@ extension EfuseController {
             guard purposeField != nil else { fail(index, "\(chip) has no key purpose for \(block)"); return }
         }
         guard let blockField else { fail(index, "\(block) not found on \(chip)"); return }
-        guard key.count == 32 else { fail(index, "\(key.count)-byte key; 32 expected"); return }
+        // Under the ESP32's 3/4 coding scheme, keys are 192 bits.
+        let keyLength = usesThreeQuartersCoding ? 24 : 32
+        guard key.count == keyLength else { fail(index, "\(key.count)-byte key; \(keyLength) expected"); return }
         if digest, ![.secureBootDigest0, .secureBootDigest1, .secureBootDigest2].contains(purpose), chip != .esp32 {
             fail(index, "a Secure Boot digest needs a SECURE_BOOT_DIGESTn purpose")
             return

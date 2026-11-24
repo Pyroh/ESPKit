@@ -23,3 +23,14 @@ run esp32 set-flash-voltage 1.8V
 run esp32 burn-efuse FLASH_CRYPT_CNT 1 JTAG_DISABLE 1
 espefuse --virt --path-efuse-file esp32.state --chip esp32 summary --format json --file final-esp32.json > /dev/null 2>&1
 espefuse --virt --path-efuse-file esp32.state --chip esp32 dump > dump-esp32.txt 2>&1
+# ESP32 with the 3/4 coding scheme: 24-byte blocks and keys (state file esp32-34.state).
+python3 -I -c "open('key24.bin','wb').write(bytes(range(1,25))); open('data8.bin','wb').write(bytes(range(0x80,0x88)))"
+run34() { espefuse --virt --path-efuse-file esp32-34.state --chip esp32 --do-not-confirm "$@" >> log-esp32-34.txt 2>&1 || echo "FAILED esp32-34 $*"; }
+run34 burn-efuse CODING_SCHEME 1
+run34 burn-key flash_encryption key24.bin
+run34 burn-key secure_boot_v1 key24.bin --no-protect-key
+run34 burn-block-data BLOCK3 data8.bin --offset 4
+run34 set-flash-voltage 3.3V
+run34 burn-efuse FLASH_CRYPT_CNT 1 ABS_DONE_0 1
+espefuse --virt --path-efuse-file esp32-34.state --chip esp32 summary --format json --file final-esp32-34.json > /dev/null 2>&1
+espefuse --virt --path-efuse-file esp32-34.state --chip esp32 dump > dump-esp32-34.txt 2>&1

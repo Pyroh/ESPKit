@@ -31,58 +31,65 @@ private func romOnly(expecting chip: ChipFamily) -> ConnectOptions {
     return options
 }
 
-@Suite("Hardware", .serialized)
-struct HardwareTests {
-    @Test("ESP32: detection, MAC, flash", .enabled(if: esp32Port != nil))
-    func esp32Identity() async throws {
-        let esp = try await ESPDevice.connect(port: try #require(esp32Port), options: romOnly(expecting: .esp32))
-        #expect(esp.chip == .esp32)
-        #expect(await esp.state == .rom)
+/// Parent of every hardware suite: `.serialized` then also applies across them, so two tests
+/// never open the same serial port at the same time.
+@Suite("Boards", .serialized)
+enum Boards {}
 
-        let mac = try await esp.macAddress()
-        #expect(mac.bytes != Data(count: 6))
+extension Boards {
+    @Suite("Hardware", .serialized)
+    struct HardwareTests {
+        @Test("ESP32: detection, MAC, flash", .enabled(if: esp32Port != nil))
+        func esp32Identity() async throws {
+            let esp = try await ESPDevice.connect(port: try #require(esp32Port), options: romOnly(expecting: .esp32))
+            #expect(esp.chip == .esp32)
+            #expect(await esp.state == .rom)
 
-        let flash = try await esp.flashInfo()
-        #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
+            let mac = try await esp.macAddress()
+            #expect(mac.bytes != Data(count: 6))
 
-        await #expect(throws: UsageError.self) { try await esp.chipID() }
-        print("ESP32: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?")")
-        await esp.disconnect(.hard)
-    }
+            let flash = try await esp.flashInfo()
+            #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
 
-    @Test("ESP32-S3: detection, security, MAC, flash", .enabled(if: s3Port != nil))
-    func s3Identity() async throws {
-        let esp = try await ESPDevice.connect(port: try #require(s3Port), options: romOnly(expecting: .esp32s3))
-        #expect(esp.chip == .esp32s3)
+            await #expect(throws: UsageError.self) { try await esp.chipID() }
+            print("ESP32: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?")")
+            await esp.disconnect(.hard)
+        }
 
-        let security = try await esp.securityInfo()
-        #expect(security.chipID == 9)
+        @Test("ESP32-S3: detection, security, MAC, flash", .enabled(if: s3Port != nil))
+        func s3Identity() async throws {
+            let esp = try await ESPDevice.connect(port: try #require(s3Port), options: romOnly(expecting: .esp32s3))
+            #expect(esp.chip == .esp32s3)
 
-        let mac = try await esp.macAddress()
-        #expect(mac.bytes != Data(count: 6))
+            let security = try await esp.securityInfo()
+            #expect(security.chipID == 9)
 
-        let flash = try await esp.flashInfo()
-        #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
+            let mac = try await esp.macAddress()
+            #expect(mac.bytes != Data(count: 6))
 
-        print("ESP32-S3: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?"), security \(security.flags.rawValue)")
-        await esp.disconnect(.hard)
-    }
+            let flash = try await esp.flashInfo()
+            #expect(flash.detectedSize != nil, "JEDEC ID \(String(flash.jedecID, radix: 16))")
 
-    @Test("ESP32: flash a real firmware and boot", .enabled(if: esp32Port != nil && esp32Firmware != nil))
-    func esp32Flash() async throws {
-        try await flashAndBoot(port: esp32Port!, chip: .esp32, firmware: esp32Firmware!)
-    }
+            print("ESP32-S3: MAC \(mac), flash \(String(flash.jedecID, radix: 16)) \(flash.detectedSize.map(String.init(describing:)) ?? "?"), security \(security.flags.rawValue)")
+            await esp.disconnect(.hard)
+        }
 
-    @Test("ESP32-S3: flash a real firmware and boot", .enabled(if: s3Port != nil && s3Firmware != nil))
-    func s3Flash() async throws {
-        try await flashAndBoot(port: s3Port!, chip: .esp32s3, firmware: s3Firmware!)
-    }
+        @Test("ESP32: flash a real firmware and boot", .enabled(if: esp32Port != nil && esp32Firmware != nil))
+        func esp32Flash() async throws {
+            try await flashAndBoot(port: esp32Port!, chip: .esp32, firmware: esp32Firmware!)
+        }
 
-    @Test("Ports present", .enabled(if: esp32Port != nil || s3Port != nil))
-    func portsAreListed() throws {
-        let ports = try SerialPorts.available()
-        for path in [esp32Port, s3Port].compactMap({ $0 }) {
-            #expect(ports.contains { $0.path == path }, "\(path) missing from \(ports.map(\.path))")
+        @Test("ESP32-S3: flash a real firmware and boot", .enabled(if: s3Port != nil && s3Firmware != nil))
+        func s3Flash() async throws {
+            try await flashAndBoot(port: s3Port!, chip: .esp32s3, firmware: s3Firmware!)
+        }
+
+        @Test("Ports present", .enabled(if: esp32Port != nil || s3Port != nil))
+        func portsAreListed() throws {
+            let ports = try SerialPorts.available()
+            for path in [esp32Port, s3Port].compactMap({ $0 }) {
+                #expect(ports.contains { $0.path == path }, "\(path) missing from \(ports.map(\.path))")
+            }
         }
     }
 }

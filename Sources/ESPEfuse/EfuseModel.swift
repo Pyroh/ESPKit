@@ -105,6 +105,8 @@ public struct EfuseSnapshot: Hashable, Sendable, Codable {
 public enum EfuseError: ESPKitError, Equatable {
     case planInvalid([EfusePlanIssue])
     case verificationFailed(block: Int)
+    /// After a hardware burn, bits the plan did not ask for read back as 1: ESPKit stops at once.
+    case unexpectedBits(block: Int, word: Int, bits: UInt32)
     case malformedToken
     /// Controller created from a token.
     case readOnly
@@ -115,6 +117,8 @@ public enum EfuseError: ESPKitError, Equatable {
         switch self {
         case .planInvalid(let issues): "Invalid burn plan: \(issues.map(\.description).joined(separator: "; "))"
         case .verificationFailed(let block): "BLOCK\(block) failed verification after burning"
+        case .unexpectedBits(let block, let word, let bits):
+            String(format: "BLOCK%d word %d: unexpected bits 0x%08x after burning; burning stopped", block, word, bits)
         case .malformedToken: "Unreadable eFuse token"
         case .readOnly: "Read-only controller"
         case .unsupportedChip(let chip): "\(chip) eFuses are not supported"

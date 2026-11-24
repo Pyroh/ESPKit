@@ -11,13 +11,15 @@ import ESPKit
 private let environment = ProcessInfo.processInfo.environment
 private let references = environment["ESPKIT_EFUSE_REFERENCES"].map { URL(fileURLWithPath: $0) }
 
-@Suite("eFuses on a board", .serialized)
-struct EfuseHardwareTests {
-    @Test("ESP32: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_ESP32"] != nil && references != nil))
-    func esp32() async throws { try await compare(port: environment["ESPKIT_PORT_ESP32"]!, chip: .esp32) }
+extension Boards {
+    @Suite("eFuses on a board", .serialized)
+    struct EfuseHardwareTests {
+        @Test("ESP32: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_ESP32"] != nil && references != nil))
+        func esp32() async throws { try await compare(port: environment["ESPKIT_PORT_ESP32"]!, chip: .esp32) }
 
-    @Test("ESP32-S3: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_S3"] != nil && references != nil))
-    func s3() async throws { try await compare(port: environment["ESPKIT_PORT_S3"]!, chip: .esp32s3) }
+        @Test("ESP32-S3: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_S3"] != nil && references != nil))
+        func s3() async throws { try await compare(port: environment["ESPKIT_PORT_S3"]!, chip: .esp32s3) }
+    }
 }
 
 private func compare(port: String, chip: ChipFamily) async throws {

@@ -63,7 +63,7 @@ let package = Package(
         .testTarget(name: "ESPImageTests", dependencies: ["ESPImage", "ESPSupport"]),
         .testTarget(name: "ESPSecureTests", dependencies: ["ESPSecure", "ESPSupport"]),
         .testTarget(name: "ESPEfuseTests", dependencies: ["ESPEfuse", "ESPSecure"]),
-        .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport", "ESPImage"]),
+        .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport", "ESPImage", "ESPEfuse"]),
 
         // Tests on real boards. Skipped unless ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 are set.
         .testTarget(name: "HardwareTests", dependencies: ["ESPKit"]),

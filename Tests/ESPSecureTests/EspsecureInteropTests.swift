@@ -9,6 +9,8 @@ import Testing
 //   key-<scheme>.pem, digest-<scheme>.bin, signed-<scheme>.bin (espsecure generate-signing-key,
 //   digest-sbv2-public-key, sign-data); plain.bin, xts128.key, xts256.key and
 //   enc-<key>-<address>.bin (espsecure encrypt-flash-data --aes-xts).
+// Secure Boot v1: key-v1.pem, v1-derived256.bin, v1-derived192.bin (digest-private-key),
+//   v1-sbkey.bin, v1-iv.bin, v1-input.bin, v1-digest.bin (digest-secure-bootloader), v1-signed.bin.
 // ESPKIT_ESPSECURE (the espsecure command) also enables espsecure's verification of
 // images signed by ESPKit: this is the phase 3 milestone.
 
@@ -49,6 +51,25 @@ struct EspsecureInteropTests {
         let log = try run(["verify-signature", "--version", "2",
                            "--keyfile", folder!.appendingPathComponent("key-\(scheme).pem").path, output.path])
         #expect(log.contains("verification successful"), "espsecure: \(log)")
+    }
+
+    @Test func secureBootV1MatchesEspsecure() throws {
+        guard FileManager.default.fileExists(atPath: folder!.appendingPathComponent("key-v1.pem").path) else { return }
+        let pem = String(decoding: try file("key-v1.pem"), as: UTF8.self)
+        #expect(try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem) == (try file("v1-derived256.bin")))
+        #expect(try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem, bitLength: 192) == (try file("v1-derived192.bin")))
+        let digest = try SecureBootV1.digest(bootloader: file("v1-input.bin"), key: file("v1-sbkey.bin"), iv: file("v1-iv.bin"))
+        #expect(digest == (try file("v1-digest.bin")))
+        try SecureBootV1.verify(file("v1-signed.bin"), publicKeyPEM: pem)
+
+        let signed = try SecureBootV1.sign(file("v1-input.bin"), privateKeyPEM: pem)
+        #expect(signed.count == (try file("v1-signed.bin")).count)
+        guard espsecure != nil else { return }
+        let output = FileManager.default.temporaryDirectory.appendingPathComponent("espkit-signed-v1.bin")
+        try signed.write(to: output)
+        let log = try run(["verify-signature", "--version", "1",
+                           "--keyfile", folder!.appendingPathComponent("key-v1.pem").path, output.path])
+        #expect(log.contains("Signature is valid"), "espsecure: \(log)")
     }
 
     @Test(.enabled(if: espsecure != nil), arguments: [SecureBootV2.Scheme.rsa3072, .ecdsa256, .ecdsa384])

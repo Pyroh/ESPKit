@@ -8,7 +8,7 @@ A Swift SDK for talking to the serial bootloader of Espressif chips (ESP8266, ES
 
 The public API specification is the reference; it lives in the research folder (`ESPKit-API.md`).
 
-## Status: phase 5, virtual only (eFuse programming)
+## Status: phase 6 in progress
 
 Available:
 
@@ -16,10 +16,10 @@ Available:
 - POSIX `SerialPort` with arbitrary baud rates (macOS: IOSSIOSPEED; Linux: termios2), port discovery (IOKit, sysfs), reset sequences (classic, UnixTight, USB-Serial-JTAG, custom);
 - connection: reset, sync, chip detection (chip ID or magic value), Secure Download Mode;
 - bundled v2 stub (`esp-flasher-stub` 2.0.0, every chip except the ESP32-E22), baud rate change;
-- flash: zlib-compressed writes with MD5 check, bootloader header patching, read, verify, full or ranged erase;
+- flash: zlib-compressed writes with MD5 check, bootloader header patching, read, verify, full or ranged erase; differential reflash (only the changed 4 KiB sectors are sent), skipping unchanged regions, encrypted writes (the chip encrypts with its own key); status registers and SFDP;
 - long-running operations as `AsyncSequence` (`ESPOperation`): progress, cancellation;
-- images (`ESPImage`, no I/O): ELF reading, `elf2image` (ESP32-x and ESP8266 v1/v2), image reading and validation (`image-info`), raw, Intel HEX and UF2 merging, Intel HEX reading. Output is byte-identical to esptool 4.11 and 5.1 on ESP-IDF and Arduino builds;
-- registers, MAC, `securityInfo()`, JEDEC identity, raw SPI commands;
+- images (`ESPImage`, no I/O): ELF reading, `elf2image` (ESP32-x and ESP8266 v1/v2), image reading and validation (`image-info`), raw, Intel HEX and UF2 merging, Intel HEX reading, RAM-only headers. Output is byte-identical to esptool 4.11 and 5.1 on ESP-IDF and Arduino builds;
+- registers, memory reads, MAC, `securityInfo()`, JEDEC identity, raw SPI commands; running code from RAM (`loadRAMAndRun`) and starting the flash application;
 - low-level tracing (`ConnectOptions.trace`).
 
 ```swift
@@ -37,13 +37,13 @@ for try await event in esp.writeFlash(regions) {
 await esp.disconnect(.hard)
 ```
 
-- security (`ESPSecure`, no I/O): Secure Boot v2 with RSA-3072, ECDSA P-256 and P-384 (PEM key generation and loading, local signing or through an external `Signer`, up to 3 signature blocks, verification, key digest to burn into eFuses); XTS-AES-128 and 256 flash encryption and the ESP32 scheme, byte-identical to espsecure. Images signed by ESPKit are accepted by `espsecure verify-signature`.
+- security (`ESPSecure`, no I/O): Secure Boot v1 on the ESP32 (bootloader digest, derived key, application signature); Secure Boot v2 with RSA-3072, ECDSA P-256 and P-384 (PEM key generation and loading, local signing or through an external `Signer`, up to 3 signature blocks, verification, key digest to burn into eFuses); XTS-AES-128 and 256 flash encryption and the ESP32 scheme, byte-identical to espsecure. Images signed by ESPKit are accepted by `espsecure verify-signature`.
 
 - eFuses (`ESPEfuse`): tables for 12 chips generated from ESP-IDF, block reading on the ESP32 and ESP32-S3, decoded fields (named values, key purposes, MAC, protections), coding errors, ADC calibration, snapshots and tokens, virtual controller. `summaryJSON()` is byte-identical to `espefuse summary --format json` on the ESP32 and ESP32-S3.
 
-- eFuse programming, **virtual only**: plan (`EfuseBurnPlan`: fields, keys, Secure Boot digests, block data, bits, protections, custom MAC, flash voltage), preview, burning from the last block down to BLOCK0 with the lock bits last. The scenarios produce the same state as `espefuse --virt`, byte for byte. On a real chip, `burn` refuses: the hardware sequence is not written yet.
+- eFuse programming: plan (`EfuseBurnPlan`: fields, keys, Secure Boot digests, block data, bits, protections, custom MAC, flash voltage), preview, burning from the last block down to BLOCK0 with the lock bits last, the ESP32's 3/4 coding scheme (24-byte blocks and keys). The scenarios produce the same state as `espefuse --virt`, byte for byte. On a real chip: the ESP32 with the NONE coding scheme, block by block with a full read-back after each step (stops at the first unrequested bit), checked on a board against espefuse; the other chips, and the ESP32's 3/4 scheme, refuse.
 
-Not yet: programming on a board (phase 5, on a sacrificial board), encrypted writes, differential reflashing, NAND and the rest (phase 6).
+Not yet: eFuse programming on a board for chips other than the ESP32, SPI NAND flash, Secure Boot v2 with ECDSA P-192, the ESP32-S31 Secure Debug Controller, an RFC 2217 transport.
 
 ## Tests
 
@@ -83,6 +83,12 @@ ESPKIT_EFUSE_REFERENCES=<references> swift test --filter ESPEfuseTests
 ```
 
 The programming scenarios are replayed with `Tools/oracle/make-burn-references.sh` (espefuse `--virt`, no chip touched), then `ESPKIT_BURN_REFERENCES=<folder> swift test --filter ESPEfuseTests`.
+
+Real eFuse burns are **irreversible** and only run on a sacrificial ESP32 given by its own variable. They only touch bits no ESP-IDF feature uses (a free BLOCK3 bit, a custom MAC, a Secure Boot v1 key in BLOCK2 with its protections; Secure Boot stays disabled):
+
+```bash
+ESPKIT_BURN_ESP32=/dev/cu.usbserial-0001 swift test --filter EfuseBurnHardwareTests
+```
 
 The bundled stub is regenerated from an esp-flasher-stub release:
 

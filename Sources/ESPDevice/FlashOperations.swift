@@ -16,13 +16,17 @@ public struct WriteFlashOptions: Hashable, Sendable {
     public var headerOverrides: FlashHeaderOverrides = .keep
     public var verification: Verification = .md5
     public enum Verification: Hashable, Sendable { case md5, none }
-    /// Differential reflash: content assumed to be present already, by address. Phase 6.
+    /// Differential reflash: content assumed to be present already, matched to the new regions
+    /// by address. Only the 4 KiB sectors that differ are sent; missing bytes count as 0xFF.
+    /// Cannot be combined with `skipIfUnchanged` or encrypted regions.
     public var previousContents: [FlashRegion]? = nil
-    /// With `previousContents`: do not read back to check unchanged sectors. Phase 6.
+    /// With `previousContents`: do not ask the chip for the MD5 of the old content first.
+    /// Without it, a region whose flash does not hold the old content is written in full.
     public var trustPreviousContents: Bool = false
     /// Compare MD5s first and write nothing if the flash already holds the data.
+    /// Not applied to encrypted regions.
     public var skipIfUnchanged: Bool = false
-    /// Ignore the encryption eFuse configuration for `encrypt` regions. Phase 6.
+    /// Write `encrypt` regions even if the eFuses do not enable flash encryption.
     public var ignoreEncryptionEfuses: Bool = false
     /// Disable the safeguards (active security, image incompatible with the chip).
     public var force: Bool = false
@@ -39,12 +43,13 @@ public struct WriteFlashReport: Hashable, Sendable {
         public var address: UInt32
         /// Bytes written, after alignment and header patching.
         public var byteCount: Int
-        /// Bytes sent over the link, after compression.
+        /// Bytes sent over the link, after compression and the differential reflash.
         public var bytesSent: Int
-        /// True if `skipIfUnchanged` found the data already in place.
+        /// True if nothing was written: `skipIfUnchanged` found the data already in place,
+        /// or `previousContents` held the same bytes.
         public var skipped: Bool
         public var headerPatched: Bool
-        /// MD5 of the written data.
+        /// MD5 of the written data (plaintext). `nil` for an encrypted region, which is not verified.
         public var md5: MD5Digest?
         public var duration: Duration
     }
@@ -75,9 +80,14 @@ extension ESPDevice {
     /// - Refuses an image built for another chip, or a write below 0x8000 with Secure Boot enabled,
     ///   unless `force`.
     /// - On cancellation: the flash is partially written and the chip stays in the stub.
+    /// - Encrypted regions (`FlashRegion.encrypt`): the chip encrypts with its own key while
+    ///   writing. They are sent uncompressed, padded with 0xFF to 16 bytes (32 on the ESP32), and
+    ///   not verified (the flash holds the ciphertext). Their address must be aligned the same way.
+    ///   Refused unless flash encryption is enabled in the eFuses, or `ignoreEncryptionEfuses`.
+    ///   Needs the stub on the ESP32 (its ROM cannot encrypt); refused on the ESP8266.
     ///
     /// - Throws: `TransportError`, `ConnectionError.disconnected`, `ProtocolError`, `UsageError`
-    ///   (invalid regions, safeguards, phase 6 features), `FlashError.md5Mismatch`, `CancellationError`.
+    ///   (invalid regions, safeguards), `FlashError.md5Mismatch`, `CancellationError`.
     public nonisolated func writeFlash(_ regions: [FlashRegion],
                                        options: WriteFlashOptions = .init()) -> ESPOperation<WriteFlashReport> {
         ESPOperation { sink in try await self.performWriteFlash(regions, options: options, sink: sink) }
@@ -149,6 +159,7 @@ extension ESPDevice {
         var address: UInt32
         var data: Data
         var headerPatched: Bool
+        var encrypt = false
     }
 
     func performWriteFlash(_ regions: [FlashRegion], options: WriteFlashOptions,
@@ -159,11 +170,19 @@ extension ESPDevice {
             guard options.flashType == .nor else {
                 throw UsageError.unsupported(feature: "NAND flash", chip: chip, state: state)
             }
+            let encrypted = regions.contains(where: \.encrypt)
             if options.previousContents != nil {
-                throw UsageError.unsupported(feature: "Differential reflash (phase 6)", chip: chip, state: state)
+                if encrypted { throw UsageError.invalidArgument("a differential reflash cannot write encrypted regions") }
+                if options.skipIfUnchanged { throw UsageError.invalidArgument("previousContents and skipIfUnchanged exclude each other") }
             }
-            if regions.contains(where: \.encrypt) {
-                throw UsageError.unsupported(feature: "Encrypted writes (phase 6)", chip: chip, state: state)
+            if encrypted {
+                if chip == .esp8266 { throw UsageError.unsupported(feature: "Encrypted writes", chip: chip, state: state) }
+                if !stubRunning && !descriptor.romFlashBeginHasEncryptionWord {
+                    throw UsageError.unsupported(feature: "Encrypted writes under ROM (load the stub)", chip: chip, state: state)
+                }
+                if !options.ignoreEncryptionEfuses, try await !rawFlashEncryptionEnabled() {
+                    throw UsageError.securityRestriction("flash encryption is not enabled in the eFuses (ignoreEncryptionEfuses to write anyway)")
+                }
             }
             if chip == .esp8266 && !stubRunning {
                 // The ESP8266 ROM erases too much; the stub does not have this flaw.
@@ -179,6 +198,10 @@ extension ESPDevice {
             if !options.force { try checkWriteGuards(regions) }
 
             let prepared = try regions.map { try prepare($0, overrides: options.headerOverrides, flash: flash) }
+            let previous = try options.previousContents.map { contents in
+                try Dictionary(contents.map { ($0.address, try prepare($0, overrides: options.headerOverrides, flash: flash).data) },
+                               uniquingKeysWith: { _, last in last })
+            }
             let total = prepared.reduce(0) { $0 + $1.data.count }
             sink.report(OperationProgress(stage: .preparing, regionIndex: 0, regionCount: prepared.count,
                                           completedBytes: 0, totalBytes: total))
@@ -198,7 +221,21 @@ extension ESPDevice {
                 try Task.checkCancellation()
                 let started = ContinuousClock.now
                 let md5 = MD5Digest(bytes: MD5.hash(region.data))!
-                if options.skipIfUnchanged, try await rawFlashMD5(at: region.address, count: region.data.count) == md5 {
+                var chunks = [0..<region.data.count]
+                if let old = previous?[region.address] {
+                    chunks = Self.changedChunks(old: old, new: region.data, address: region.address)
+                    if !chunks.isEmpty && !options.trustPreviousContents {
+                        let expected = Self.padded(old, to: region.data.count)
+                        if try await rawFlashMD5(at: region.address, count: region.data.count) != MD5Digest(bytes: MD5.hash(expected))! {
+                            chunks = [0..<region.data.count]       // the flash does not hold the old content
+                        }
+                    }
+                }
+                var unchanged = chunks.isEmpty
+                if !unchanged && options.skipIfUnchanged && !region.encrypt {
+                    unchanged = try await rawFlashMD5(at: region.address, count: region.data.count) == md5
+                }
+                if unchanged {
                     done += region.data.count
                     sink.report(OperationProgress(stage: .writing, regionIndex: index, regionCount: prepared.count,
                                                   completedBytes: done, totalBytes: total))
@@ -207,12 +244,28 @@ extension ESPDevice {
                                          duration: .now - started))
                     continue
                 }
-                let base = done
-                let sent = try await rawWrite(region.data, at: region.address, compress: compress) { written in
-                    sink.report(OperationProgress(stage: .writing, regionIndex: index, regionCount: prepared.count,
-                                                  completedBytes: base + written, totalBytes: total))
+                var sent = 0
+                let chunkTotal = chunks.reduce(0) { $0 + $1.count }
+                var chunkDone = 0
+                for chunk in chunks {
+                    let base = done, before = chunkDone
+                    let data = region.data.subdata(in: region.data.startIndex + chunk.lowerBound..<region.data.startIndex + chunk.upperBound)
+                    sent += try await rawWrite(data, at: region.address + UInt32(chunk.lowerBound),
+                                               compress: compress && !region.encrypt, encrypt: region.encrypt) { written in
+                        // Progress counts the whole region; a differential write covers it proportionally.
+                        let fraction = Double(before + written) / Double(max(chunkTotal, 1))
+                        sink.report(OperationProgress(stage: .writing, regionIndex: index, regionCount: prepared.count,
+                                                      completedBytes: base + Int(fraction * Double(region.data.count)), totalBytes: total))
+                    }
+                    chunkDone += chunk.count
                 }
                 done += region.data.count
+                if region.encrypt {
+                    reports.append(.init(address: region.address, byteCount: region.data.count, bytesSent: sent,
+                                         skipped: false, headerPatched: region.headerPatched, md5: nil,
+                                         duration: .now - started))
+                    continue
+                }
                 if options.verification == .md5 {
                     sink.report(OperationProgress(stage: .verifying, regionIndex: index, regionCount: prepared.count,
                                                   completedBytes: done, totalBytes: total))
@@ -302,7 +355,7 @@ extension ESPDevice {
 
     /// Sends `data` to `address` in blocks: 16 KiB with the stub, 1 KiB under ROM.
     /// - Returns: the number of bytes sent (after compression).
-    private func rawWrite(_ data: Data, at address: UInt32, compress: Bool,
+    private func rawWrite(_ data: Data, at address: UInt32, compress: Bool, encrypt: Bool = false,
                           progress: (Int) -> Void) async throws -> Int {
         let blockSize = stubRunning ? 0x4000 : 0x400
         let wire = compress ? try Zlib.compress(data) : data
@@ -313,7 +366,8 @@ extension ESPDevice {
         // The stub wants the uncompressed size; the ROM, the size to erase.
         let size = stubRunning || !compress ? data.count : (data.count + 0xFFF) / 0x1000 * 0x1000
         var begin = Data.le(UInt32(size), UInt32(blocks), UInt32(blockSize), address)
-        if !stubRunning && descriptor.romFlashBeginHasEncryptionWord { begin.appendLE(UInt32(0)) }
+        // Fifth word, "encrypt": always expected by the S2+ ROM, accepted by the stub.
+        if encrypt || (!stubRunning && descriptor.romFlashBeginHasEncryptionWord) { begin.appendLE(UInt32(encrypt ? 1 : 0)) }
         // The ROM erases the whole area in FLASH_BEGIN; the stub erases as it goes.
         let beginTimeout = stubRunning ? FlashTimeouts.minimum : FlashTimeouts.eraseWrite(bytes: data.count)
         _ = try await channel.execute(Command(compress ? .flashDeflBegin : .flashBegin, payload: begin), timeout: beginTimeout)
@@ -472,7 +526,11 @@ extension ESPDevice {
         if region.address == chip.bootloaderOffset {
             patched = try patchHeader(&data, overrides: overrides, flash: flash)
         }
-        if data.count % 4 != 0 { data.append(Data(repeating: 0xFF, count: 4 - data.count % 4)) }
+        let alignment = region.encrypt ? (chip == .esp32 ? 32 : 16) : 4
+        if region.encrypt && region.address % UInt32(alignment) != 0 {
+            throw UsageError.invalidArgument("encrypted region at \(hex(region.address)): address not a multiple of \(alignment)")
+        }
+        if data.count % alignment != 0 { data.append(Data(repeating: 0xFF, count: alignment - data.count % alignment)) }
         var address = region.address
         if !stubRunning, address % 0x1000 != 0 {
             // The ROM erases whole sectors: the start of the sector is filled with 0xFF.
@@ -480,7 +538,47 @@ extension ESPDevice {
             data = Data(repeating: 0xFF, count: misalignment) + data
             address -= UInt32(misalignment)
         }
-        return PreparedRegion(address: address, data: data, headerPatched: patched)
+        return PreparedRegion(address: address, data: data, headerPatched: patched, encrypt: region.encrypt)
+    }
+
+    /// Flash encryption enabled: an odd number of bits in the eFuse counter. The ESP32 has no
+    /// GET_SECURITY_INFO: FLASH_CRYPT_CNT is read from BLOCK0 (word 0, bits 20 to 26).
+    private func rawFlashEncryptionEnabled() async throws -> Bool {
+        if chip == .esp32 {
+            let word = try await rawReadRegister(0x3FF5_A000)
+            return ((word >> 20) & 0x7F).nonzeroBitCount % 2 == 1
+        }
+        if let cachedSecurityInfo { return cachedSecurityInfo.flashEncryptionEnabled }
+        let info = try await Self.readSecurityInfo(channel)
+        cachedSecurityInfo = info
+        return info.flashEncryptionEnabled
+    }
+
+    /// Ranges of `new` (offsets) whose 4 KiB flash sectors differ from `old`, contiguous sectors
+    /// merged. Sectors follow absolute flash addresses; missing bytes of `old` count as 0xFF.
+    static func changedChunks(old: Data, new: Data, address: UInt32) -> [Range<Int>] {
+        let old = padded(old, to: new.count)
+        var chunks: [Range<Int>] = []
+        var start = 0
+        while start < new.count {
+            let end = min(new.count, Int((UInt64(address) + UInt64(start)) / 0x1000 + 1) * 0x1000 - Int(address))
+            let range = start..<end
+            if old[old.startIndex + range.lowerBound..<old.startIndex + range.upperBound]
+                != new[new.startIndex + range.lowerBound..<new.startIndex + range.upperBound] {
+                if let last = chunks.last, last.upperBound == range.lowerBound {
+                    chunks[chunks.count - 1] = last.lowerBound..<range.upperBound
+                } else {
+                    chunks.append(range)
+                }
+            }
+            start = end
+        }
+        return chunks
+    }
+
+    /// `data` cut or completed with 0xFF to `count` bytes.
+    static func padded(_ data: Data, to count: Int) -> Data {
+        data.count >= count ? Data(data.prefix(count)) : Data(data) + Data(repeating: 0xFF, count: count - data.count)
     }
 
     /// Header bytes 2 and 3 (mode, size, frequency), then the final SHA-256 recomputed.
