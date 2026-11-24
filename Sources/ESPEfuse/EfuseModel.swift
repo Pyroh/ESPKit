@@ -103,7 +103,7 @@ public struct EfuseSnapshot: Hashable, Sendable, Codable {
 
 /// Erreurs des eFuses.
 public enum EfuseError: ESPKitError, Equatable {
-    case planInvalid([String])
+    case planInvalid([EfusePlanIssue])
     case verificationFailed(block: Int)
     case malformedToken
     /// Contrôleur créé depuis un jeton.
@@ -113,7 +113,7 @@ public enum EfuseError: ESPKitError, Equatable {
 
     public var description: String {
         switch self {
-        case .planInvalid(let issues): "Plan de programmation invalide : \(issues.joined(separator: " ; "))"
+        case .planInvalid(let issues): "Plan de programmation invalide : \(issues.map(\.description).joined(separator: " ; "))"
         case .verificationFailed(let block): "Vérification du BLOCK\(block) échouée après programmation"
         case .malformedToken: "Jeton d'eFuses illisible"
         case .readOnly: "Contrôleur en lecture seule"

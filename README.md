@@ -8,7 +8,7 @@ SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266,
 
 La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
 
-## État : phase 4 (lecture des eFuses)
+## État : phase 5 en virtuel (programmation des eFuses)
 
 Disponible :
 
@@ -41,7 +41,9 @@ await esp.disconnect(.hard)
 
 - eFuses (`ESPEfuse`) : tables de 12 puces générées depuis ESP-IDF, lecture des blocs sur l'ESP32 et l'ESP32-S3, champs décodés (valeurs nommées, rôles de clé, MAC, protections), erreurs de codage, calibration ADC, instantanés et jetons, contrôleur virtuel. `summaryJSON()` est identique à l'octet à `espefuse summary --format json` sur l'ESP32 et l'ESP32-S3.
 
-Pas encore : programmation des eFuses (phase 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
+- programmation des eFuses **en virtuel** : plan (`EfuseBurnPlan` : champs, clés, digests Secure Boot, données de bloc, bits, protections, MAC personnalisée, tension flash), aperçu, burn du dernier bloc vers BLOCK0 avec les bits de verrouillage à la fin. Les scénarios donnent le même état qu'`espefuse --virt`, à l'octet. Sur une vraie puce, `burn` refuse : la séquence matérielle n'est pas encore écrite.
+
+Pas encore : programmation sur carte (phase 5, sur une carte sacrifiable), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 
 ## Tests
 
@@ -79,6 +81,8 @@ Pour `ESPEfuse`, `Tools/oracle/make-efuse-references.sh` relève avec espefuse (
 python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse <références>/real <références>/virt
 ESPKIT_EFUSE_REFERENCES=<références> swift test --filter ESPEfuseTests
 ```
+
+Les scénarios de programmation se rejouent avec `Tools/oracle/make-burn-references.sh` (espefuse `--virt`, aucune puce touchée), puis `ESPKIT_BURN_REFERENCES=<dossier> swift test --filter ESPEfuseTests`.
 
 Le stub embarqué se régénère depuis une release d'esp-flasher-stub :
 

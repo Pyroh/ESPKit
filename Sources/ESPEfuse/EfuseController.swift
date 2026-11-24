@@ -11,7 +11,7 @@ import ESPTargets
 /// sur celle d'espefuse.
 public actor EfuseController {
     public nonisolated let chip: ChipFamily
-    private var state: EfuseSnapshot
+    var state: EfuseSnapshot
     private let device: ESPDevice?
     private let table: EfuseTable?
     /// Contrôleur créé depuis un jeton : aucune écriture possible.
@@ -150,7 +150,9 @@ public actor EfuseController {
     public func summaryJSON() -> Data {
         guard let table else { return Data("{}".utf8) }
         var entries: [(String, [(String, JSONValue)])] = []
-        for definition in table.fields where definition.inSummary {
+        // ESP32-S3 : sans bloc de calibration (BLK_VERSION_MAJOR = 0), espefuse n'affiche pas ses champs.
+        let hideCalibration = chip == .esp32s3 && raw("BLK_VERSION_MAJOR") == 0
+        for definition in table.fields where definition.inSummary && !(hideCalibration && definition.category == "calibration") {
             let field = field(for: definition)
             entries.append((definition.name, summaryEntry(field, start: definition.bits.map(\.start).min(),
                                                           bitCount: definition.bitCount)))
@@ -163,6 +165,22 @@ public actor EfuseController {
     }
 
     // MARK: Interne
+
+    var efuseTable: EfuseTable? { table }
+    var isVirtual: Bool { device == nil }
+
+    func rawValue(_ definition: EfuseDefinition) -> UInt64 { Self.integer(bits(of: definition)) }
+
+    /// Brûle (OU logique) les mots dans l'état simulé.
+    func apply(_ changes: [EfuseChange]) {
+        for change in changes { state.blocks[change.block][change.word] |= change.after }
+    }
+
+    /// Blocs entiers protégés en lecture : la puce les relit à zéro.
+    func readProtectedBlocks() -> [Int] {
+        guard let table else { return [] }
+        return table.fields.filter { $0.bitCount >= 192 && isReadProtected($0) }.map(\.block)
+    }
 
     private static func read(_ layout: EfuseLayout, chip: ChipFamily, from device: ESPDevice) async throws -> EfuseSnapshot {
         var blocks: [[UInt32]] = []
@@ -206,12 +224,12 @@ public actor EfuseController {
         })
     }
 
-    private func isReadProtected(_ definition: EfuseDefinition) -> Bool {
+    func isReadProtected(_ definition: EfuseDefinition) -> Bool {
         guard let bit = definition.readDisableBit, let mask = raw("RD_DIS") else { return false }
         return mask >> UInt64(bit) & 1 == 1
     }
 
-    private func isWriteProtected(_ definition: EfuseDefinition) -> Bool {
+    func isWriteProtected(_ definition: EfuseDefinition) -> Bool {
         guard let bit = definition.writeDisableBit, let mask = raw("WR_DIS") else { return false }
         return mask >> UInt64(bit) & 1 == 1
     }
@@ -293,6 +311,8 @@ public actor EfuseController {
         case .mac(let mac):
             return .string(macPresentation(mac, crcField: chip == .esp32 && definition.name == "MAC" ? "MAC_CRC" : nil))
         case .bytes(let data):
+            // Comme espefuse : un bloc protégé en lecture s'affiche « ?? ».
+            if isReadProtected(definition) { return .string(Array(repeating: "??", count: data.count).joined(separator: " ")) }
             return .string(data.map { String(format: "%02x", $0) }.joined(separator: " "))
         case .uint(let number):
             if let name = definition.values[number] { return .string(name) }

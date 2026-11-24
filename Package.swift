@@ -51,7 +51,7 @@ let package = Package(
         .target(name: "ESPDevice", dependencies: ["ESPTargets", "ESPTransport", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
         // Lecture des eFuses. Tables générées depuis ESP-IDF (Tools/efuse-codegen).
-        .target(name: "ESPEfuse", dependencies: ["ESPTargets", "ESPDevice"]),
+        .target(name: "ESPEfuse", dependencies: ["ESPTargets", "ESPDevice", "ESPSecure"]),
 
         // Parapluie : réexporte tous les modules publics.
         .target(name: "ESPKit", dependencies: ["ESPTargets", "ESPTransport", "ESPImage", "ESPSecure", "ESPDevice", "ESPEfuse"]),
@@ -62,7 +62,7 @@ let package = Package(
         .testTarget(name: "ESPTransportTests", dependencies: ["ESPTransport"]),
         .testTarget(name: "ESPImageTests", dependencies: ["ESPImage", "ESPSupport"]),
         .testTarget(name: "ESPSecureTests", dependencies: ["ESPSecure", "ESPSupport"]),
-        .testTarget(name: "ESPEfuseTests", dependencies: ["ESPEfuse"]),
+        .testTarget(name: "ESPEfuseTests", dependencies: ["ESPEfuse", "ESPSecure"]),
         .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
         // Tests sur carte réelle. Ignorés sauf si ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 sont définies.
