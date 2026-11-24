@@ -7,9 +7,13 @@
 public enum EntryReset: Hashable, Sendable {
     /// USB-Serial-JTAG if the port reports it; otherwise UnixTight and classic, in turn.
     case automatic
+    /// ``ResetSequence/classic(holdBootFor:)``: one line at a time, works with every driver.
     case classic(holdBootFor: Duration = .milliseconds(50))
+    /// ``ResetSequence/unixTight(holdBootFor:)``: both lines in one system call, no spurious state.
     case unixTight(holdBootFor: Duration = .milliseconds(50))
+    /// The sequence of Espressif's built-in USB-Serial-JTAG peripheral (ESP32-S3, C3, C6, H2…).
     case usbSerialJTAG
+    /// Your own sequence (esptool's `--before custom`).
     case custom(ResetSequence)
     /// Leaves the lines alone: the chip is already in download mode.
     case none
@@ -23,7 +27,7 @@ public enum ExitReset: Hashable, Sendable {
     case soft
     /// RTC watchdog reset (USB-OTG chips).
     case watchdog
-    /// Ne fait rien.
+    /// Does nothing: the chip stays in the ROM bootloader.
     case stayInBootloader
     /// Leaves the stub running for a later reconnection.
     case stayInStub
@@ -31,16 +35,24 @@ public enum ExitReset: Hashable, Sendable {
 
 /// Sequence of DTR/RTS actions (the equivalent of `--before custom`).
 public struct ResetSequence: Hashable, Sendable, ExpressibleByArrayLiteral {
+    /// One action on the control lines. `true` asserts the line, which pulls its pin low.
     public enum Step: Hashable, Sendable {
-        case dtr(Bool), rts(Bool)
+        /// Sets DTR (GPIO0 on common boards).
+        case dtr(Bool)
+        /// Sets RTS (EN on common boards).
+        case rts(Bool)
         /// Both lines in a single system call.
         case lines(dtr: Bool, rts: Bool)
+        /// Pauses.
         case wait(Duration)
     }
 
+    /// The actions, in order.
     public var steps: [Step]
 
+    /// A sequence from a list of steps.
     public init(_ steps: [Step]) { self.steps = steps }
+    /// A sequence from an array literal: `[.rts(true), .wait(.milliseconds(100)), .rts(false)]`.
     public init(arrayLiteral elements: Step...) { self.steps = elements }
 }
 

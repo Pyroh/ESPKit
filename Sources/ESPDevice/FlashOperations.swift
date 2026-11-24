@@ -6,16 +6,32 @@ import ESPImage
 import ESPSupport
 import ESPTargets
 
+/// Settings of ``ESPDevice/writeFlash(_:options:)``.
 public struct WriteFlashOptions: Hashable, Sendable {
     /// `.automatic`: zlib, except under the ESP8266 ROM.
     public var compression: Compression = .automatic
-    public enum Compression: Hashable, Sendable { case automatic, zlib, none }
+    /// How the data travels over the link.
+    public enum Compression: Hashable, Sendable {
+        /// zlib whenever the chip can inflate it.
+        case automatic
+        /// Always zlib (FLASH_DEFL_* commands).
+        case zlib
+        /// Raw (FLASH_* commands).
+        case none
+    }
     /// Erase the whole flash before writing (stub required).
     public var eraseAll: Bool = false
     /// Applied to the region holding a bootloader (detected at `chip.bootloaderOffset`).
     public var headerOverrides: FlashHeaderOverrides = .keep
+    /// What to check once a region is written.
     public var verification: Verification = .md5
-    public enum Verification: Hashable, Sendable { case md5, none }
+    /// Post-write check.
+    public enum Verification: Hashable, Sendable {
+        /// Compare the chip's MD5 of the region with the data's (`FlashError.md5Mismatch`).
+        case md5
+        /// No check.
+        case none
+    }
     /// Differential reflash: content assumed to be present already, matched to the new regions
     /// by address. Only the 4 KiB sectors that differ are sent; missing bytes count as 0xFF.
     /// Cannot be combined with `skipIfUnchanged` or encrypted regions.
@@ -30,16 +46,23 @@ public struct WriteFlashOptions: Hashable, Sendable {
     public var ignoreEncryptionEfuses: Bool = false
     /// Disable the safeguards (active security, image incompatible with the chip).
     public var force: Bool = false
+    /// Flash wiring, for boards that do not use the default pins.
     public var spiConnection: SPIConnection = .default
+    /// Only `.nor` is supported for now.
     public var flashType: FlashType = .nor
 
+    /// The defaults: automatic compression, MD5 check, no erase, no differential write.
     public init() {}
 }
 
+/// Result of ``ESPDevice/writeFlash(_:options:)``.
 public struct WriteFlashReport: Hashable, Sendable {
+    /// One entry per region, in the order written.
     public var regions: [Region]
 
+    /// What happened to one region.
     public struct Region: Hashable, Sendable {
+        /// Flash offset actually written (sector-aligned under ROM).
         public var address: UInt32
         /// Bytes written, after alignment and header patching.
         public var byteCount: Int
@@ -48,23 +71,33 @@ public struct WriteFlashReport: Hashable, Sendable {
         /// True if nothing was written: `skipIfUnchanged` found the data already in place,
         /// or `previousContents` held the same bytes.
         public var skipped: Bool
+        /// True if the bootloader header was changed (`headerOverrides`).
         public var headerPatched: Bool
         /// MD5 of the written data (plaintext). `nil` for an encrypted region, which is not verified.
         public var md5: MD5Digest?
+        /// Time spent on this region, verification included.
         public var duration: Duration
     }
 }
 
+/// Outcome of ``ESPDevice/verifyFlash(_:)`` for one region.
 public enum VerifyResult: Hashable, Sendable {
+    /// The flash holds exactly the region's data.
     case match(address: UInt32)
+    /// The flash differs; `firstDifferences` lists at most the first 16 differing bytes.
     case mismatch(address: UInt32, firstDifferences: [ByteDifference])
 }
 
+/// One byte that differs between the expected data and the flash.
 public struct ByteDifference: Hashable, Sendable {
+    /// Offset from the start of the region.
     public var offset: Int
+    /// Byte of the data.
     public var expected: UInt8
+    /// Byte read from the flash.
     public var actual: UInt8
 
+    /// A difference at `offset`.
     public init(offset: Int, expected: UInt8, actual: UInt8) {
         self.offset = offset
         self.expected = expected

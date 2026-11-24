@@ -12,17 +12,23 @@ import ESPTransport
 public actor ESPDevice {
     /// Chip detected when connecting.
     public nonisolated let chip: ChipFamily
+    /// Who answers the protocol now.
     public private(set) var state: State
+    /// Current baud rate of the link, on both sides.
     public private(set) var baudRate: Int
 
+    /// Who answers the protocol.
     public enum State: Hashable, Sendable, CustomStringConvertible {
         /// Bootloader ROM.
         case rom
         /// Restricted ROM.
         case secureDownloadMode
+        /// A flasher stub, loaded into RAM, answers.
         case stub(StubImage.Version)
+        /// The session ended: every operation throws ``ConnectionError/disconnected``.
         case closed
 
+        /// For example "stub esp-flasher-stub 2.0.0".
         public var description: String {
             switch self {
             case .rom: "ROM"
@@ -134,6 +140,8 @@ public actor ESPDevice {
         }
     }
 
+    /// The factory MAC address (base MAC, the one Wi-Fi station mode derives from).
+    /// - Throws: `UsageError.unavailableInSecureDownloadMode`, `ProtocolError`, `TransportError`.
     public func macAddress() async throws -> MACAddress {
         try await exclusive {
             try ensureOpen()
@@ -193,6 +201,8 @@ public actor ESPDevice {
 
     // MARK: Registers
 
+    /// Reads a 32-bit register or memory word (READ_REG).
+    /// - Throws: `UsageError.unavailableInSecureDownloadMode`, `ProtocolError`, `TransportError`.
     public func readRegister(_ address: UInt32) async throws -> UInt32 {
         try await exclusive {
             try ensureOpen()
@@ -201,6 +211,9 @@ public actor ESPDevice {
         }
     }
 
+    /// Writes a 32-bit register (WRITE_REG). Only the bits set in `mask` change; `delay` makes
+    /// the chip wait after the write.
+    /// - Throws: `UsageError.unavailableInSecureDownloadMode`, `ProtocolError`, `TransportError`.
     public func writeRegister(_ address: UInt32, _ value: UInt32,
                               mask: UInt32 = .max, delay: Duration = .zero) async throws {
         try await exclusive {
@@ -221,6 +234,8 @@ public actor ESPDevice {
         }
     }
 
+    /// Identity of the attached flash, attaching it first if no operation did.
+    /// - Throws: `FlashError.notDetected`, `UsageError`, `ProtocolError`, `TransportError`.
     public func flashInfo() async throws -> FlashInfo {
         try await exclusive {
             if let attachedFlash { return attachedFlash }

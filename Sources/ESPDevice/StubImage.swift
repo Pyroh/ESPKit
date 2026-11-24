@@ -7,22 +7,30 @@ import ESPTargets
 public struct StubImage: Sendable, Hashable {
     /// Target chip. Loading a stub onto another chip throws `StubError.chipMismatch`.
     public var chip: ChipFamily
+    /// Code segment.
     public var text: Data
+    /// RAM address where ``text`` is loaded.
     public var textAddress: UInt32
+    /// Data segment (may be empty).
     public var data: Data
+    /// RAM address where ``data`` is loaded.
     public var dataAddress: UInt32
+    /// Entry point the ROM jumps to.
     public var entry: UInt32
     /// Start of the BSS area, when the format provides it. Informational: ESPKit only uses it
     /// to check that the segments do not overlap it.
     public var bssStart: UInt32?
+    /// Where the stub comes from, for the trace and `ESPDevice.State`.
     public var version: Version
 
+    /// Origin of a stub.
     public enum Version: Sendable, Hashable, CustomStringConvertible {
         /// Bundled stub v2; the string is the bundled `esp-flasher-stub` version.
         case bundled(String)
         /// Stub supplied by the caller, with a free label for the trace and reports.
         case custom(String?)
 
+        /// For example "esp-flasher-stub 2.0.0".
         public var description: String {
             switch self {
             case .bundled(let version): "esp-flasher-stub \(version)"

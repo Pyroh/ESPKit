@@ -8,6 +8,7 @@ import ESPTargets
 /// Offline reproduction of the hardware flash encryption: to pre-encrypt an image at the factory,
 /// or to read back an encrypted dump.
 public enum FlashEncryption {
+    /// How a chip encrypts its flash.
     public enum Scheme: Hashable, Sendable, CustomStringConvertible {
         /// ESP32: "inverted" AES-256 with a key tweaked by the address; `cryptConfig` is the
         /// value of the `FLASH_CRYPT_CONFIG` eFuse (4 bits, 0xF once encryption is enabled).
@@ -26,6 +27,7 @@ public enum FlashEncryption {
             }
         }
 
+        /// Key size in bytes: 32, or 64 for XTS-AES-256.
         public var keyLength: Int {
             switch self {
             case .esp32, .xtsAES128: 32
@@ -33,6 +35,7 @@ public enum FlashEncryption {
             }
         }
 
+        /// For example "XTS-AES-128".
         public var description: String {
             switch self {
             case .esp32(let config): "ESP32 (FLASH_CRYPT_CONFIG 0x\(String(config, radix: 16)))"
@@ -42,6 +45,7 @@ public enum FlashEncryption {
         }
     }
 
+    /// A random key of `scheme.keyLength` bytes, from the system's secure generator.
     public static func generateKey(for scheme: Scheme) -> Data {
         var generator = SystemRandomNumberGenerator()
         return Data((0..<scheme.keyLength).map { _ in UInt8.random(in: 0...255, using: &generator) })
@@ -54,6 +58,8 @@ public enum FlashEncryption {
         try transform(data, at: address, key: key, scheme: scheme, encrypt: true)
     }
 
+    /// The reverse of ``encrypt(_:at:key:scheme:)``: plaintext of an encrypted dump read at `address`.
+    /// - Throws: `FlashEncryptionError`.
     public static func decrypt(_ data: Data, at address: UInt32, key: Data, scheme: Scheme) throws -> Data {
         try transform(data, at: address, key: key, scheme: scheme, encrypt: false)
     }

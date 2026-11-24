@@ -59,56 +59,107 @@ extension EfuseTable {
 }
 
 extension EfuseFieldName {
+    /// Names of the ESP32-C2 eFuse fields, from ESP-IDF's table.
     public enum ESP32C2 {
+        /// ADC1 calibration voltage at atten0 (BLOCK2).
         public static let adc1CalVolAtten0: EfuseFieldName = "ADC1_CAL_VOL_ATTEN0"
+        /// ADC1 calibration voltage at atten3 (BLOCK2).
         public static let adc1CalVolAtten3: EfuseFieldName = "ADC1_CAL_VOL_ATTEN3"
+        /// ADC1 init code at atten0 (BLOCK2).
         public static let adc1InitCodeAtten0: EfuseFieldName = "ADC1_INIT_CODE_ATTEN0"
+        /// ADC1 init code at atten3 (BLOCK2).
         public static let adc1InitCodeAtten3: EfuseFieldName = "ADC1_INIT_CODE_ATTEN3"
+        /// Store the bit [86:96] of ADC calibration data (BLOCK2).
         public static let adcCalibration3: EfuseFieldName = "ADC_CALIBRATION_3"
+        /// Major version of BLOCK2 (BLOCK2).
         public static let blkVersionMajor: EfuseFieldName = "BLK_VERSION_MAJOR"
+        /// Minor version of BLOCK2 (BLOCK2).
         public static let blkVersionMinor: EfuseFieldName = "BLK_VERSION_MINOR"
+        /// BLOCK_BLOCK_KEY0 - 256-bits. 256-bit key of Flash Encryption (BLOCK3).
         public static let blockKey0: EfuseFieldName = "BLOCK_KEY0"
+        /// BLOCK_KEY0 - higher 128-bits. 128-bits key of Secure Boot (BLOCK3).
         public static let blockKey0Hi128: EfuseFieldName = "BLOCK_KEY0_HI_128"
+        /// BLOCK_KEY0 - lower 128-bits. 128-bit key of Flash Encryption (BLOCK3).
         public static let blockKey0Low128: EfuseFieldName = "BLOCK_KEY0_LOW_128"
+        /// Custom MAC address (BLOCK1).
         public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        /// True if MAC_CUSTOM is burned (BLOCK0).
         public static let customMacUsed: EfuseFieldName = "CUSTOM_MAC_USED"
+        /// BLOCK2 digital dbias when hvt (BLOCK2).
         public static let digDbiasHvt: EfuseFieldName = "DIG_DBIAS_HVT"
+        /// BLOCK2 DIG_LDO_ACT_DBIAS26 (BLOCK2).
         public static let digLdoActDbias26: EfuseFieldName = "DIG_LDO_ACT_DBIAS26"
+        /// BLOCK2 DIG_LDO_ACT_STEPD10 (BLOCK2).
         public static let digLdoActStepd10: EfuseFieldName = "DIG_LDO_ACT_STEPD10"
+        /// BLOCK2 DIG_LDO_DBG0_DBIAS2 (BLOCK2).
         public static let digLdoSlpDbias2: EfuseFieldName = "DIG_LDO_SLP_DBIAS2"
+        /// BLOCK2 DIG_LDO_DBG0_DBIAS26 (BLOCK2).
         public static let digLdoSlpDbias26: EfuseFieldName = "DIG_LDO_SLP_DBIAS26"
+        /// Disables check of blk version major (BLOCK0).
         public static let disableBlkVersionMajor: EfuseFieldName = "DISABLE_BLK_VERSION_MAJOR"
+        /// Disables check of wafer version major (BLOCK0).
         public static let disableWaferVersionMajor: EfuseFieldName = "DISABLE_WAFER_VERSION_MAJOR"
+        /// This bit set means disable direct_boot mode (BLOCK0).
         public static let disDirectBoot: EfuseFieldName = "DIS_DIRECT_BOOT"
+        /// The bit be set to disable icache in download mode (BLOCK0).
         public static let disDownloadIcache: EfuseFieldName = "DIS_DOWNLOAD_ICACHE"
+        /// The bit be set to disable manual encryption (BLOCK0).
         public static let disDownloadManualEncrypt: EfuseFieldName = "DIS_DOWNLOAD_MANUAL_ENCRYPT"
+        /// Set this bit to disable download mode (boot_mode[3:0] = 0; 1; 2; 4; 5; 6; 7) (BLOCK0).
         public static let disDownloadMode: EfuseFieldName = "DIS_DOWNLOAD_MODE"
+        /// Set this bit to disable pad jtag (BLOCK0).
         public static let disPadJtag: EfuseFieldName = "DIS_PAD_JTAG"
+        /// Set this bit to enable secure UART download mode (BLOCK0).
         public static let enableSecurityDownload: EfuseFieldName = "ENABLE_SECURITY_DOWNLOAD"
+        /// Configures flash waiting time after power-up; in unit of ms. If the value is less than 15; the waiting time is the configurable value. Otherwise; the waiting time is twice the configurable value (BLOCK0).
         public static let flashTpuw: EfuseFieldName = "FLASH_TPUW"
+        /// Set this bit to force ROM code to send a resume command during SPI boot (BLOCK0).
         public static let forceSendResume: EfuseFieldName = "FORCE_SEND_RESUME"
+        /// 128bit FE key (BLOCK3).
         public static let key0Fe128bit: EfuseFieldName = "KEY0.FE_128BIT"
+        /// 256bit FE key (BLOCK3).
         public static let key0Fe256bit: EfuseFieldName = "KEY0.FE_256BIT"
+        /// 128bit SB key (BLOCK3).
         public static let key0Sb128bit: EfuseFieldName = "KEY0.SB_128BIT"
+        /// MAC address (BLOCK2).
         public static let mac: EfuseFieldName = "MAC"
+        /// OCode (BLOCK2).
         public static let ocode: EfuseFieldName = "OCODE"
+        /// EFUSE_PKG_VERSION (BLOCK2).
         public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        /// Disable reading from BlOCK3 (BLOCK0).
         public static let rdDis: EfuseFieldName = "RD_DIS"
+        /// BLOCK2 DIG_LDO_ACT_DBIAS13 (BLOCK2).
         public static let rtcLdoActDbias13: EfuseFieldName = "RTC_LDO_ACT_DBIAS13"
+        /// BLOCK2 DIG_LDO_ACT_DBIAS31 (BLOCK2).
         public static let rtcLdoActDbias31: EfuseFieldName = "RTC_LDO_ACT_DBIAS31"
+        /// BLOCK2 DIG_LDO_SLP_DBIAS13 (BLOCK2).
         public static let rtcLdoSlpDbias13: EfuseFieldName = "RTC_LDO_SLP_DBIAS13"
+        /// BLOCK2 DIG_LDO_SLP_DBIAS29 (BLOCK2).
         public static let rtcLdoSlpDbias29: EfuseFieldName = "RTC_LDO_SLP_DBIAS29"
+        /// BLOCK2 DIG_LDO_SLP_DBIAS31 (BLOCK2).
         public static let rtcLdoSlpDbias31: EfuseFieldName = "RTC_LDO_SLP_DBIAS31"
+        /// The bit be set to enable secure boot (BLOCK0).
         public static let secureBootEn: EfuseFieldName = "SECURE_BOOT_EN"
+        /// Secure version for anti-rollback (BLOCK0).
         public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        /// Enables flash encryption when 1 or 3 bits are set and disables otherwise (BLOCK0).
         public static let spiBootCryptCnt: EfuseFieldName = "SPI_BOOT_CRYPT_CNT"
+        /// Temperature calibration data (BLOCK2).
         public static let tempCalib: EfuseFieldName = "TEMP_CALIB"
+        /// Set the default UARTboot message output mode (BLOCK0).
         public static let uartPrintControl: EfuseFieldName = "UART_PRINT_CONTROL"
+        /// User data block (BLOCK1).
         public static let userData: EfuseFieldName = "USER_DATA"
+        /// WAFER_VERSION_MAJOR (BLOCK2).
         public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        /// WAFER_VERSION_MINOR (BLOCK2).
         public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        /// RTC watchdog timeout threshold; in unit of slow clock cycle (BLOCK0).
         public static let wdtDelaySel: EfuseFieldName = "WDT_DELAY_SEL"
+        /// Disable programming of individual eFuses (BLOCK0).
         public static let wrDis: EfuseFieldName = "WR_DIS"
+        /// Flash encryption key length (BLOCK0).
         public static let xtsKeyLength256: EfuseFieldName = "XTS_KEY_LENGTH_256"
     }
 }

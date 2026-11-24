@@ -39,7 +39,12 @@ public enum MergedImage {
 
     /// UF2 file: 512-byte blocks, numbered per region. With `includeMD5`, each
     /// block carries the address, length and MD5 of its payload (extension 0x4000).
-    /// - Parameter chunkSize: payload per block; 452 bytes by default with MD5, 476 without.
+    /// - Parameters:
+    ///   - regions: what to put where; sorted by address, they must not overlap.
+    ///   - chip: target chip, for its UF2 family ID and the bootloader header.
+    ///   - chunkSize: payload per block; 452 bytes by default with MD5, 476 without.
+    ///   - includeMD5: add the MD5 extension to every block.
+    ///   - headerOverrides: changes to the bootloader header, as in `writeFlash`.
     public static func uf2(_ regions: [FlashRegion], chip: ChipFamily,
                            chunkSize: Int? = nil, includeMD5: Bool = true,
                            headerOverrides: FlashHeaderOverrides = .keep) throws -> Data {

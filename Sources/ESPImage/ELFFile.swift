@@ -6,53 +6,86 @@ import ESPSupport
 /// 32-bit little-endian ELF file, as produced by Espressif's Xtensa and RISC-V
 /// toolchains. Only what `ImageBuilder` needs is read: sections, segments, symbols.
 public struct ELFFile: Sendable {
+    /// The `e_machine` field.
     public enum Machine: Hashable, Sendable {
-        case xtensa, riscv
+        /// Xtensa (94).
+        case xtensa
+        /// RISC-V (243).
+        case riscv
+        /// Any other machine, with its code.
         case other(UInt16)
     }
 
+    /// A section header and its contents.
     public struct Section: Hashable, Sendable {
+        /// Name from the section string table, for example ".flash.text".
         public var name: String
+        /// `sh_type` (see the constants below).
         public var type: UInt32
+        /// `sh_flags` (SHF_ALLOC = 0x2…).
         public var flags: UInt32
+        /// Load address (`sh_addr`).
         public var address: UInt32
         /// Contents; empty for a NOBITS section (`.bss`).
         public var data: Data
+        /// Size in memory (`sh_size`), also for NOBITS sections.
         public var size: UInt32
 
+        /// SHT_PROGBITS: contents stored in the file.
         public static let progbits: UInt32 = 1
+        /// SHT_NOBITS: zero-filled at run time, no contents in the file.
         public static let nobits: UInt32 = 8
+        /// SHT_INIT_ARRAY.
         public static let initArray: UInt32 = 14
+        /// SHT_FINI_ARRAY.
         public static let finiArray: UInt32 = 15
+        /// SHT_PREINIT_ARRAY.
         public static let preinitArray: UInt32 = 16
     }
 
+    /// A program header (segment) and its file contents.
     public struct ProgramHeader: Hashable, Sendable {
+        /// `p_type` (``load`` for loadable segments).
         public var type: UInt32
+        /// Run-time address (`p_vaddr`).
         public var virtualAddress: UInt32
+        /// Load address (`p_paddr`).
         public var physicalAddress: UInt32
+        /// The `p_filesz` bytes stored in the file.
         public var data: Data
+        /// Size in memory (`p_memsz`).
         public var memorySize: UInt32
 
+        /// PT_LOAD.
         public static let load: UInt32 = 1
     }
 
+    /// A symbol of the symbol table.
     public struct Symbol: Hashable, Sendable {
+        /// Symbol name.
         public var name: String
+        /// Address (`st_value`).
         public var value: UInt32
+        /// Size in bytes (`st_size`).
         public var size: UInt32
     }
 
+    /// Target architecture.
     public var machine: Machine
+    /// Entry point (`e_entry`).
     public var entryPoint: UInt32
+    /// Every section, in file order.
     public var sections: [Section]
+    /// Every program header, in file order.
     public var programHeaders: [ProgramHeader]
     /// SHA-256 of the whole ELF file (inserted into the app description by `elf2image`).
     public var sha256: Data
     private var symbols: [String: Symbol]
 
+    /// The symbol called `name`, if the ELF has one.
     public func symbol(named name: String) -> Symbol? { symbols[name] }
 
+    /// Parses a 32-bit little-endian ELF.
     /// - Throws: `ImageError.malformedELF`.
     public init(parsing data: Data) throws {
         let bytes = Data(data)

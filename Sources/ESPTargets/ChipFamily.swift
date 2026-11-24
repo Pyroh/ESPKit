@@ -2,11 +2,44 @@
 
 /// Espressif chip family.
 public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, CustomStringConvertible {
-    case esp8266, esp32, esp32s2, esp32s3, esp32s31,
-         esp32c2, esp32c3, esp32c5, esp32c6, esp32c61,
-         esp32h2, esp32h21, esp32h4, esp32p4, esp32e22
+    /// ESP8266 (Xtensa L106). Its ROM speaks an older dialect of the protocol.
+    case esp8266
+    /// ESP32 (dual-core Xtensa LX6).
+    case esp32
+    /// ESP32-S2 (single-core Xtensa LX7, native USB).
+    case esp32s2
+    /// ESP32-S3 (dual-core Xtensa LX7, native USB and USB-Serial-JTAG).
+    case esp32s3
+    /// ESP32-S31 (RISC-V).
+    case esp32s31
+    /// ESP32-C2, also sold as ESP8684 (RISC-V).
+    case esp32c2
+    /// ESP32-C3 (RISC-V).
+    case esp32c3
+    /// ESP32-C5 (RISC-V, dual-band Wi-Fi).
+    case esp32c5
+    /// ESP32-C6 (RISC-V, Wi-Fi 6 and 802.15.4).
+    case esp32c6
+    /// ESP32-C61 (RISC-V).
+    case esp32c61
+    /// ESP32-H2 (RISC-V, 802.15.4 and Bluetooth LE).
+    case esp32h2
+    /// ESP32-H21 (RISC-V).
+    case esp32h21
+    /// ESP32-H4 (RISC-V).
+    case esp32h4
+    /// ESP32-P4 (dual-core RISC-V, no radio).
+    case esp32p4
+    /// ESP32-E22 (RISC-V). No bundled stub yet.
+    case esp32e22
 
-    public enum Architecture: Sendable, Hashable { case xtensa, riscv }
+    /// CPU instruction set.
+    public enum Architecture: Sendable, Hashable {
+        /// Cadence Xtensa: the ESP8266, ESP32, ESP32-S2 and ESP32-S3.
+        case xtensa
+        /// RISC-V: every other chip.
+        case riscv
+    }
 
     /// Marketing name, for example "ESP32-S3".
     public var displayName: String {
@@ -29,8 +62,10 @@ public enum ChipFamily: String, CaseIterable, Sendable, Hashable, Codable, Custo
         }
     }
 
+    /// The marketing name (``displayName``).
     public var description: String { displayName }
 
+    /// The chip's CPU instruction set.
     public var architecture: Architecture {
         switch self {
         case .esp8266, .esp32, .esp32s2, .esp32s3: .xtensa

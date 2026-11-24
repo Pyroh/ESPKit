@@ -14,7 +14,9 @@ import Foundation
 ///   only the most recent progress is kept. `.finished` is never
 ///   lost.
 public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
+    /// Progress events, then the result.
     public typealias Element = ESPOperationEvent<Success>
+    /// Any of the errors the operation documents, or `CancellationError`.
     public typealias Failure = any Error
 
     private let body: @Sendable (ProgressSink) async throws -> Success
@@ -34,6 +36,7 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         ProgressOnly(operation: self)
     }
 
+    /// Starts a new run of the operation.
     public func makeAsyncIterator() -> Iterator {
         let (stream, continuation) = AsyncThrowingStream.makeStream(
             of: Element.self, throwing: (any Error).self, bufferingPolicy: .bufferingNewest(1))
@@ -52,13 +55,17 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         return Iterator(base: stream.makeAsyncIterator())
     }
 
+    /// Iterator of one run of the operation.
     public struct Iterator: AsyncIteratorProtocol {
+        /// Progress events, then the result.
         public typealias Element = ESPOperationEvent<Success>
+        /// Any of the errors the operation documents, or `CancellationError`.
         public typealias Failure = any Error
 
         var base: AsyncThrowingStream<Element, any Error>.Iterator
         var finished = false
 
+        /// The next event; `nil` after ``ESPOperationEvent/finished(_:)``.
         public mutating func next() async throws -> Element? {
             try await next(isolation: nil)
         }
@@ -88,25 +95,47 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
     }
 }
 
+/// What an ``ESPOperation`` yields.
 public enum ESPOperationEvent<Success: Sendable>: Sendable {
+    /// Where the operation stands. Intermediate ones may be skipped by a slow consumer.
     case progress(OperationProgress)
     /// Always the last event of a successful iteration.
     case finished(Success)
 }
 
+/// Progress of an ``ESPOperation``.
 public struct OperationProgress: Hashable, Sendable {
-    public enum Stage: Hashable, Sendable { case preparing, erasing, writing, verifying, reading }
+    /// What the operation is doing.
+    public enum Stage: Hashable, Sendable {
+        /// Validating, patching headers, attaching the flash.
+        case preparing
+        /// Erasing the whole flash (`eraseAll`, `eraseFlash`).
+        case erasing
+        /// Sending data to the flash.
+        case writing
+        /// Comparing MD5 digests, or reading back to find the differences.
+        case verifying
+        /// Reading flash or memory.
+        case reading
+    }
 
+    /// Current stage.
     public var stage: Stage
+    /// Index of the region in progress, from 0.
     public var regionIndex: Int
+    /// Number of regions of the operation.
     public var regionCount: Int
+    /// Bytes done across all regions (uncompressed).
     public var completedBytes: Int
+    /// Bytes of the whole operation (uncompressed).
     public var totalBytes: Int
 
+    /// `completedBytes / totalBytes`, between 0 and 1.
     public var fractionCompleted: Double {
         totalBytes > 0 ? min(1, Double(completedBytes) / Double(totalBytes)) : 0
     }
 
+    /// A progress value; ESPKit creates these, the initializer is for tests and previews.
     public init(stage: Stage, regionIndex: Int, regionCount: Int, completedBytes: Int, totalBytes: Int) {
         self.stage = stage
         self.regionIndex = regionIndex

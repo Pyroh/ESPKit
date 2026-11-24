@@ -9,12 +9,23 @@ import ESPTargets
 /// - v2: 0xEA header followed by the IROM segment, then a 0xE9 header and the RAM segments,
 ///   and finally a CRC32 of the whole file.
 public struct ESP8266Image: Hashable, Sendable {
-    public enum Format: Hashable, Sendable { case v1, v2 }
+    /// ESP8266 image layout.
+    public enum Format: Hashable, Sendable {
+        /// Two files: header and RAM segments, then the raw IROM.
+        case v1
+        /// One file with the IROM segment, the RAM segments and a CRC32 (OTA builds).
+        case v2
+    }
 
+    /// Layout of this image.
     public var format: Format
+    /// Entry point the ROM jumps to.
     public var entryPoint: UInt32
+    /// SPI mode from the header.
     public var flashMode: FlashMode
+    /// Flash frequency from the header; `nil` for an unknown code.
     public var flashFrequency: FlashFrequency?
+    /// Flash size from the header; `nil` for an unknown code.
     public var flashSize: FlashSize?
     /// RAM segments, in file order.
     public var segments: [FirmwareImage.Segment]
@@ -44,6 +55,7 @@ public struct ESP8266Image: Hashable, Sendable {
         self.segments = segments
     }
 
+    /// Parses a v1 or v2 ESP8266 image without checking it: see ``validate()``.
     /// - Throws: `ImageError.malformedImage`.
     public init(parsing data: Data) throws {
         let bytes = Data(data)
@@ -99,6 +111,7 @@ public struct ESP8266Image: Hashable, Sendable {
         self.parsed = parsed
     }
 
+    /// Checks the checksum and, for v2, the CRC32 against the parsed bytes.
     public func validate() -> ImageValidation {
         var issues: [ImageValidation.Issue] = []
         if let parsed {
@@ -172,13 +185,15 @@ public struct ESP8266Image: Hashable, Sendable {
 
 /// Parses a binary without knowing its format in advance (the equivalent of `image-info`).
 public enum AnyFirmwareImage: Hashable, Sendable {
+    /// An ESP32-family image (0xE9 header with an extended header).
     case esp32Family(FirmwareImage)
+    /// An ESP8266 image (v1 or v2).
     case esp8266(ESP8266Image)
 
     /// `chip` resolves the ambiguity when the header is not enough (the ESP8266 writes no chip ID).
     /// - Throws: `ImageError.malformedImage`.
     public init(parsing data: Data, chip: ChipFamily? = nil) throws {
-        guard let first = data.first else { throw ImageError.malformedImage("fichier vide") }
+        guard let first = data.first else { throw ImageError.malformedImage("empty file") }
         if first == 0xEA || chip == .esp8266 {
             self = .esp8266(try ESP8266Image(parsing: data))
             return

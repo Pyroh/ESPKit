@@ -6,13 +6,20 @@ import ESPTargets
 
 /// Output drive strength of the SPI flash pins (0 to 15 per pin), in the extended header.
 public struct SPIPinDrive: Hashable, Sendable {
+    /// Clock pin.
     public var clk: UInt8 = 0
+    /// Q (MISO) pin.
     public var q: UInt8 = 0
+    /// D (MOSI) pin.
     public var d: UInt8 = 0
+    /// Chip-select pin.
     public var cs: UInt8 = 0
+    /// HD (hold) pin.
     public var hd: UInt8 = 0
+    /// WP (write-protect) pin.
     public var wp: UInt8 = 0
 
+    /// Drive strengths, 0 (the default) to 15.
     public init(clk: UInt8 = 0, q: UInt8 = 0, d: UInt8 = 0, cs: UInt8 = 0, hd: UInt8 = 0, wp: UInt8 = 0) {
         self.clk = clk; self.q = q; self.d = d; self.cs = cs; self.hd = hd; self.wp = wp
     }
@@ -22,10 +29,13 @@ public struct SPIPinDrive: Hashable, Sendable {
 public struct FirmwareImage: Hashable, Sendable {
     /// Deduced from the extended header; `nil` if the chip ID is unknown.
     public var chip: ChipFamily?
+    /// Entry point the bootloader (or the ROM) jumps to.
     public var entryPoint: UInt32
+    /// SPI mode from the header.
     public var flashMode: FlashMode
     /// `nil` if the header code is unknown for the chip.
     public var flashFrequency: FlashFrequency?
+    /// `nil` if the header code is unknown for the chip.
     public var flashSize: FlashSize?
     /// Segments in file order, the ones the header counts.
     public var segments: [Segment]
@@ -33,17 +43,25 @@ public struct FirmwareImage: Hashable, Sendable {
     /// (`ImageOptions.ramOnlyHeader`: the flash-mapped segments, with their padding). Not
     /// covered by the checksum. Parsing does not recover them.
     public var hiddenSegments: [Segment] = []
+    /// The 16-byte header that follows the common one: chip, revisions, SHA-256 flag.
     public var extendedHeader: ExtendedHeader
+    /// ESP-IDF application description, found in the first flash data segment.
     public var appDescription: AppDescription?
+    /// ESP-IDF bootloader description, found at the start of the first segment.
     public var bootloaderDescription: BootloaderDescription?
     /// Final 0xFF padding up to a multiple of this size (`--pad-to-size`).
     public var padToMultipleOf: Int?
 
+    /// A segment: bytes and where the loader copies or maps them.
     public struct Segment: Hashable, Sendable {
+        /// Address in the chip's memory map.
         public var loadAddress: UInt32
+        /// Contents.
         public var data: Data
+        /// Region that `loadAddress` falls in, when the chip's memory map is known.
         public var region: MemoryRegion?
 
+        /// A segment; `region` is informational (the image builder fills it in).
         public init(loadAddress: UInt32, data: Data, region: MemoryRegion? = nil) {
             self.loadAddress = loadAddress
             self.data = data
@@ -51,18 +69,24 @@ public struct FirmwareImage: Hashable, Sendable {
         }
     }
 
+    /// Extended header of ESP32-family images.
     public struct ExtendedHeader: Hashable, Sendable {
         /// 0xEE: WP pin disabled.
         public var wpPin: UInt8 = 0xEE
+        /// Drive strength of the flash pins.
         public var spiPinDrive = SPIPinDrive()
         /// Raw chip ID (`ChipFamily.imageChipID`).
         public var chipID: UInt16
+        /// Oldest chip revision allowed to run the image.
         public var minRevision: ChipRevision
+        /// Newest chip revision allowed to run the image (v655.35 = no limit).
         public var maxRevision: ChipRevision
+        /// True if a SHA-256 of the image follows the checksum.
         public var hashAppended: Bool
         /// Legacy one-byte minimum revision field (major only).
         public var legacyMinRevision: UInt8 = 0
 
+        /// A header for `chipID`, with no revision limit and a SHA-256 by default.
         public init(chipID: UInt16, minRevision: ChipRevision = .init(major: 0, minor: 0),
                     maxRevision: ChipRevision = .init(encoded: 0xFFFF), hashAppended: Bool = true) {
             self.chipID = chipID
@@ -261,16 +285,26 @@ public struct FirmwareImage: Hashable, Sendable {
 
 /// ESP-IDF's `esp_app_desc_t` structure, at the start of the first flash data segment.
 public struct AppDescription: Hashable, Sendable {
+    /// `ESP_APP_DESC_MAGIC_WORD`.
     public static let magic: UInt32 = 0xABCD_5432
 
+    /// Anti-rollback version (`CONFIG_BOOTLOADER_APP_SECURE_VERSION`).
     public var secureVersion: UInt32
+    /// Application version string (`PROJECT_VER`).
     public var version: String
+    /// Project name.
     public var projectName: String
+    /// Build time (`__TIME__`).
     public var compileTime: String
+    /// Build date (`__DATE__`).
     public var compileDate: String
+    /// ESP-IDF version the application was built with.
     public var idfVersion: String
+    /// SHA-256 of the ELF, written by `elf2image` (32 bytes).
     public var elfSHA256: Data
+    /// Oldest eFuse block revision the application supports.
     public var minEfuseBlockRevision: ChipRevision
+    /// Newest eFuse block revision the application supports.
     public var maxEfuseBlockRevision: ChipRevision
     /// MMU page size declared by the application (ESP-IDF ≥ 5.4), in bytes.
     public var mmuPageSize: Int?
@@ -305,11 +339,16 @@ public struct AppDescription: Hashable, Sendable {
 
 /// ESP-IDF's `esp_bootloader_desc_t` structure, at the start of the bootloader's first segment.
 public struct BootloaderDescription: Hashable, Sendable {
+    /// `ESP_BOOTLOADER_DESC_MAGIC_BYTE`.
     public static let magic: UInt8 = 0x50
 
+    /// Anti-rollback version of the bootloader.
     public var secureVersion: UInt8
+    /// Bootloader version (`CONFIG_BOOTLOADER_PROJECT_VER`).
     public var version: UInt32
+    /// ESP-IDF version the bootloader was built with.
     public var idfVersion: String
+    /// Build date and time.
     public var dateTime: String
 
     init?(data: Data) {

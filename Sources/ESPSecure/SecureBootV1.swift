@@ -20,6 +20,7 @@ public enum SecureBootV1 {
     /// then reversed again; each 32-bit word of the result is byte-swapped, hashed with SHA-512,
     /// and each 32-bit word of the hash is byte-swapped.
     /// - Parameters:
+    ///   - bootloader: the second-stage bootloader image.
     ///   - key: 32 bytes. Keys of the 3/4 coding scheme (24 bytes) are not supported.
     ///   - iv: 128 bytes; `nil`: random.
     /// - Throws: `SecureBootError.invalidKey`.

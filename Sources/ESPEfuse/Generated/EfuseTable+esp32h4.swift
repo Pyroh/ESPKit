@@ -84,81 +84,157 @@ extension EfuseTable {
 }
 
 extension EfuseFieldName {
+    /// Names of the ESP32-H4 eFuse fields, from ESP-IDF's table.
     public enum ESP32H4 {
+        /// Key0 or user data (BLOCK4).
         public static let blockKey0: EfuseFieldName = "BLOCK_KEY0"
+        /// Key1 or user data (BLOCK5).
         public static let blockKey1: EfuseFieldName = "BLOCK_KEY1"
+        /// Key2 or user data (BLOCK6).
         public static let blockKey2: EfuseFieldName = "BLOCK_KEY2"
+        /// Key3 or user data (BLOCK7).
         public static let blockKey3: EfuseFieldName = "BLOCK_KEY3"
+        /// Key4 or user data (BLOCK8).
         public static let blockKey4: EfuseFieldName = "BLOCK_KEY4"
+        /// Key5 or user data (BLOCK9).
         public static let blockKey5: EfuseFieldName = "BLOCK_KEY5"
+        /// System data part 2 (reserved) (BLOCK10).
         public static let blockSysData2: EfuseFieldName = "BLOCK_SYS_DATA2"
+        /// User data (BLOCK3).
         public static let blockUsrData: EfuseFieldName = "BLOCK_USR_DATA"
+        /// Custom MAC (BLOCK3).
         public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        /// Represents whether change DCDC to CCM mode (BLOCK0).
         public static let dcdcCcmEn: EfuseFieldName = "DCDC_CCM_EN"
+        /// Represents whether the CPU-Core1 is disabled. 1: Disabled. 0: Not disable (BLOCK0).
         public static let disCore1: EfuseFieldName = "DIS_CORE1"
+        /// Represents whether direct boot mode is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disDirectBoot: EfuseFieldName = "DIS_DIRECT_BOOT"
+        /// Represents whether flash encrypt function is disabled or enabled(except in SPI boot mode). 1: disabled 0: enabled (BLOCK0).
         public static let disDownloadManualEncrypt: EfuseFieldName = "DIS_DOWNLOAD_MANUAL_ENCRYPT"
+        /// Represents whether Download mode is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disDownloadMode: EfuseFieldName = "DIS_DOWNLOAD_MODE"
+        /// Represents whether the function that forces chip into download mode is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disForceDownload: EfuseFieldName = "DIS_FORCE_DOWNLOAD"
+        /// Represents whether JTAG is disabled in the hard way(permanently). 1: disabled 0: enabled (BLOCK0).
         public static let disPadJtag: EfuseFieldName = "DIS_PAD_JTAG"
+        /// Represents whether TWAI function is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disTwai: EfuseFieldName = "DIS_TWAI"
+        /// Represents whether the function of usb switch to jtag is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disUsbJtag: EfuseFieldName = "DIS_USB_JTAG"
+        /// Represents whether the USB-Serial-JTAG download function is disabled or enabled. 1: Disable 0: Enable (BLOCK0).
         public static let disUsbSerialJtagDownloadMode: EfuseFieldName = "DIS_USB_SERIAL_JTAG_DOWNLOAD_MODE"
+        /// Represents whether print from USB-Serial-JTAG is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let disUsbSerialJtagRomPrint: EfuseFieldName = "DIS_USB_SERIAL_JTAG_ROM_PRINT"
+        /// Represents whether to force ecc to use const-time calculation mode. 1: Enable. 0: Disable (BLOCK0).
         public static let eccForceConstTime: EfuseFieldName = "ECC_FORCE_CONST_TIME"
+        /// Represents if the chip supports ECDSA P384 (BLOCK0).
         public static let ecdsaP384Enable: EfuseFieldName = "ECDSA_P384_ENABLE"
+        /// Represents whether security download is enabled or disabled. 1: enabled 0: disabled (BLOCK0).
         public static let enableSecurityDownload: EfuseFieldName = "ENABLE_SECURITY_DOWNLOAD"
+        /// Represents whether to select efuse control flash ldo default voltage. 1 : efuse 0 : strapping (BLOCK0).
         public static let flashLdoEfuseSel: EfuseFieldName = "FLASH_LDO_EFUSE_SEL"
+        /// Represents which flash ldo be select: 1: FLASH LDO 1P2 0 : FLASH LDO 1P8 (BLOCK1).
         public static let flashLdoPowerSel: EfuseFieldName = "FLASH_LDO_POWER_SEL"
+        /// Represents the flash waiting time after power-up; in unit of ms. When the value less than 15; the waiting time is the programmed value. Otherwise; the waiting time is 2 times the programmed value (BLOCK0).
         public static let flashTpuw: EfuseFieldName = "FLASH_TPUW"
+        /// Represents whether to disable the use of the initialization key written by software and instead force use efuse\_init\_key.0: Enable1: Disable (BLOCK0).
         public static let forceDisableSwInitKey: EfuseFieldName = "FORCE_DISABLE_SW_INIT_KEY"
+        /// Represents whether ROM code is forced to send a resume command during SPI boot. 1: forced 0:not forced (BLOCK0).
         public static let forceSendResume: EfuseFieldName = "FORCE_SEND_RESUME"
+        /// Represents whether the corresponding key must come from Key Manager. Bit0: Represents whether the ECDSA key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit1: Represents whether the XTS-AES (flash and PSRAM) key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit2: Represents whether the HMAC key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit3: Represents whether the DS key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key Manager (BLOCK0).
         public static let forceUseKeyManagerKey: EfuseFieldName = "FORCE_USE_KEY_MANAGER_KEY"
+        /// Represents whether the HUK generate mode is valid.Odd count of bits with a value of 1: InvalidEven count of bits with a value of 1: Valid (BLOCK0).
         public static let hukGenState: EfuseFieldName = "HUK_GEN_STATE"
+        /// Represents whether the hysteresis function of corresponding PAD is enabled. 1: enabled 0:disabled (BLOCK1).
         public static let hysEnPad: EfuseFieldName = "HYS_EN_PAD"
+        /// Represents select IO LDO voltage to 1.8V or 3.3V. 1: 1.8V 0: 3.3V (BLOCK0).
         public static let ioLdo1p8: EfuseFieldName = "IO_LDO_1P8"
+        /// Represents configuration of IO LDO mode and voltage (BLOCK0).
         public static let ioLdoAdjust: EfuseFieldName = "IO_LDO_ADJUST"
+        /// Represents whether the selection between usb_to_jtag and pad_to_jtag through strapping gpio15 when both EFUSE_DIS_PAD_JTAG and EFUSE_DIS_USB_JTAG are equal to 0 is enabled or disabled. 1: enabled 0: disabled (BLOCK0).
         public static let jtagSelEnable: EfuseFieldName = "JTAG_SEL_ENABLE"
+        /// Represents the purpose of Key0 (BLOCK0).
         public static let keyPurpose0: EfuseFieldName = "KEY_PURPOSE_0"
+        /// Represents the purpose of Key1 (BLOCK0).
         public static let keyPurpose1: EfuseFieldName = "KEY_PURPOSE_1"
+        /// Represents the purpose of Key2 (BLOCK0).
         public static let keyPurpose2: EfuseFieldName = "KEY_PURPOSE_2"
+        /// Represents the purpose of Key3 (BLOCK0).
         public static let keyPurpose3: EfuseFieldName = "KEY_PURPOSE_3"
+        /// Represents the purpose of Key4 (BLOCK0).
         public static let keyPurpose4: EfuseFieldName = "KEY_PURPOSE_4"
+        /// Represents the purpose of Key5 (BLOCK0).
         public static let keyPurpose5: EfuseFieldName = "KEY_PURPOSE_5"
+        /// Represents whether the corresponding key can be deployed only once.Bit0: Represents whether the ECDSA key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit1: Represents whether the XTS-AES (flash and PSRAM) key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit2: Represents whether the HMAC key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit3: Represents whether the DS key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only once (BLOCK0).
         public static let kmDeployOnlyOnce: EfuseFieldName = "KM_DEPLOY_ONLY_ONCE"
+        /// Represents whether the new key deployment of key manager is disabled. Bit0: Represents whether the new ECDSA key deployment is disabled0: Enabled1: DisabledBit1: Represents whether the new XTS-AES (flash and PSRAM) key deployment is disabled0: Enabled1: DisabledBit2: Represents whether the new HMAC key deployment is disabled0: Enabled1: DisabledBit3: Represents whether the new DS key deployment is disabled0: Enabled1: Disabled (BLOCK0).
         public static let kmDisableDeployMode: EfuseFieldName = "KM_DISABLE_DEPLOY_MODE"
+        /// Represents the cycle at which the Key Manager switches random numbers.0: Controlled by the \hyperref[fielddesc:KEYMNGRNDSWITCHCYCLE]{KEYMNG\_RND\_SWITCH\_CYCLE} register. For more information; please refer to Chapter \ref{mod:keymng} \textit{\nameref{mod:keymng}}1: 8 Key Manager clock cycles2: 16 Key Manager clock cycles3: 32 Key Manager clock cycles (BLOCK0).
         public static let kmRndSwitchCycle: EfuseFieldName = "KM_RND_SWITCH_CYCLE"
+        /// Represents which key flash encryption uses.0: XTS-AES-256 key1: XTS-AES-128 key (BLOCK0).
         public static let kmXtsKeyLength256: EfuseFieldName = "KM_XTS_KEY_LENGTH_256"
+        /// Represents whether the keys in the Key Manager are locked after deployment.0: Not locked1: Locked (BLOCK0).
         public static let lockKmKey: EfuseFieldName = "LOCK_KM_KEY"
+        /// MAC address (BLOCK1).
         public static let mac: EfuseFieldName = "MAC"
+        /// calc MAC_EUI64 = MAC[0]:MAC[1]:MAC[2]:MAC_EXT[0]:MAC_EXT[1]:MAC[3]:MAC[4]:MAC[5] (BLOCK1).
         public static let macEui64: EfuseFieldName = "MAC_EUI64"
+        /// Stores the extended bits of MAC address (BLOCK1).
         public static let macExt: EfuseFieldName = "MAC_EXT"
+        /// Use to configure charge pump voltage gain (BLOCK1).
         public static let pumpDrv: EfuseFieldName = "PUMP_DRV"
+        /// Power glitch monitor PVT cell select (BLOCK1).
         public static let pvtCellSelect: EfuseFieldName = "PVT_CELL_SELECT"
+        /// Represents whether to trigger reset or charge pump when PVT power glitch happened.1:Trigger charge pump. 0:Trigger reset (BLOCK1).
         public static let pvtGlitchChargeReset: EfuseFieldName = "PVT_GLITCH_CHARGE_RESET"
+        /// Represents whether to enable PVT power glitch monitor function.1:Enable. 0:Disable (BLOCK0).
         public static let pvtGlitchEn: EfuseFieldName = "PVT_GLITCH_EN"
+        /// Use to configure glitch mode (BLOCK0).
         public static let pvtGlitchMode: EfuseFieldName = "PVT_GLITCH_MODE"
+        /// Power glitch monitor threthold (BLOCK1).
         public static let pvtLimit: EfuseFieldName = "PVT_LIMIT"
+        /// Use to configure voltage monitor limit for charge pump (BLOCK1).
         public static let pvtPumpLimit: EfuseFieldName = "PVT_PUMP_LIMIT"
+        /// Disable reading from BlOCK4-10 (BLOCK0).
         public static let rdDis: EfuseFieldName = "RD_DIS"
+        /// Represents whether revoking aggressive secure boot is enabled or disabled. 1: enabled. 0: disabled (BLOCK0).
         public static let secureBootAggressiveRevoke: EfuseFieldName = "SECURE_BOOT_AGGRESSIVE_REVOKE"
+        /// Represents whether secure boot is enabled or disabled. 1: enabled 0: disabled (BLOCK0).
         public static let secureBootEn: EfuseFieldName = "SECURE_BOOT_EN"
+        /// Revoke 1st secure boot key (BLOCK0).
         public static let secureBootKeyRevoke0: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE0"
+        /// Revoke 2nd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke1: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE1"
+        /// Revoke 3rd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke2: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE2"
+        /// Represents the version used by ESP-IDF anti-rollback feature (BLOCK0).
         public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        /// Represents the spa secure level by configuring the clock random divide mode (BLOCK0).
         public static let secDpaLevel: EfuseFieldName = "SEC_DPA_LEVEL"
+        /// Represents whether JTAG is disabled in soft way. Odd number: disabled Even number: enabled (BLOCK0).
         public static let softDisJtag: EfuseFieldName = "SOFT_DIS_JTAG"
+        /// Enables flash encryption when 1 or 3 bits are set and disables otherwise (BLOCK0).
         public static let spiBootCryptCnt: EfuseFieldName = "SPI_BOOT_CRYPT_CNT"
+        /// Represents whether SPI0 controller during boot_mode_download is disabled or enabled. 1: disabled 0: enabled (BLOCK0).
         public static let spiDownloadMspiDis: EfuseFieldName = "SPI_DOWNLOAD_MSPI_DIS"
+        /// Represents the type of UART printing. 00: force enable printing 01: enable printing when GPIO8 is reset at low level 10: enable printing when GPIO8 is reset at high level 11: force disable printing (BLOCK0).
         public static let uartPrintControl: EfuseFieldName = "UART_PRINT_CONTROL"
+        /// Represents whether the D+ and D- pins of USB_SERIAL_JTAG PHY is exchanged. 1: exchanged 0: not exchanged (BLOCK0).
         public static let usbExchgPins: EfuseFieldName = "USB_EXCHG_PINS"
+        /// Represents whether the D+ and D- pins of USB_OTG_FS PHY is exchanged. 1: exchanged 0: not exchanged (BLOCK0).
         public static let usbOtgFsExchgPins: EfuseFieldName = "USB_OTG_FS_EXCHG_PINS"
+        /// Represents whether to exchange the USB_SERIAL_JTAG PHY with USB_OTG_FS PHY. 1: exchanged. 0: not exchanged (BLOCK0).
         public static let usbPhySel: EfuseFieldName = "USB_PHY_SEL"
+        /// Represents configuration of FLASH LDO mode and voltage (BLOCK1).
         public static let vddSpiLdoAdjust: EfuseFieldName = "VDD_SPI_LDO_ADJUST"
+        /// Represents the threshold level of the RTC watchdog STG0 timeout. 0: Original threshold configuration value of STG0 *2 1: Original threshold configuration value of STG0 *4 2: Original threshold configuration value of STG0 *8 3: Original threshold configuration value of STG0 *16 (BLOCK1).
         public static let wdtDelaySel: EfuseFieldName = "WDT_DELAY_SEL"
+        /// Disable programming of individual eFuses (BLOCK0).
         public static let wrDis: EfuseFieldName = "WR_DIS"
+        /// Represents whether xts-aes anti-dpa attack clock is enabled. 1. Enable. 0: Disable (BLOCK0).
         public static let xtsDpaClkEnable: EfuseFieldName = "XTS_DPA_CLK_ENABLE"
+        /// Represents the pseudo round level of xts-aes anti-dpa attack. 3: High. 2: Moderate 1. Low 0: Disabled (BLOCK0).
         public static let xtsDpaPseudoLevel: EfuseFieldName = "XTS_DPA_PSEUDO_LEVEL"
     }
 }

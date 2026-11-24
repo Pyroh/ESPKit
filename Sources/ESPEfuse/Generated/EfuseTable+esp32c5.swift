@@ -122,119 +122,233 @@ extension EfuseTable {
 }
 
 extension EfuseFieldName {
+    /// Names of the ESP32-C5 eFuse fields, from ESP-IDF's table.
     public enum ESP32C5 {
+        /// Active HP DBIAS of fixed voltage (BLOCK1).
         public static let activeHpDbias: EfuseFieldName = "ACTIVE_HP_DBIAS"
+        /// Active LP DBIAS of fixed voltage (BLOCK1).
         public static let activeLpDbias: EfuseFieldName = "ACTIVE_LP_DBIAS"
+        /// Average initcode of ADC1 atten0 (BLOCK2).
         public static let adc1AveInitcodeAtten0: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN0"
+        /// Average initcode of ADC1 atten0 (BLOCK2).
         public static let adc1AveInitcodeAtten1: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN1"
+        /// Average initcode of ADC1 atten0 (BLOCK2).
         public static let adc1AveInitcodeAtten2: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN2"
+        /// Average initcode of ADC1 atten0 (BLOCK2).
         public static let adc1AveInitcodeAtten3: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN3"
+        /// Gap between ADC1 CH0 and average initcode (BLOCK2).
         public static let adc1Ch0Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH0_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1 CH1 and average initcode (BLOCK2).
         public static let adc1Ch1Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH1_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1 CH2 and average initcode (BLOCK2).
         public static let adc1Ch2Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH2_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1 CH3 and average initcode (BLOCK2).
         public static let adc1Ch3Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH3_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1 CH4 and average initcode (BLOCK2).
         public static let adc1Ch4Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH4_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1 CH5 and average initcode (BLOCK2).
         public static let adc1Ch5Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH5_ATTEN0_INITCODE_DIFF"
+        /// HI DOUT of ADC1 atten0 (BLOCK2).
         public static let adc1HiDoutAtten0: EfuseFieldName = "ADC1_HI_DOUT_ATTEN0"
+        /// HI DOUT of ADC1 atten1 (BLOCK2).
         public static let adc1HiDoutAtten1: EfuseFieldName = "ADC1_HI_DOUT_ATTEN1"
+        /// HI DOUT of ADC1 atten2 (BLOCK2).
         public static let adc1HiDoutAtten2: EfuseFieldName = "ADC1_HI_DOUT_ATTEN2"
+        /// HI DOUT of ADC1 atten3 (BLOCK2).
         public static let adc1HiDoutAtten3: EfuseFieldName = "ADC1_HI_DOUT_ATTEN3"
+        /// BLK_VERSION_MAJOR of BLOCK2 (BLOCK1).
         public static let blkVersionMajor: EfuseFieldName = "BLK_VERSION_MAJOR"
+        /// BLK_VERSION_MINOR of BLOCK2 (BLOCK1).
         public static let blkVersionMinor: EfuseFieldName = "BLK_VERSION_MINOR"
+        /// Key0 or user data (BLOCK4).
         public static let blockKey0: EfuseFieldName = "BLOCK_KEY0"
+        /// Key1 or user data (BLOCK5).
         public static let blockKey1: EfuseFieldName = "BLOCK_KEY1"
+        /// Key2 or user data (BLOCK6).
         public static let blockKey2: EfuseFieldName = "BLOCK_KEY2"
+        /// Key3 or user data (BLOCK7).
         public static let blockKey3: EfuseFieldName = "BLOCK_KEY3"
+        /// Key4 or user data (BLOCK8).
         public static let blockKey4: EfuseFieldName = "BLOCK_KEY4"
+        /// Key5 or user data (BLOCK9).
         public static let blockKey5: EfuseFieldName = "BLOCK_KEY5"
+        /// System data part 2 (reserved) (BLOCK10).
         public static let blockSysData2: EfuseFieldName = "BLOCK_SYS_DATA2"
+        /// User data (BLOCK3).
         public static let blockUsrData: EfuseFieldName = "BLOCK_USR_DATA"
+        /// Represents whether the ani-rollback check for the 2nd stage bootloader is enabled.1: Enabled0: Disabled (BLOCK0).
         public static let bootloaderAntiRollbackEn: EfuseFieldName = "BOOTLOADER_ANTI_ROLLBACK_EN"
+        /// calc ANTI_ROLLBACK_SECURE_VERSION = ANTI_ROLLBACK_SECURE_VERSION_HI << 3 + ANTI_ROLLBACK_SECURE_VERSION_LO (BLOCK0).
         public static let bootloaderAntiRollbackSecureVersion: EfuseFieldName = "BOOTLOADER_ANTI_ROLLBACK_SECURE_VERSION"
+        /// Represents the anti-rollback secure version of the 2nd stage bootloader used by the ROM bootloader (the high part of the field) (BLOCK0).
         public static let bootloaderAntiRollbackSecureVersionHi: EfuseFieldName = "BOOTLOADER_ANTI_ROLLBACK_SECURE_VERSION_HI"
+        /// Represents the anti-rollback secure version of the 2nd stage bootloader used by the ROM bootloader (the low part of the field) (BLOCK0).
         public static let bootloaderAntiRollbackSecureVersionLo: EfuseFieldName = "BOOTLOADER_ANTI_ROLLBACK_SECURE_VERSION_LO"
+        /// Represents whether the ani-rollback SECURE_VERSION will be updated from the ROM bootloader.1: Enable0: Disable (BLOCK0).
         public static let bootloaderAntiRollbackUpdateInRom: EfuseFieldName = "BOOTLOADER_ANTI_ROLLBACK_UPDATE_IN_ROM"
+        /// Custom MAC (BLOCK3).
         public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        /// Disables check of blk version major (BLOCK1).
         public static let disableBlkVersionMajor: EfuseFieldName = "DISABLE_BLK_VERSION_MAJOR"
+        /// Disables check of wafer version major (BLOCK1).
         public static let disableWaferVersionMajor: EfuseFieldName = "DISABLE_WAFER_VERSION_MAJOR"
+        /// Represents whether direct boot mode is disabled or enabled. 1. Disable 0: Enable (BLOCK0).
         public static let disDirectBoot: EfuseFieldName = "DIS_DIRECT_BOOT"
+        /// Represents whether flash encryption is disabled (except in SPI boot mode).1: Disabled0: Enabled (BLOCK0).
         public static let disDownloadManualEncrypt: EfuseFieldName = "DIS_DOWNLOAD_MANUAL_ENCRYPT"
+        /// Represents whether Download mode is disable or enable. 1. Disable 0: Enable (BLOCK0).
         public static let disDownloadMode: EfuseFieldName = "DIS_DOWNLOAD_MODE"
+        /// Represents whether the function that forces chip into Download mode is disabled. 1: Disabled0: Enabled (BLOCK0).
         public static let disForceDownload: EfuseFieldName = "DIS_FORCE_DOWNLOAD"
+        /// Represents whether cache is disabled. 1: Disabled 0: Enabled (BLOCK0).
         public static let disIcache: EfuseFieldName = "DIS_ICACHE"
+        /// Represents whether PAD JTAG is disabled in the hard way (permanently).1: Disabled0: Enabled (BLOCK0).
         public static let disPadJtag: EfuseFieldName = "DIS_PAD_JTAG"
+        /// Represents whether TWAI$^®$ function is disabled.1: Disabled0: Enabled (BLOCK0).
         public static let disTwai: EfuseFieldName = "DIS_TWAI"
+        /// Represents whether the USB-to-JTAG function in USB Serial/JTAG is disabled. Note that \hyperref[fielddesc:EFUSEDISUSBJTAG]{EFUSE\_DIS\_USB\_JTAG} is available only when \hyperref[fielddesc:EFUSEDISUSBSERIALJTAG]{EFUSE\_DIS\_USB\_SERIAL\_JTAG} is configured to 0. For more information; please refer to Chapter \ref{mod:bootctrl} \textit{\nameref{mod:bootctrl}}.1: Disabled0: Enabled (BLOCK0).
         public static let disUsbJtag: EfuseFieldName = "DIS_USB_JTAG"
+        /// Represents whether the USB-Serial-JTAG download function is disabled or enabled. 1: Disable 0: Enable (BLOCK0).
         public static let disUsbSerialJtagDownloadMode: EfuseFieldName = "DIS_USB_SERIAL_JTAG_DOWNLOAD_MODE"
+        /// Represents whether print from USB-Serial-JTAG is disabled or enabled. 1. Disable 0: Enable (BLOCK0).
         public static let disUsbSerialJtagRomPrint: EfuseFieldName = "DIS_USB_SERIAL_JTAG_ROM_PRINT"
+        /// DSLP LP DBG of fixed voltage (BLOCK1).
         public static let dslpLpDbg: EfuseFieldName = "DSLP_LP_DBG"
+        /// DSLP LP DBIAS of fixed voltage (BLOCK1).
         public static let dslpLpDbias: EfuseFieldName = "DSLP_LP_DBIAS"
+        /// Represents whether to force ECC to use constant-time mode for point multiplication calculation. 0: Not force1: Force (BLOCK0).
         public static let eccForceConstTime: EfuseFieldName = "ECC_FORCE_CONST_TIME"
+        /// Represents whether security download is enabled. Only downloading into flash is supported. Reading/writing RAM or registers is not supported (i.e. stub download is not supported).1: Enabled0: Disabled (BLOCK0).
         public static let enableSecurityDownload: EfuseFieldName = "ENABLE_SECURITY_DOWNLOAD"
+        /// Flash capacity (BLOCK1).
         public static let flashCap: EfuseFieldName = "FLASH_CAP"
+        /// Represents the flash waiting time after power-up. Measurement unit: ms. When the value is less than 15; the waiting time is the programmed value. Otherwise; the waiting time is a fixed value; i.e. 30 ms (BLOCK0).
         public static let flashTpuw: EfuseFieldName = "FLASH_TPUW"
+        /// Flash vendor (BLOCK1).
         public static let flashVendor: EfuseFieldName = "FLASH_VENDOR"
+        /// Represents whether to disable the use of the initialization key written by software and instead force use efuse\_init\_key.0: Enable1: Disable (BLOCK0).
         public static let forceDisableSwInitKey: EfuseFieldName = "FORCE_DISABLE_SW_INIT_KEY"
+        /// Represents whether ROM code is forced to send a resume command during SPI boot.1: Forced. 0: Not forced (BLOCK0).
         public static let forceSendResume: EfuseFieldName = "FORCE_SEND_RESUME"
+        /// Represents whether the corresponding key must come from Key Manager. Bit0: Represents whether the ECDSA key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit1: Represents whether the XTS-AES (flash and PSRAM) key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit2: Represents whether the HMAC key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key ManagerBit3: Represents whether the DS key must come from Key Manager.0: The key does not need to come from Key Manager1: The key must come from Key Manager (BLOCK0).
         public static let forceUseKeyManagerKey: EfuseFieldName = "FORCE_USE_KEY_MANAGER_KEY"
+        /// Represents whether the HUK generate mode is valid.Odd count of bits with a value of 1: InvalidEven count of bits with a value of 1: Valid (BLOCK0).
         public static let hukGenState: EfuseFieldName = "HUK_GEN_STATE"
+        /// Represents whether the hysteresis function of PAD0 – PAD27 is enabled.1: Enabled0: Disabled (BLOCK0).
         public static let hysEnPad: EfuseFieldName = "HYS_EN_PAD"
+        /// Represents whether the selection of a JTAG signal source through the strapping pin value is enabled when all of \hyperref[fielddesc:EFUSEDISPADJTAG]{EFUSE\_DIS\_PAD\_JTAG}; \hyperref[fielddesc:EFUSEDISUSBJTAG]{EFUSE\_DIS\_USB\_JTAG} and \hyperref[fielddesc:EFUSEDISUSBSERIALJTAG]{EFUSE\_DIS\_USB\_SERIAL\_JTAG} are configured to 0. For more information; please refer to Chapter \ref{mod:bootctrl} \textit{\nameref{mod:bootctrl}}.1: Enabled0: Disabled (BLOCK0).
         public static let jtagSelEnable: EfuseFieldName = "JTAG_SEL_ENABLE"
+        /// Represents the purpose of Key0. See Table \ref (BLOCK0).
         public static let keyPurpose0: EfuseFieldName = "KEY_PURPOSE_0"
+        /// Represents the purpose of Key1. See Table \ref (BLOCK0).
         public static let keyPurpose1: EfuseFieldName = "KEY_PURPOSE_1"
+        /// Represents the purpose of Key2. See Table \ref (BLOCK0).
         public static let keyPurpose2: EfuseFieldName = "KEY_PURPOSE_2"
+        /// Represents the purpose of Key3. See Table \ref (BLOCK0).
         public static let keyPurpose3: EfuseFieldName = "KEY_PURPOSE_3"
+        /// Represents the purpose of Key4. See Table \ref (BLOCK0).
         public static let keyPurpose4: EfuseFieldName = "KEY_PURPOSE_4"
+        /// Represents the purpose of Key5. See Table \ref (BLOCK0).
         public static let keyPurpose5: EfuseFieldName = "KEY_PURPOSE_5"
+        /// Represents whether the corresponding key can be deployed only once.Bit0: Represents whether the ECDSA key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit1: Represents whether the XTS-AES (flash and PSRAM) key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit2: Represents whether the HMAC key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only onceBit3: Represents whether the DS key can be deployed only once0: The key can be deployed multiple times1: The key can be deployed only once (BLOCK0).
         public static let kmDeployOnlyOnce: EfuseFieldName = "KM_DEPLOY_ONLY_ONCE"
+        /// Represents whether the new key deployment of key manager is disabled. Bit0: Represents whether the new ECDSA key deployment is disabled0: Enabled1: DisabledBit1: Represents whether the new XTS-AES (flash and PSRAM) key deployment is disabled0: Enabled1: DisabledBit2: Represents whether the new HMAC key deployment is disabled0: Enabled1: DisabledBit3: Represents whether the new DS key deployment is disabled0: Enabled1: Disabled (BLOCK0).
         public static let kmDisableDeployMode: EfuseFieldName = "KM_DISABLE_DEPLOY_MODE"
+        /// Represents the cycle at which the Key Manager switches random numbers.0: Controlled by the \hyperref[fielddesc:KEYMNGRNDSWITCHCYCLE]{KEYMNG\_RND\_SWITCH\_CYCLE} register. For more information; please refer to Chapter \ref{mod:keymng} \textit{\nameref{mod:keymng}}1: 8 Key Manager clock cycles2: 16 Key Manager clock cycles3: 32 Key Manager clock cycles (BLOCK0).
         public static let kmRndSwitchCycle: EfuseFieldName = "KM_RND_SWITCH_CYCLE"
+        /// Represents which key flash encryption uses.0: XTS-AES-256 key1: XTS-AES-128 key (BLOCK0).
         public static let kmXtsKeyLength256: EfuseFieldName = "KM_XTS_KEY_LENGTH_256"
+        /// Represents whether the keys in the Key Manager are locked after deployment.0: Not locked1: Locked (BLOCK0).
         public static let lockKmKey: EfuseFieldName = "LOCK_KM_KEY"
+        /// DBIAS gap between LP and HP (BLOCK1).
         public static let lpHpDbiasVolGap: EfuseFieldName = "LP_HP_DBIAS_VOL_GAP"
+        /// LSLP HP DBG of fixed voltage (BLOCK1).
         public static let lslpHpDbg: EfuseFieldName = "LSLP_HP_DBG"
+        /// LSLP HP DBIAS of fixed voltage (BLOCK1).
         public static let lslpHpDbias: EfuseFieldName = "LSLP_HP_DBIAS"
+        /// MAC address (BLOCK1).
         public static let mac: EfuseFieldName = "MAC"
+        /// calc MAC_EUI64 = MAC[0]:MAC[1]:MAC[2]:MAC_EXT[0]:MAC_EXT[1]:MAC[3]:MAC[4]:MAC[5] (BLOCK1).
         public static let macEui64: EfuseFieldName = "MAC_EUI64"
+        /// Represents the extended bits of MAC address (BLOCK1).
         public static let macExt: EfuseFieldName = "MAC_EXT"
+        /// ADC OCode (BLOCK2).
         public static let ocode: EfuseFieldName = "OCODE"
+        /// Optional unique 128-bit ID (BLOCK2).
         public static let optionalUniqueId: EfuseFieldName = "OPTIONAL_UNIQUE_ID"
+        /// PADC CAL PA trim version (BLOCK1).
         public static let paTrimVersion: EfuseFieldName = "PA_TRIM_VERSION"
+        /// Package version (BLOCK1).
         public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        /// Psram capacity (BLOCK1).
         public static let psramCap: EfuseFieldName = "PSRAM_CAP"
+        /// Psram vendor (BLOCK1).
         public static let psramVendor: EfuseFieldName = "PSRAM_VENDOR"
+        /// Disable reading from BlOCK4-10 (BLOCK0).
         public static let rdDis: EfuseFieldName = "RD_DIS"
+        /// Low 9 bits. Represents the starting flash sector (flash sector size is 0x1000) of the recovery bootloader used by the ROM bootloader If the primary bootloader fails. 0 and 0xFFF - this feature is disabled (BLOCK0).
         public static let recoveryBootloaderFlashSector: EfuseFieldName = "RECOVERY_BOOTLOADER_FLASH_SECTOR"
+        /// High 3 bits. Represents the starting flash sector (flash sector size is 0x1000) of the recovery bootloader used by the ROM bootloader If the primary bootloader fails. 0 and 0xFFF - this feature is disabled (BLOCK0).
         public static let recoveryBootloaderFlashSectorHi: EfuseFieldName = "RECOVERY_BOOTLOADER_FLASH_SECTOR_HI"
+        /// Represents the starting flash sector (flash sector size is 0x1000) of the recovery bootloader used by the ROM bootloader If the primary bootloader fails. 0 and 0xFFF - this feature is disabled. (The low part of the field) (BLOCK0).
         public static let recoveryBootloaderFlashSectorLo: EfuseFieldName = "RECOVERY_BOOTLOADER_FLASH_SECTOR_LO"
+        /// REF PADC Calibration Curr (BLOCK1).
         public static let refCurrCode: EfuseFieldName = "REF_CURR_CODE"
+        /// RES PADC Calibration Tune (BLOCK1).
         public static let resTuneCode: EfuseFieldName = "RES_TUNE_CODE"
+        /// Represents whether aggressive revocation of Secure Boot is enabled.1: Enabled0: Disabled (BLOCK0).
         public static let secureBootAggressiveRevoke: EfuseFieldName = "SECURE_BOOT_AGGRESSIVE_REVOKE"
+        /// Represents whether FAST VERIFY ON WAKE is disabled when Secure Boot is enabled.1: Disabled0: Enabled (BLOCK0).
         public static let secureBootDisableFastWake: EfuseFieldName = "SECURE_BOOT_DISABLE_FAST_WAKE"
+        /// Represents whether Secure Boot is enabled.1: Enabled0: Disabled (BLOCK0).
         public static let secureBootEn: EfuseFieldName = "SECURE_BOOT_EN"
+        /// Revoke 1st secure boot key (BLOCK0).
         public static let secureBootKeyRevoke0: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE0"
+        /// Revoke 2nd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke1: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE1"
+        /// Revoke 3rd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke2: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE2"
+        /// Represents if the chip supports Secure Boot using SHA-384 (BLOCK0).
         public static let secureBootSha384En: EfuseFieldName = "SECURE_BOOT_SHA384_EN"
+        /// Represents the app secure version used by ESP-IDF anti-rollback feature (BLOCK0).
         public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        /// Represents the security level of anti-DPA attack. The level is adjusted by configuring the clock random frequency division mode.0: Security level is SEC\_DPA\_OFF1: Security level is SEC\_DPA\_LOW2: Security level is SEC\_DPA\_MIDDLE3: Security level is SEC\_DPA\_HIGHFor more information; please refer to Chapter \ref{mod:sysreg} \textit{\nameref{mod:sysreg}} > Section \ref{sec:sysreg-anti-dpa-attack-security-control} \textit{\nameref{sec:sysreg-anti-dpa-attack-security-control}} (BLOCK0).
         public static let secDpaLevel: EfuseFieldName = "SEC_DPA_LEVEL"
+        /// Represents whether PAD JTAG is disabled in the soft way. It can be restarted via HMAC. Odd count of bits with a value of 1: DisabledEven count of bits with a value of 1: Enabled (BLOCK0).
         public static let softDisJtag: EfuseFieldName = "SOFT_DIS_JTAG"
+        /// Enables flash encryption when 1 or 3 bits are set and disables otherwise (BLOCK0).
         public static let spiBootCryptCnt: EfuseFieldName = "SPI_BOOT_CRYPT_CNT"
+        /// Represents whether SPI0 controller during boot\_mode\_download is disabled.0: Enabled1: Disabled (BLOCK0).
         public static let spiDownloadMspiDis: EfuseFieldName = "SPI_DOWNLOAD_MSPI_DIS"
+        /// Temp (die embedded inside) (BLOCK1).
         public static let temp: EfuseFieldName = "TEMP"
+        /// Temperature calibration data (BLOCK2).
         public static let temperatureSensor: EfuseFieldName = "TEMPERATURE_SENSOR"
+        /// PADC CAL N bias (BLOCK1).
         public static let trimNBias: EfuseFieldName = "TRIM_N_BIAS"
+        /// PADC CAL P bias (BLOCK1).
         public static let trimPBias: EfuseFieldName = "TRIM_P_BIAS"
+        /// Set the default UARTboot message output mode (BLOCK0).
         public static let uartPrintControl: EfuseFieldName = "UART_PRINT_CONTROL"
+        /// Represents whether the D+ and D- pins is exchanged.1: Exchanged0: Not exchanged (BLOCK0).
         public static let usbExchgPins: EfuseFieldName = "USB_EXCHG_PINS"
+        /// Represents whether VDD SPI pin is functioned as GPIO.1: Functioned0: Not functioned (BLOCK0).
         public static let vddSpiAsGpio: EfuseFieldName = "VDD_SPI_AS_GPIO"
+        /// Minor chip version (BLOCK1).
         public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        /// Minor chip version (BLOCK1).
         public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        /// Represents RTC watchdog timeout threshold.0: The originally configured STG0 threshold × 21: The originally configured STG0 threshold × 42: The originally configured STG0 threshold × 83: The originally configured STG0 threshold × 16 (BLOCK0).
         public static let wdtDelaySel: EfuseFieldName = "WDT_DELAY_SEL"
+        /// Disable programming of individual eFuses (BLOCK0).
         public static let wrDis: EfuseFieldName = "WR_DIS"
+        /// Represents whether XTAL frequency is 48MHz or not. If not; 40MHz XTAL will be used. If this field contains Odd number bit 1: Enable 48MHz XTAL\ Even number bit 1: Enable 40MHz XTAL (BLOCK0).
         public static let xtal48mSel: EfuseFieldName = "XTAL_48M_SEL"
+        /// Represents what determines the XTAL frequency in \textbf{Joint Download Boot} mode. For more information; please refer to Chapter \ref{mod:bootctrl} \textit{\nameref{mod:bootctrl}}.0: Strapping PAD state1: \hyperref[fielddesc:EFUSEXTAL48MSEL]{EFUSE\_XTAL\_48M\_SEL} in eFuse (BLOCK0).
         public static let xtal48mSelMode: EfuseFieldName = "XTAL_48M_SEL_MODE"
+        /// Represents whether XTS-AES anti-DPA attack clock is enabled.0: Disable1: Enabled (BLOCK0).
         public static let xtsDpaClkEnable: EfuseFieldName = "XTS_DPA_CLK_ENABLE"
+        /// Represents the pseudo round level of XTS-AES anti-DPA attack.0: Disabled1: Low2: Moderate3: High (BLOCK0).
         public static let xtsDpaPseudoLevel: EfuseFieldName = "XTS_DPA_PSEUDO_LEVEL"
     }
 }

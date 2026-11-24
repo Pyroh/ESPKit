@@ -4,15 +4,20 @@ import ESPTargets
 
 /// Image parsing and building errors.
 public enum ImageError: ESPKitError, Equatable {
+    /// Not a readable firmware image.
     case malformedImage(String)
+    /// Not a readable 32-bit little-endian ELF.
     case malformedELF(String)
+    /// Intel HEX record that does not parse, with its line number.
     case malformedIntelHex(line: Int, reason: String)
     /// Overlapping segments, impossible MMU alignment…
     case layout(String)
+    /// No memory map or image format for this chip yet.
     case unsupportedChip(ChipFamily)
     /// Header setting that cannot be encoded for this chip.
     case invalidHeaderSetting(String)
 
+    /// A readable description, in English.
     public var description: String {
         switch self {
         case .malformedImage(let reason): "Invalid image: \(reason)"
@@ -27,15 +32,21 @@ public enum ImageError: ESPKitError, Equatable {
 
 /// Result of `validate()`: an empty list means the image is consistent.
 public struct ImageValidation: Hashable, Sendable {
+    /// One inconsistency.
     public enum Issue: Hashable, Sendable, CustomStringConvertible {
+        /// The XOR checksum byte does not match the segments.
         case checksumMismatch(stored: UInt8, computed: UInt8)
+        /// The appended SHA-256 does not match the image.
         case digestMismatch
+        /// Two segments share addresses.
         case overlappingSegments(UInt32, UInt32)
         /// Flash-mapped segment whose file offset does not match its address
         /// modulo the MMU page.
         case misalignedFlashSegment(loadAddress: UInt32, fileOffset: Int)
+        /// ESP8266 v2: the CRC32 does not match the file.
         case crcMismatch(stored: UInt32, computed: UInt32)
 
+        /// A short explanation, in English.
         public var description: String {
             switch self {
             case .checksumMismatch(let stored, let computed):
@@ -51,6 +62,8 @@ public struct ImageValidation: Hashable, Sendable {
         }
     }
 
+    /// Every problem found, in no particular order.
     public var issues: [Issue]
+    /// True if nothing is wrong.
     public var isValid: Bool { issues.isEmpty }
 }

@@ -189,9 +189,17 @@ def generate(efuse_root, label_folders, out_dir):
         lines += ["    ])", "}", ""]
         # Name constants: EfuseFieldName.ESP32S3.spiBootCryptCnt.
         namespace = {"esp32": "ESP32"}.get(chip, "ESP32" + chip[5:].upper())
-        lines += ["extension EfuseFieldName {", f"    public enum {namespace} {{"]
+        display = "ESP32" if chip == "esp32" else "ESP32-" + chip[5:].upper()
+        documentation = {c["name"]: (c["description"], c["block"]) for c in composites}
+        documentation.update({e["name"]: (e["description"], e["block"]) for e in entries})
+        lines += ["extension EfuseFieldName {",
+                  f"    /// Names of the {display} eFuse fields, from ESP-IDF's table.",
+                  f"    public enum {namespace} {{"]
         names = sorted({e["name"] for e in entries} | {c["name"] for c in composites})
         for name in names:
+            text, block = documentation[name]
+            text = " ".join(text.split()).rstrip(".") or f"The `{name}` field"
+            lines.append(f"        /// {text} (BLOCK{block}).")
             parts = name.lower().replace(".", "_").split("_")
             identifier = parts[0] + "".join(p[:1].upper() + p[1:] for p in parts[1:])
             if identifier[:1].isdigit():

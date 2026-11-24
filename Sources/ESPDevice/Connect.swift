@@ -24,6 +24,9 @@ extension ESPDevice {
         }
     }
 
+    /// Connects through the serial port at `path`, for example "/dev/cu.usbserial-0001".
+    ///
+    /// The same as ``connect(_:options:)`` with a `SerialPort`.
     public static func connect(port path: String,
                                options: ConnectOptions = .init()) async throws -> ESPDevice {
         try await connect(SerialPort(path: path), options: options)

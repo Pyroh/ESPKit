@@ -10,6 +10,7 @@ import ESPTargets
 /// come from the ESP-IDF tables; their presentation (`displayValue`, `summaryJSON()`) is aligned
 /// with espefuse's.
 public actor EfuseController {
+    /// The chip whose eFuses this controller reads.
     public nonisolated let chip: ChipFamily
     var state: EfuseSnapshot
     private let device: ESPDevice?
@@ -61,8 +62,10 @@ public actor EfuseController {
         state = try await Self.read(layout, chip: chip, from: device)
     }
 
+    /// The whole state as a value, to save or to start a virtual controller from.
     public func snapshot() -> EfuseSnapshot { state }
 
+    /// The state as an `EFSR:<chip>:<base64>` string, for ``init(token:)``.
     public func token() -> String {
         let data = (try? JSONEncoder().encode(state)) ?? Data()
         return "EFSR:\(chip.rawValue):\(data.base64EncodedString())"
@@ -70,6 +73,8 @@ public actor EfuseController {
 
     // MARK: Reading
 
+    /// Every block as read, BLOCK0 first. Read-protected blocks read as zeros; under the ESP32's
+    /// 3/4 coding scheme BLOCK1 to BLOCK3 have 6 words.
     public func blocks() -> [EfuseBlock] {
         let names = EfuseLayout.layout(for: chip)?.blocks.map(\.name)
         return state.blocks.enumerated().map { index, words in
@@ -87,6 +92,7 @@ public actor EfuseController {
         return table.fields.map(field(for:)) + table.composites.compactMap(composite(for:))
     }
 
+    /// One field by name (ESP-IDF name or espefuse alias); `nil` if the chip has no such field.
     public func field(_ name: EfuseFieldName) -> EfuseField? {
         guard let table else { return nil }
         if let definition = table.definition(named: name.rawValue) { return field(for: definition) }

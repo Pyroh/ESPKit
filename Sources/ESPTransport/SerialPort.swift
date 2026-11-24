@@ -13,7 +13,9 @@ import Glibc
 /// Blocking system calls (`poll`, `read`, `write`) run on a dedicated queue: they never
 /// occupy a thread of the Swift Concurrency cooperative pool.
 public actor SerialPort: Transport {
+    /// The device path given to ``init(path:)``.
     public nonisolated let path: String
+    /// USB identity found when the port was created; `nil` if the port is not USB or was not listed.
     public nonisolated let usbIdentity: USBIdentity?
 
     private var descriptor: Int32 = -1
@@ -33,12 +35,15 @@ public actor SerialPort: Transport {
 
     // MARK: Transport
 
+    /// Opens the port raw (no echo, no flow control) with exclusive access. Does nothing if open.
+    /// - Throws: ``TransportError/openFailed(path:errno:)``, ``TransportError/portBusy(path:)``.
     public func open() async throws {
         guard descriptor < 0 else { return }
         let path = self.path
         descriptor = try await onIOQueue { try Self.openDescriptor(path: path) }
     }
 
+    /// Closes the port; later calls throw ``TransportError/closed``.
     public func close() async {
         guard descriptor >= 0 else { return }
         let fd = descriptor
@@ -46,16 +51,20 @@ public actor SerialPort: Transport {
         await onIOQueue { _ = systemClose(fd) }
     }
 
+    /// Writes every byte, waiting while the driver's buffer is full.
     public func write(_ data: Data) async throws {
         let fd = try openDescriptor()
         try await onIOQueue { try Self.writeAll(fd: fd, data: data) }
     }
 
+    /// Returns at most `maxCount` bytes as soon as some arrive, or empty data when the timeout expires.
+    /// - Throws: ``TransportError/deviceRemoved`` if the device went away.
     public func read(maxCount: Int, timeout: Duration) async throws -> Data {
         let fd = try openDescriptor()
         return try await onIOQueue { try Self.read(fd: fd, maxCount: maxCount, timeout: timeout) }
     }
 
+    /// Drops what the driver received but nobody read (`tcflush`).
     public func discardInput() async throws {
         let fd = try openDescriptor()
         try await onIOQueue {
@@ -63,11 +72,14 @@ public actor SerialPort: Transport {
         }
     }
 
+    /// Any rate the driver accepts, standard or not (IOSSIOSPEED on macOS, termios2 on Linux).
+    /// - Throws: ``TransportError/unsupportedBaudRate(_:)``.
     public func setBaudRate(_ rate: Int) async throws {
         let fd = try openDescriptor()
         try await onIOQueue { try Self.applyBaudRate(rate, fd: fd) }
     }
 
+    /// Sets DTR and/or RTS with a single `ioctl`, so both change at the same instant.
     public func setControlLines(dtr: Bool?, rts: Bool?) async throws {
         guard dtr != nil || rts != nil else { return }
         let fd = try openDescriptor()

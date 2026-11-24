@@ -4,9 +4,12 @@ import Foundation
 
 /// Silicon revision, comparable ("v0.2" < "v1.0").
 public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConvertible {
+    /// Major revision (the "1" of v1.3).
     public var major: Int
+    /// Minor revision (the "3" of v1.3).
     public var minor: Int
 
+    /// A revision such as v1.3: `ChipRevision(major: 1, minor: 3)`.
     public init(major: Int, minor: Int) {
         self.major = major
         self.minor = minor
@@ -17,10 +20,13 @@ public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConverti
         self.init(major: Int(encoded) / 100, minor: Int(encoded) % 100)
     }
 
+    /// `major * 100 + minor`, the encoding of image headers and eFuses.
     public var encoded: UInt16 { UInt16(clamping: major * 100 + minor) }
 
+    /// For example "v1.3".
     public var description: String { "v\(major).\(minor)" }
 
+    /// Orders revisions by major, then minor number.
     public static func < (lhs: ChipRevision, rhs: ChipRevision) -> Bool {
         (lhs.major, lhs.minor) < (rhs.major, rhs.minor)
     }
@@ -31,6 +37,7 @@ public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessS
     /// Always 6 bytes (checked by the initializer).
     public let bytes: Data
 
+    /// A MAC from its six bytes, most significant first; `nil` for any other length.
     public init?(bytes: Data) {
         guard bytes.count == 6 else { return nil }
         self.bytes = Data(bytes)
@@ -48,6 +55,7 @@ public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessS
         self.bytes = bytes
     }
 
+    /// Upper-case, colon-separated: "24:0A:C4:12:34:56".
     public var description: String {
         bytes.map { String(format: "%02X", $0) }.joined(separator: ":")
     }
@@ -55,10 +63,30 @@ public struct MACAddress: Hashable, Sendable, CustomStringConvertible, LosslessS
 
 /// Purpose of an eFuse key block. Defined here because both `SecurityInfo` (ESPDevice) and `ESPEfuse` use it.
 public enum KeyPurpose: Hashable, Sendable {
-    case user, reserved
-    case xtsAES128Key, xtsAES256Key1, xtsAES256Key2
-    case hmacDownAll, hmacDownJTAG, hmacDownDigitalSignature, hmacUp
-    case secureBootDigest0, secureBootDigest1, secureBootDigest2
+    /// Free data, readable by software (code 0).
+    case user
+    /// Reserved (code 1).
+    case reserved
+    /// XTS-AES-128 flash encryption key (code 4).
+    case xtsAES128Key
+    /// First half of an XTS-AES-256 flash encryption key (code 2).
+    case xtsAES256Key1
+    /// Second half of an XTS-AES-256 flash encryption key (code 3).
+    case xtsAES256Key2
+    /// HMAC key for every downstream use: JTAG and digital signature (code 5).
+    case hmacDownAll
+    /// HMAC key that re-enables a soft-disabled JTAG (code 6).
+    case hmacDownJTAG
+    /// HMAC key of the digital signature peripheral (code 7).
+    case hmacDownDigitalSignature
+    /// HMAC key readable by software through the HMAC peripheral (code 8).
+    case hmacUp
+    /// Digest of the first Secure Boot v2 public key (code 9).
+    case secureBootDigest0
+    /// Digest of the second Secure Boot v2 public key (code 10).
+    case secureBootDigest1
+    /// Digest of the third Secure Boot v2 public key (code 11).
+    case secureBootDigest2
     /// Unlisted code, kept as is.
     case unknown(UInt8)
 
@@ -81,6 +109,7 @@ public enum KeyPurpose: Hashable, Sendable {
         }
     }
 
+    /// The `KEY_PURPOSE_n` code; ``unknown(_:)`` keeps its own.
     public var rawCode: UInt8 {
         switch self {
         case .user: 0
@@ -105,10 +134,12 @@ public struct MD5Digest: Hashable, Sendable, CustomStringConvertible {
     /// 16 bytes.
     public let bytes: Data
 
+    /// A digest from its 16 bytes; `nil` for any other length.
     public init?(bytes: Data) {
         guard bytes.count == 16 else { return nil }
         self.bytes = Data(bytes)
     }
 
+    /// Lower-case hexadecimal, like `md5sum`.
     public var description: String { bytes.map { String(format: "%02x", $0) }.joined() }
 }

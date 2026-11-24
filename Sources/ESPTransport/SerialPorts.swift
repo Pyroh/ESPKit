@@ -9,8 +9,10 @@ import IOKit
 public struct SerialPortInfo: Hashable, Sendable {
     /// For example "/dev/cu.usbmodem1101".
     public var path: String
+    /// USB identity of the adapter behind the port; `nil` for a native UART.
     public var usb: USBIdentity?
 
+    /// A port description; ``SerialPorts/available()`` builds these.
     public init(path: String, usb: USBIdentity? = nil) {
         self.path = path
         self.usb = usb
@@ -19,11 +21,16 @@ public struct SerialPortInfo: Hashable, Sendable {
 
 /// Port selection criteria. A `nil` criterion is ignored.
 public struct PortFilter: Hashable, Sendable {
+    /// USB vendor ID to match.
     public var vendorID: UInt16?
+    /// USB product ID to match.
     public var productID: UInt16?
+    /// Substring the device path must contain, for example "usbmodem".
     public var pathContains: String?
+    /// Substring the USB serial number must contain.
     public var serialNumberContains: String?
 
+    /// A filter; with no criterion it matches every port.
     public init(vendorID: UInt16? = nil, productID: UInt16? = nil,
                 pathContains: String? = nil, serialNumberContains: String? = nil) {
         self.vendorID = vendorID
@@ -32,6 +39,7 @@ public struct PortFilter: Hashable, Sendable {
         self.serialNumberContains = serialNumberContains
     }
 
+    /// True if `port` meets every criterion that is set.
     public func matches(_ port: SerialPortInfo) -> Bool {
         if let vendorID, port.usb?.vendorID != vendorID { return false }
         if let productID, port.usb?.productID != productID { return false }
@@ -43,6 +51,7 @@ public struct PortFilter: Hashable, Sendable {
     }
 }
 
+/// Serial port discovery.
 public enum SerialPorts {
     /// Serial ports present (macOS: IOKit; Linux: sysfs). Does not open them.
     public static func available() throws -> [SerialPortInfo] {
@@ -55,6 +64,7 @@ public enum SerialPorts {
         #endif
     }
 
+    /// The present ports that `filter` matches.
     public static func available(matching filter: PortFilter) throws -> [SerialPortInfo] {
         try available().filter(filter.matches)
     }

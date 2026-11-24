@@ -45,6 +45,21 @@ await esp.disconnect(.hard)
 
 Not yet: eFuse programming on a board for chips other than the ESP32, SPI NAND flash, Secure Boot v2 with ECDSA P-192, the ESP32-S31 Secure Debug Controller, an RFC 2217 transport.
 
+## Documentation
+
+Every public symbol is documented, and each module has a DocC catalog with guides (connecting,
+writing the flash, building images, Secure Boot, flash encryption, reading and burning eFuses, the
+correspondence with esptool). To build it, with no plugin:
+
+```bash
+Tools/build-docs.sh
+```
+
+The archives land in `.build/documentation`: one per module, and `ESPKitDocumentation.doccarchive`
+merging them all. Open an archive in Xcode, or preview a module with
+`xcrun docc preview Sources/ESPDevice/ESPDevice.docc --additional-symbol-graph-dir .build/documentation/graphs/ESPDevice`.
+`WARNINGS_AS_ERRORS=1` makes any broken link fail the build, as in CI.
+
 ## Tests
 
 ```bash

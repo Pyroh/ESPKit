@@ -6,17 +6,23 @@ import ESPTargets
 
 /// `elf2image` settings.
 public struct ImageOptions: Hashable, Sendable {
+    /// SPI mode written in the header (esptool's default is `qio`; ESPKit's is `dio`).
     public var flashMode: FlashMode = .dio
     /// `nil`: the chip's default frequency (code 0: 40 MHz, 30 MHz on C2, 24 MHz on H2…).
     public var flashFrequency: FlashFrequency? = nil
+    /// Flash size written in the header.
     public var flashSize: FlashSize = .mb1
+    /// Oldest chip revision allowed (`--min-rev-full`).
     public var minRevision: ChipRevision = .init(major: 0, minor: 0)
+    /// Newest chip revision allowed (`--max-rev-full`); v655.35 = no limit.
     public var maxRevision: ChipRevision = .init(encoded: 0xFFFF)
+    /// Room left for a Secure Boot signature (`--secure-pad`, `--secure-pad-v2`).
     public var securePadding: SecurePadding = .none
     /// Offset in the binary where the ELF's SHA-256 is written (0xB0 for ESP-IDF). The slot
     /// must be zero-filled. `nil`: into the app description's `app_elf_sha256` field
     /// when the ELF has a `.flash.appdesc` section (and without `useSegments`), like esptool.
     public var elfSHA256Offset: UInt32? = nil
+    /// Append the image's SHA-256 after the checksum (`--dont-append-digest` sets it to false).
     public var appendSHA256: Bool = true
     /// Build from the `PT_LOAD` segments rather than from the sections.
     public var useSegments: Bool = false
@@ -32,7 +38,9 @@ public struct ImageOptions: Hashable, Sendable {
     /// `elfSHA256Offset`, which must fall in the RAM segments.
     public var ramOnlyHeader: Bool = false
 
+    /// Padding for a Secure Boot signature.
     public enum SecurePadding: Hashable, Sendable {
+        /// No padding.
         case none
         /// Secure Boot v1 (ESP32): room for the signature after the image.
         case v1
@@ -40,9 +48,11 @@ public struct ImageOptions: Hashable, Sendable {
         case v2
     }
 
+    /// esptool's defaults, except the flash mode (`dio`).
     public init() {}
 }
 
+/// The ESP8266 image format to build.
 public typealias ESP8266ImageVersion = ESP8266Image.Format
 
 /// Building images from an ELF.

@@ -62,59 +62,113 @@ extension EfuseTable {
 }
 
 extension EfuseFieldName {
+    /// Names of the ESP32 eFuse fields, from ESP-IDF's table.
     public enum ESP32 {
+        /// Secure boot V1 is enabled for bootloader image (BLOCK0).
         public static let absDone0: EfuseFieldName = "ABS_DONE_0"
+        /// Secure boot V2 is enabled for bootloader image (BLOCK0).
         public static let absDone1: EfuseFieldName = "ABS_DONE_1"
+        /// ADC1 Two Point calibration high point. Only valid if EFUSE_RD_BLK3_PART_RESERVE (BLOCK3).
         public static let adc1TpHigh: EfuseFieldName = "ADC1_TP_HIGH"
+        /// ADC1 Two Point calibration low point. Only valid if EFUSE_RD_BLK3_PART_RESERVE (BLOCK3).
         public static let adc1TpLow: EfuseFieldName = "ADC1_TP_LOW"
+        /// ADC2 Two Point calibration high point. Only valid if EFUSE_RD_BLK3_PART_RESERVE (BLOCK3).
         public static let adc2TpHigh: EfuseFieldName = "ADC2_TP_HIGH"
+        /// ADC2 Two Point calibration low point. Only valid if EFUSE_RD_BLK3_PART_RESERVE (BLOCK3).
         public static let adc2TpLow: EfuseFieldName = "ADC2_TP_LOW"
+        /// True ADC reference voltage (BLOCK0).
         public static let adcVref: EfuseFieldName = "ADC_VREF"
+        /// BLOCK3 partially served for ADC calibration data (BLOCK0).
         public static let blk3PartReserve: EfuseFieldName = "BLK3_PART_RESERVE"
+        /// Flash encryption key (BLOCK1).
         public static let block1: EfuseFieldName = "BLOCK1"
+        /// Security boot key (BLOCK2).
         public static let block2: EfuseFieldName = "BLOCK2"
+        /// Variable Block 3 (BLOCK3).
         public static let block3: EfuseFieldName = "BLOCK3"
+        /// If set alongside EFUSE_RD_CHIP_CPU_FREQ_RATED; the ESP32's max CPU frequency is rated for 160MHz. 240MHz otherwise (BLOCK0).
         public static let chipCpuFreqLow: EfuseFieldName = "CHIP_CPU_FREQ_LOW"
+        /// If set; the ESP32's maximum CPU frequency has been rated (BLOCK0).
         public static let chipCpuFreqRated: EfuseFieldName = "CHIP_CPU_FREQ_RATED"
+        /// Chip package identifier (BLOCK0).
         public static let chipPackage: EfuseFieldName = "CHIP_PACKAGE"
+        /// Chip package identifier #4bit (BLOCK0).
         public static let chipPackage4bit: EfuseFieldName = "CHIP_PACKAGE_4BIT"
+        /// bit is set to 1 for rev1 silicon (BLOCK0).
         public static let chipVerRev1: EfuseFieldName = "CHIP_VER_REV1"
+        /// The `CHIP_VER_REV2` field (BLOCK0).
         public static let chipVerRev2: EfuseFieldName = "CHIP_VER_REV2"
+        /// 8MHz clock freq override (BLOCK0).
         public static let clk8mFreq: EfuseFieldName = "CLK8M_FREQ"
+        /// Efuse variable block length scheme (BLOCK0).
         public static let codingScheme: EfuseFieldName = "CODING_SCHEME"
+        /// Disable ROM BASIC interpreter fallback (BLOCK0).
         public static let consoleDebugDisable: EfuseFieldName = "CONSOLE_DEBUG_DISABLE"
+        /// Custom MAC address (BLOCK3).
         public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        /// CRC8 for custom MAC address (BLOCK3).
         public static let customMacCrc: EfuseFieldName = "CUSTOM_MAC_CRC"
+        /// Disables APP CPU (BLOCK0).
         public static let disableAppCpu: EfuseFieldName = "DISABLE_APP_CPU"
+        /// Disables Bluetooth (BLOCK0).
         public static let disableBt: EfuseFieldName = "DISABLE_BT"
+        /// Disable flash cache in UART bootloader (BLOCK0).
         public static let disableDlCache: EfuseFieldName = "DISABLE_DL_CACHE"
+        /// Disable flash decryption in UART bootloader (BLOCK0).
         public static let disableDlDecrypt: EfuseFieldName = "DISABLE_DL_DECRYPT"
+        /// Disable flash encryption in UART bootloader (BLOCK0).
         public static let disableDlEncrypt: EfuseFieldName = "DISABLE_DL_ENCRYPT"
+        /// The `DISABLE_SDIO_HOST` field (BLOCK0).
         public static let disableSdioHost: EfuseFieldName = "DISABLE_SDIO_HOST"
+        /// Disables cache (BLOCK0).
         public static let disCache: EfuseFieldName = "DIS_CACHE"
+        /// Flash encryption is enabled if this field has an odd number of bits set (BLOCK0).
         public static let flashCryptCnt: EfuseFieldName = "FLASH_CRYPT_CNT"
+        /// Flash encryption config (key tweak bits) (BLOCK0).
         public static let flashCryptConfig: EfuseFieldName = "FLASH_CRYPT_CONFIG"
+        /// Disable JTAG (BLOCK0).
         public static let jtagDisable: EfuseFieldName = "JTAG_DISABLE"
+        /// Usage of efuse block 3 (reserved) (BLOCK0).
         public static let keyStatus: EfuseFieldName = "KEY_STATUS"
+        /// MAC address (BLOCK0).
         public static let mac: EfuseFieldName = "MAC"
+        /// CRC8 for MAC address (BLOCK0).
         public static let macCrc: EfuseFieldName = "MAC_CRC"
+        /// Custom MAC address (BLOCK3).
         public static let macCustom: EfuseFieldName = "MAC_CUSTOM"
+        /// Version of the MAC field (BLOCK3).
         public static let macVersion: EfuseFieldName = "MAC_VERSION"
+        /// calc Chip package = CHIP_PACKAGE_4BIT << 3 + CHIP_PACKAGE (read only) (BLOCK0).
         public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        /// Disable reading from BlOCK1-3 (BLOCK0).
         public static let rdDis: EfuseFieldName = "RD_DIS"
+        /// Secure version for anti-rollback (BLOCK3).
         public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        /// Override SD_CLK pad (GPIO6/SPICLK) (BLOCK0).
         public static let spiPadConfigClk: EfuseFieldName = "SPI_PAD_CONFIG_CLK"
+        /// Override SD_CMD pad (GPIO11/SPICS0) (BLOCK0).
         public static let spiPadConfigCs0: EfuseFieldName = "SPI_PAD_CONFIG_CS0"
+        /// Override SD_DATA_1 pad (GPIO8/SPID) (BLOCK0).
         public static let spiPadConfigD: EfuseFieldName = "SPI_PAD_CONFIG_D"
+        /// read for SPI_pad_config_hd (BLOCK0).
         public static let spiPadConfigHd: EfuseFieldName = "SPI_PAD_CONFIG_HD"
+        /// Override SD_DATA_0 pad (GPIO7/SPIQ) (BLOCK0).
         public static let spiPadConfigQ: EfuseFieldName = "SPI_PAD_CONFIG_Q"
+        /// Disable UART download mode. Valid for ESP32 V3 and newer; only (BLOCK0).
         public static let uartDownloadDis: EfuseFieldName = "UART_DOWNLOAD_DIS"
+        /// This field stores the voltage level for CPU to run at 240 MHz; or for flash/PSRAM to run at 80 MHz.0x0: level 7; 0x1: level 6; 0x2: level 5; 0x3: level 4. (RO) (BLOCK0).
         public static let volLevelHpInv: EfuseFieldName = "VOL_LEVEL_HP_INV"
+        /// calc WAFER VERSION MAJOR from CHIP_VER_REV1 and CHIP_VER_REV2 and apb_ctl_date (read only) (BLOCK0).
         public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        /// The `WAFER_VERSION_MINOR` field (BLOCK0).
         public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        /// Efuse write disable mask (BLOCK0).
         public static let wrDis: EfuseFieldName = "WR_DIS"
+        /// Ignore MTDI pin (GPIO12) for VDD_SDIO on reset (BLOCK0).
         public static let xpdSdioForce: EfuseFieldName = "XPD_SDIO_FORCE"
+        /// read for XPD_SDIO_REG (BLOCK0).
         public static let xpdSdioReg: EfuseFieldName = "XPD_SDIO_REG"
+        /// If XPD_SDIO_FORCE & XPD_SDIO_REG (BLOCK0).
         public static let xpdSdioTieh: EfuseFieldName = "XPD_SDIO_TIEH"
     }
 }

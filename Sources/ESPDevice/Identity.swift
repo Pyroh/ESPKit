@@ -5,23 +5,38 @@ import ESPTargets
 
 /// Security state returned by GET_SECURITY_INFO (ESP32-S2 and later).
 public struct SecurityInfo: Hashable, Sendable {
+    /// Security flags, one bit each as the ROM reports them.
     public struct Flags: OptionSet, Hashable, Sendable {
+        /// The 32 flag bits.
         public let rawValue: UInt32
+        /// Flags from their raw bits.
         public init(rawValue: UInt32) { self.rawValue = rawValue }
 
+        /// Secure Boot is enabled.
         public static let secureBootEnabled = Flags(rawValue: 1 << 0)
+        /// Aggressive key revocation is enabled.
         public static let secureBootAggressiveRevoke = Flags(rawValue: 1 << 1)
+        /// Secure Download Mode is enabled.
         public static let secureDownloadEnable = Flags(rawValue: 1 << 2)
+        /// Secure Boot key 0 is revoked.
         public static let secureBootKeyRevoke0 = Flags(rawValue: 1 << 3)
+        /// Secure Boot key 1 is revoked.
         public static let secureBootKeyRevoke1 = Flags(rawValue: 1 << 4)
+        /// Secure Boot key 2 is revoked.
         public static let secureBootKeyRevoke2 = Flags(rawValue: 1 << 5)
+        /// JTAG is disabled, and can be re-enabled through HMAC.
         public static let jtagSoftDisabled = Flags(rawValue: 1 << 6)
+        /// JTAG is permanently disabled.
         public static let jtagHardDisabled = Flags(rawValue: 1 << 7)
+        /// The USB peripheral is disabled.
         public static let usbDisabled = Flags(rawValue: 1 << 8)
+        /// The data cache is disabled in download mode.
         public static let downloadDCacheDisabled = Flags(rawValue: 1 << 9)
+        /// The instruction cache is disabled in download mode.
         public static let downloadICacheDisabled = Flags(rawValue: 1 << 10)
     }
 
+    /// Security flags.
     public var flags: Flags
     /// Raw value of the `SPI_BOOT_CRYPT_CNT` counter (`FLASH_CRYPT_CNT` on the ESP32):
     /// encryption is enabled when an odd number of bits is set.
@@ -30,8 +45,10 @@ public struct SecurityInfo: Hashable, Sendable {
     public var keyPurposes: [KeyPurpose]
     /// Family identifier (`ChipFamily.imageChipID`). Missing on the oldest ROMs.
     public var chipID: UInt32?
+    /// Version of the ROM's security API. Missing on the oldest ROMs.
     public var apiVersion: UInt32?
 
+    /// True if the eFuse counter has an odd number of bits set.
     public var flashEncryptionEnabled: Bool { flashCryptCount.nonzeroBitCount % 2 == 1 }
 
     /// Decodes the response: 4 flag bytes, 1 counter byte, 7 purpose bytes,
@@ -49,11 +66,13 @@ public struct SecurityInfo: Hashable, Sendable {
 
 /// SPI flash identity.
 public struct FlashInfo: Hashable, Sendable {
+    /// JEDEC manufacturer (0xEF Winbond, 0xC8 GigaDevice, 0x20 XMC, 0x5E Zbit…).
     public var manufacturerID: UInt8
     /// Type byte (high) and capacity byte (low) of the JEDEC ID.
     public var deviceID: UInt16
     /// Size deduced from the JEDEC ID, `nil` if unknown.
     public var detectedSize: FlashSize?
+    /// Flash technology.
     public var type: FlashType
 
     /// Raw 24-bit JEDEC ID, as returned by RDID (manufacturer in the low byte).

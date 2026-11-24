@@ -10,13 +10,20 @@ public enum MemoryRegion: Hashable, Sendable, CustomStringConvertible {
     case drom
     /// Unified bus (C5, C6, C61, H2, P4): code and data share the same range.
     case flash
-    case iram, dram
-    case rtcFast, rtcSlow
+    /// Instruction RAM.
+    case iram
+    /// Data RAM.
+    case dram
+    /// RTC fast memory.
+    case rtcFast
+    /// RTC slow memory (kept in deep sleep).
+    case rtcSlow
     /// External RAM (PSRAM).
     case extram
     /// Padding segment at address 0.
     case padding
 
+    /// A readable description, in English.
     public var description: String {
         switch self {
         case .irom: "IROM"

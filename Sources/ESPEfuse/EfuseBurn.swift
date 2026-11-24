@@ -6,10 +6,26 @@ import ESPTargets
 
 /// Destination block of a key.
 public enum KeyBlock: Hashable, Sendable, CustomStringConvertible {
-    case key0, key1, key2, key3, key4, key5
-    /// ESP32: BLOCK1, BLOCK2 (Secure Boot v1) and BLOCK2 (Secure Boot v2 digest, revision 3).
-    case flashEncryption, secureBootV1, secureBootV2
+    /// BLOCK_KEY0.
+    case key0
+    /// BLOCK_KEY1.
+    case key1
+    /// BLOCK_KEY2.
+    case key2
+    /// BLOCK_KEY3.
+    case key3
+    /// BLOCK_KEY4.
+    case key4
+    /// BLOCK_KEY5.
+    case key5
+    /// ESP32 BLOCK1: the flash encryption key.
+    case flashEncryption
+    /// ESP32 BLOCK2: the Secure Boot v1 key.
+    case secureBootV1
+    /// ESP32 BLOCK2: the Secure Boot v2 public key digest (revision 3).
+    case secureBootV2
 
+    /// A readable description, in English.
     public var description: String {
         switch self {
         case .key0: "BLOCK_KEY0"
@@ -39,11 +55,19 @@ public enum KeyBlock: Hashable, Sendable, CustomStringConvertible {
 
 /// Flash voltage forced by eFuse (ESP32, S2, S3).
 public enum FlashVoltage: Hashable, Sendable {
-    case v1_8, v3_3, off
+    /// 1.8 V: the internal regulator only.
+    case v1_8
+    /// 3.3 V: the regulator tied to VDD3P3.
+    case v3_3
+    /// Regulator off: the flash is powered externally.
+    case off
 }
 
 /// Intent token, the equivalent of typing "BURN" at the keyboard. No default value.
-public enum BurnConfirmation: Sendable { case irreversible }
+public enum BurnConfirmation: Sendable {
+    /// "I know this cannot be undone."
+    case irreversible
+}
 
 /// What to burn. A plain value: test it virtually, then replay it as is.
 public struct EfuseBurnPlan: Sendable {
@@ -64,8 +88,10 @@ public struct EfuseBurnPlan: Sendable {
     /// like `--postpone` (default: yes).
     public var postponeLockingBits: Bool = true
 
+    /// An empty plan.
     public init() {}
 
+    /// Burns a field to `value`. Bits already at 1 must stay at 1, or the plan is invalid.
     public mutating func set(_ field: EfuseFieldName, to value: EfuseValue) { operations.append(.set(field, value)) }
 
     /// 32-byte key into an empty block (24 bytes on an ESP32 with the 3/4 coding scheme).
@@ -87,9 +113,13 @@ public struct EfuseBurnPlan: Sendable {
         operations.append(.blockData(data, block: block, offset: offset))
     }
 
+    /// Burns individual bits of a block, numbered from bit 0 of word 0 (`espefuse burn-bit`).
     public mutating func burnBits(_ bits: [Int], in block: Int) { operations.append(.bits(bits, block: block)) }
+    /// Sets the field's `RD_DIS` bit: software can no longer read it, the hardware still can.
     public mutating func readProtect(_ field: EfuseFieldName) { operations.append(.readProtect(field)) }
+    /// Sets the field's `WR_DIS` bit: it can no longer be burned. The bit often covers other fields too.
     public mutating func writeProtect(_ field: EfuseFieldName) { operations.append(.writeProtect(field)) }
+    /// Programs a custom MAC address (ESP32: with its CRC and `MAC_VERSION = 1`).
     public mutating func setCustomMAC(_ mac: MACAddress) { operations.append(.customMAC(mac)) }
     /// ESP32, S2, S3.
     public mutating func setFlashVoltage(_ voltage: FlashVoltage) { operations.append(.flashVoltage(voltage)) }
@@ -97,28 +127,40 @@ public struct EfuseBurnPlan: Sendable {
 
 /// Problem that prevents a plan from running.
 public struct EfusePlanIssue: Hashable, Sendable, CustomStringConvertible {
+    /// Index of the operation in the plan, from 0.
     public var operation: Int
+    /// What is wrong, in English.
     public var message: String
+    /// "operation N: message", N counted from 1.
     public var description: String { "operation \(operation + 1): \(message)" }
 }
 
 /// Block word that will change. Bits only go from 0 to 1.
 public struct EfuseChange: Hashable, Sendable, CustomStringConvertible {
+    /// Block of the word.
     public var block: Int
+    /// Word index within the block.
     public var word: Int
+    /// Value now.
     public var before: UInt32
+    /// Value once burned.
     public var after: UInt32
     /// Bits of the word that will be burned.
     public var newBits: UInt32 { after & ~before }
 
+    /// For example "BLOCK3 word 6: 00000000 → 00000001".
     public var description: String {
         String(format: "BLOCK%d word %d: %08x → %08x", block, word, before, after)
     }
 }
 
+/// What ``EfuseController/burn(_:confirm:)`` did.
 public struct EfuseBurnReport: Hashable, Sendable {
+    /// One program command.
     public struct Step: Hashable, Sendable {
+        /// Block programmed.
         public var block: Int
+        /// Words changed by this step.
         public var changes: [EfuseChange]
         /// BLOCK0 locking bits burned last.
         public var postponed: Bool

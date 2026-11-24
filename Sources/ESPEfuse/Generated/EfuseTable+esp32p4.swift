@@ -140,137 +140,269 @@ extension EfuseTable {
 }
 
 extension EfuseFieldName {
+    /// Names of the ESP32-P4 eFuse fields, from ESP-IDF's table.
     public enum ESP32P4 {
+        /// Active HP DBIAS of fixed voltage (BLOCK1).
         public static let activeHpDbias: EfuseFieldName = "ACTIVE_HP_DBIAS"
+        /// Active LP DBIAS of fixed voltage (BLOCK1).
         public static let activeLpDbias: EfuseFieldName = "ACTIVE_LP_DBIAS"
+        /// Average initcode of ADC1 atten0 (BLOCK2).
         public static let adc1AveInitcodeAtten0: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN0"
+        /// Average initcode of ADC1 atten1 (BLOCK2).
         public static let adc1AveInitcodeAtten1: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN1"
+        /// Average initcode of ADC1 atten2 (BLOCK2).
         public static let adc1AveInitcodeAtten2: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN2"
+        /// Average initcode of ADC1 atten3 (BLOCK2).
         public static let adc1AveInitcodeAtten3: EfuseFieldName = "ADC1_AVE_INITCODE_ATTEN3"
+        /// Gap between ADC1_ch0 and average initcode (BLOCK10).
         public static let adc1Ch0Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH0_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch1 and average initcode (BLOCK10).
         public static let adc1Ch1Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH1_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch2 and average initcode (BLOCK10).
         public static let adc1Ch2Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH2_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch3 and average initcode (BLOCK10).
         public static let adc1Ch3Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH3_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch4 and average initcode (BLOCK10).
         public static let adc1Ch4Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH4_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch5 and average initcode (BLOCK10).
         public static let adc1Ch5Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH5_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch6 and average initcode (BLOCK10).
         public static let adc1Ch6Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH6_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC1_ch7 and average initcode (BLOCK10).
         public static let adc1Ch7Atten0InitcodeDiff: EfuseFieldName = "ADC1_CH7_ATTEN0_INITCODE_DIFF"
+        /// HI_DOUT of ADC1 atten0 (BLOCK2).
         public static let adc1HiDoutAtten0: EfuseFieldName = "ADC1_HI_DOUT_ATTEN0"
+        /// HI_DOUT of ADC1 atten1 (BLOCK2).
         public static let adc1HiDoutAtten1: EfuseFieldName = "ADC1_HI_DOUT_ATTEN1"
+        /// HI_DOUT of ADC1 atten2 (BLOCK2).
         public static let adc1HiDoutAtten2: EfuseFieldName = "ADC1_HI_DOUT_ATTEN2"
+        /// HI_DOUT of ADC1 atten3 (BLOCK2).
         public static let adc1HiDoutAtten3: EfuseFieldName = "ADC1_HI_DOUT_ATTEN3"
+        /// Average initcode of ADC2 atten0 (BLOCK2).
         public static let adc2AveInitcodeAtten0: EfuseFieldName = "ADC2_AVE_INITCODE_ATTEN0"
+        /// Average initcode of ADC2 atten1 (BLOCK2).
         public static let adc2AveInitcodeAtten1: EfuseFieldName = "ADC2_AVE_INITCODE_ATTEN1"
+        /// Average initcode of ADC2 atten2 (BLOCK2).
         public static let adc2AveInitcodeAtten2: EfuseFieldName = "ADC2_AVE_INITCODE_ATTEN2"
+        /// Average initcode of ADC2 atten3 (BLOCK2).
         public static let adc2AveInitcodeAtten3: EfuseFieldName = "ADC2_AVE_INITCODE_ATTEN3"
+        /// Gap between ADC2_ch0 and average initcode (BLOCK10).
         public static let adc2Ch0Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH0_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC2_ch1 and average initcode (BLOCK10).
         public static let adc2Ch1Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH1_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC2_ch2 and average initcode (BLOCK10).
         public static let adc2Ch2Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH2_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC2_ch3 and average initcode (BLOCK10).
         public static let adc2Ch3Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH3_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC2_ch4 and average initcode (BLOCK10).
         public static let adc2Ch4Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH4_ATTEN0_INITCODE_DIFF"
+        /// Gap between ADC2_ch5 and average initcode (BLOCK10).
         public static let adc2Ch5Atten0InitcodeDiff: EfuseFieldName = "ADC2_CH5_ATTEN0_INITCODE_DIFF"
+        /// HI_DOUT of ADC2 atten0 (BLOCK10).
         public static let adc2HiDoutAtten0: EfuseFieldName = "ADC2_HI_DOUT_ATTEN0"
+        /// HI_DOUT of ADC2 atten1 (BLOCK10).
         public static let adc2HiDoutAtten1: EfuseFieldName = "ADC2_HI_DOUT_ATTEN1"
+        /// HI_DOUT of ADC2 atten2 (BLOCK10).
         public static let adc2HiDoutAtten2: EfuseFieldName = "ADC2_HI_DOUT_ATTEN2"
+        /// HI_DOUT of ADC2 atten3 (BLOCK10).
         public static let adc2HiDoutAtten3: EfuseFieldName = "ADC2_HI_DOUT_ATTEN3"
+        /// BLK_VERSION_MAJOR of BLOCK2 (BLOCK1).
         public static let blkVersionMajor: EfuseFieldName = "BLK_VERSION_MAJOR"
+        /// BLK_VERSION_MINOR of BLOCK2 (BLOCK1).
         public static let blkVersionMinor: EfuseFieldName = "BLK_VERSION_MINOR"
+        /// Key0 or user data (BLOCK4).
         public static let blockKey0: EfuseFieldName = "BLOCK_KEY0"
+        /// Key1 or user data (BLOCK5).
         public static let blockKey1: EfuseFieldName = "BLOCK_KEY1"
+        /// Key2 or user data (BLOCK6).
         public static let blockKey2: EfuseFieldName = "BLOCK_KEY2"
+        /// Key3 or user data (BLOCK7).
         public static let blockKey3: EfuseFieldName = "BLOCK_KEY3"
+        /// Key4 or user data (BLOCK8).
         public static let blockKey4: EfuseFieldName = "BLOCK_KEY4"
+        /// Key5 or user data (BLOCK9).
         public static let blockKey5: EfuseFieldName = "BLOCK_KEY5"
+        /// User data (BLOCK3).
         public static let blockUsrData: EfuseFieldName = "BLOCK_USR_DATA"
+        /// Represents whether anti-dpa attack is enabled. 1:enabled. 0: disabled (BLOCK0).
         public static let cryptDpaEnable: EfuseFieldName = "CRYPT_DPA_ENABLE"
+        /// Custom MAC (BLOCK3).
         public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        /// Set the dcdc voltage default (BLOCK0).
         public static let dcdcVset: EfuseFieldName = "DCDC_VSET"
+        /// Select dcdc vset use efuse_dcdc_vset (BLOCK0).
         public static let dcdcVsetEn: EfuseFieldName = "DCDC_VSET_EN"
+        /// Disables check of blk version major (BLOCK1).
         public static let disableBlkVersionMajor: EfuseFieldName = "DISABLE_BLK_VERSION_MAJOR"
+        /// Disables check of wafer version major (BLOCK1).
         public static let disableWaferVersionMajor: EfuseFieldName = "DISABLE_WAFER_VERSION_MAJOR"
+        /// Represents whether direct boot mode is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disDirectBoot: EfuseFieldName = "DIS_DIRECT_BOOT"
+        /// Represents whether flash encrypt function is disabled or enabled(except in SPI boot mode). 1: disabled. 0: enabled (BLOCK0).
         public static let disDownloadManualEncrypt: EfuseFieldName = "DIS_DOWNLOAD_MANUAL_ENCRYPT"
+        /// Represents whether Download mode is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disDownloadMode: EfuseFieldName = "DIS_DOWNLOAD_MODE"
+        /// Represents whether the function that forces chip into download mode is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disForceDownload: EfuseFieldName = "DIS_FORCE_DOWNLOAD"
+        /// Represents whether JTAG is disabled in the hard way(permanently). 1: disabled. 0: enabled (BLOCK0).
         public static let disPadJtag: EfuseFieldName = "DIS_PAD_JTAG"
+        /// Set this bit to disable super-watchdog (BLOCK0).
         public static let disSwd: EfuseFieldName = "DIS_SWD"
+        /// Represents whether TWAI function is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disTwai: EfuseFieldName = "DIS_TWAI"
+        /// Represents whether the function of usb switch to jtag is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disUsbJtag: EfuseFieldName = "DIS_USB_JTAG"
+        /// Set this bit to disable download via USB-OTG (BLOCK0).
         public static let disUsbOtgDownloadMode: EfuseFieldName = "DIS_USB_OTG_DOWNLOAD_MODE"
+        /// Represents whether the USB-Serial-JTAG download function is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disUsbSerialJtagDownloadMode: EfuseFieldName = "DIS_USB_SERIAL_JTAG_DOWNLOAD_MODE"
+        /// Represents whether print from USB-Serial-JTAG is disabled or enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let disUsbSerialJtagRomPrint: EfuseFieldName = "DIS_USB_SERIAL_JTAG_ROM_PRINT"
+        /// Set this bit to disable watch dog (BLOCK0).
         public static let disWdt: EfuseFieldName = "DIS_WDT"
+        /// DSLP BDG of fixed voltage (BLOCK1).
         public static let dslpDbg: EfuseFieldName = "DSLP_DBG"
+        /// DSLP LP DBIAS of fixed voltage (BLOCK1).
         public static let dslpLpDbias: EfuseFieldName = "DSLP_LP_DBIAS"
+        /// Represents whether hardware random number k is forced used in ESDCA. 1: force used. 0: not force used (BLOCK0).
         public static let ecdsaEnableSoftK: EfuseFieldName = "ECDSA_ENABLE_SOFT_K"
+        /// Represents whether security download is enabled or disabled. 1: enabled. 0: disabled (BLOCK0).
         public static let enableSecurityDownload: EfuseFieldName = "ENABLE_SECURITY_DOWNLOAD"
+        /// Set this bit to enable ecc for flash boot (BLOCK0).
         public static let flashEccEn: EfuseFieldName = "FLASH_ECC_EN"
+        /// Set flash page size (BLOCK0).
         public static let flashPageSize: EfuseFieldName = "FLASH_PAGE_SIZE"
+        /// Represents the flash waiting time after power-up; in unit of ms. When the value less than 15; the waiting time is the programmed value. Otherwise; the waiting time is 2 times the programmed value (BLOCK0).
         public static let flashTpuw: EfuseFieldName = "FLASH_TPUW"
+        /// The type of interfaced flash. 0: four data lines; 1: eight data lines (BLOCK0).
         public static let flashType: EfuseFieldName = "FLASH_TYPE"
+        /// Set this bit to disable software written init key; and force use efuse_init_key (BLOCK0).
         public static let forceDisableSwInitKey: EfuseFieldName = "FORCE_DISABLE_SW_INIT_KEY"
+        /// Represents whether ROM code is forced to send a resume command during SPI boot. 1: forced. 0:not forced (BLOCK0).
         public static let forceSendResume: EfuseFieldName = "FORCE_SEND_RESUME"
+        /// Set each bit to control whether corresponding key must come from key manager.. 1 is true; 0 is false. Bit0: ecdsa. Bit1: xts. Bit2: hmac. Bit3: ds (BLOCK0).
         public static let forceUseKeyManagerKey: EfuseFieldName = "FORCE_USE_KEY_MANAGER_KEY"
+        /// HP system power source select. 0:LDO. 1: DCDC (BLOCK0).
         public static let hpPwrSrcSel: EfuseFieldName = "HP_PWR_SRC_SEL"
+        /// Represents whether the hysteresis function of corresponding PAD is enabled. 1: enabled. 0:disabled (BLOCK0).
         public static let hysEnPad: EfuseFieldName = "HYS_EN_PAD"
+        /// Represents whether the selection between usb_to_jtag and pad_to_jtag through strapping gpio15 when both EFUSE_DIS_PAD_JTAG and EFUSE_DIS_USB_JTAG are equal to 0 is enabled or disabled. 1: enabled. 0: disabled (BLOCK0).
         public static let jtagSelEnable: EfuseFieldName = "JTAG_SEL_ENABLE"
+        /// Represents the purpose of Key0 (BLOCK0).
         public static let keyPurpose0: EfuseFieldName = "KEY_PURPOSE_0"
+        /// Represents the purpose of Key1 (BLOCK0).
         public static let keyPurpose1: EfuseFieldName = "KEY_PURPOSE_1"
+        /// Represents the purpose of Key2 (BLOCK0).
         public static let keyPurpose2: EfuseFieldName = "KEY_PURPOSE_2"
+        /// Represents the purpose of Key3 (BLOCK0).
         public static let keyPurpose3: EfuseFieldName = "KEY_PURPOSE_3"
+        /// Represents the purpose of Key4 (BLOCK0).
         public static let keyPurpose4: EfuseFieldName = "KEY_PURPOSE_4"
+        /// Represents the purpose of Key5 (BLOCK0).
         public static let keyPurpose5: EfuseFieldName = "KEY_PURPOSE_5"
+        /// Set each bit to control whether corresponding key can only be deployed once. 1 is true; 0 is false. Bit0: ecdsa. Bit1: xts. Bit2: hmac. Bit3: ds (BLOCK0).
         public static let kmDeployOnlyOnce: EfuseFieldName = "KM_DEPLOY_ONLY_ONCE"
+        /// TBD (BLOCK0).
         public static let kmDisableDeployMode: EfuseFieldName = "KM_DISABLE_DEPLOY_MODE"
+        /// Set this bit to control validation of HUK generate mode. Odd of 1 is invalid; even of 1 is valid (BLOCK0).
         public static let kmHukGenState: EfuseFieldName = "KM_HUK_GEN_STATE"
+        /// Set bits to control key manager random number switch cycle. 0: control by register. 1: 8 km clk cycles. 2: 16 km cycles. 3: 32 km cycles (BLOCK0).
         public static let kmRndSwitchCycle: EfuseFieldName = "KM_RND_SWITCH_CYCLE"
+        /// Output VO1 parameter (BLOCK1).
         public static let ldoVo1Dref: EfuseFieldName = "LDO_VO1_DREF"
+        /// Output VO1 parameter (BLOCK1).
         public static let ldoVo1Mul: EfuseFieldName = "LDO_VO1_MUL"
+        /// Output VO2 parameter (BLOCK1).
         public static let ldoVo2Dref: EfuseFieldName = "LDO_VO2_DREF"
+        /// Output VO2 parameter (BLOCK1).
         public static let ldoVo2Mul: EfuseFieldName = "LDO_VO2_MUL"
+        /// Output VO3 calibration parameter (BLOCK1).
         public static let ldoVo3C: EfuseFieldName = "LDO_VO3_C"
+        /// Output VO3 calibration parameter (BLOCK1).
         public static let ldoVo3K: EfuseFieldName = "LDO_VO3_K"
+        /// Output VO3 calibration parameter (BLOCK1).
         public static let ldoVo3Vos: EfuseFieldName = "LDO_VO3_VOS"
+        /// Output VO4 calibration parameter (BLOCK1).
         public static let ldoVo4C: EfuseFieldName = "LDO_VO4_C"
+        /// Output VO4 calibration parameter (BLOCK1).
         public static let ldoVo4K: EfuseFieldName = "LDO_VO4_K"
+        /// Output VO4 calibration parameter (BLOCK1).
         public static let ldoVo4Vos: EfuseFieldName = "LDO_VO4_VOS"
+        /// TBD (BLOCK0).
         public static let lockKmKey: EfuseFieldName = "LOCK_KM_KEY"
+        /// DBIAS gap between LP and DCDC (BLOCK1).
         public static let lpDcdcDbiasVolGap: EfuseFieldName = "LP_DCDC_DBIAS_VOL_GAP"
+        /// LSLP HP DBIAS of fixed voltage (BLOCK1).
         public static let lslpHpDbias: EfuseFieldName = "LSLP_HP_DBIAS"
+        /// MAC address (BLOCK1).
         public static let mac: EfuseFieldName = "MAC"
+        /// Optional unique 128-bit ID (BLOCK2).
         public static let optionalUniqueId: EfuseFieldName = "OPTIONAL_UNIQUE_ID"
+        /// Package version (BLOCK1).
         public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        /// Represents whether power glitch function is enabled. 1: enabled. 0: disabled (BLOCK0).
         public static let powerglitchEn: EfuseFieldName = "POWERGLITCH_EN"
+        /// PSRAM capacity (BLOCK1).
         public static let psramCap: EfuseFieldName = "PSRAM_CAP"
+        /// PSRAM vendor (BLOCK1).
         public static let psramVendor: EfuseFieldName = "PSRAM_VENDOR"
+        /// TBD (BLOCK0).
         public static let pxa0TiehSel0: EfuseFieldName = "PXA0_TIEH_SEL_0"
+        /// TBD (BLOCK0).
         public static let pxa0TiehSel1: EfuseFieldName = "PXA0_TIEH_SEL_1"
+        /// TBD (BLOCK0).
         public static let pxa0TiehSel2: EfuseFieldName = "PXA0_TIEH_SEL_2"
+        /// TBD (BLOCK0).
         public static let pxa0TiehSel3: EfuseFieldName = "PXA0_TIEH_SEL_3"
+        /// Disable reading from BlOCK4-10 (BLOCK0).
         public static let rdDis: EfuseFieldName = "RD_DIS"
+        /// Represents whether revoking aggressive secure boot is enabled or disabled. 1: enabled. 0: disabled (BLOCK0).
         public static let secureBootAggressiveRevoke: EfuseFieldName = "SECURE_BOOT_AGGRESSIVE_REVOKE"
+        /// Represents whether FAST VERIFY ON WAKE is disabled or enabled when Secure Boot is enabled. 1: disabled. 0: enabled (BLOCK0).
         public static let secureBootDisableFastWake: EfuseFieldName = "SECURE_BOOT_DISABLE_FAST_WAKE"
+        /// Represents whether secure boot is enabled or disabled. 1: enabled. 0: disabled (BLOCK0).
         public static let secureBootEn: EfuseFieldName = "SECURE_BOOT_EN"
+        /// Revoke 1st secure boot key (BLOCK0).
         public static let secureBootKeyRevoke0: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE0"
+        /// Revoke 2nd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke1: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE1"
+        /// Revoke 3rd secure boot key (BLOCK0).
         public static let secureBootKeyRevoke2: EfuseFieldName = "SECURE_BOOT_KEY_REVOKE2"
+        /// Represents the version used by ESP-IDF anti-rollback feature (BLOCK0).
         public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        /// Represents the spa secure level by configuring the clock random divide mode (BLOCK0).
         public static let secDpaLevel: EfuseFieldName = "SEC_DPA_LEVEL"
+        /// Represents whether JTAG is disabled in soft way. Odd number: disabled. Even number: enabled (BLOCK0).
         public static let softDisJtag: EfuseFieldName = "SOFT_DIS_JTAG"
+        /// Enables flash encryption when 1 or 3 bits are set and disables otherwise (BLOCK0).
         public static let spiBootCryptCnt: EfuseFieldName = "SPI_BOOT_CRYPT_CNT"
+        /// Set this bit to disable accessing MSPI flash/MSPI ram by SYS AXI matrix during boot_mode_download (BLOCK0).
         public static let spiDownloadMspiDis: EfuseFieldName = "SPI_DOWNLOAD_MSPI_DIS"
+        /// Operating temperature of the ESP chip (BLOCK1).
         public static let temp: EfuseFieldName = "TEMP"
+        /// Temperature calibration data (BLOCK10).
         public static let temperatureSensor: EfuseFieldName = "TEMPERATURE_SENSOR"
+        /// Represents the type of UART printing. 00: force enable printing. 01: enable printing when GPIO8 is reset at low level. 10: enable printing when GPIO8 is reset at high level. 11: force disable printing (BLOCK0).
         public static let uartPrintControl: EfuseFieldName = "UART_PRINT_CONTROL"
+        /// Enable usb device exchange pins of D+ and D- (BLOCK0).
         public static let usbDeviceExchgPins: EfuseFieldName = "USB_DEVICE_EXCHG_PINS"
+        /// Enable usb otg11 exchange pins of D+ and D- (BLOCK0).
         public static let usbOtg11ExchgPins: EfuseFieldName = "USB_OTG11_EXCHG_PINS"
+        /// TBD (BLOCK0).
         public static let usbPhySel: EfuseFieldName = "USB_PHY_SEL"
+        /// calc WAFER VERSION MAJOR from (WAFER_VERSION_MAJOR_HI << 2) + WAFER_VERSION_MAJOR_LO (read only) (BLOCK0).
         public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        /// Major chip version (MSB) (BLOCK1).
         public static let waferVersionMajorHi: EfuseFieldName = "WAFER_VERSION_MAJOR_HI"
+        /// Major chip version (lower 2 bits) (BLOCK1).
         public static let waferVersionMajorLo: EfuseFieldName = "WAFER_VERSION_MAJOR_LO"
+        /// Minor chip version (BLOCK1).
         public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        /// Represents whether RTC watchdog timeout threshold is selected at startup. 1: selected. 0: not selected (BLOCK0).
         public static let wdtDelaySel: EfuseFieldName = "WDT_DELAY_SEL"
+        /// Disable programming of individual eFuses (BLOCK0).
         public static let wrDis: EfuseFieldName = "WR_DIS"
+        /// Set this bit to configure flash encryption use xts-128 key; else use xts-256 key (BLOCK0).
         public static let xtsKeyLength256: EfuseFieldName = "XTS_KEY_LENGTH_256"
     }
 }
