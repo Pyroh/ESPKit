@@ -133,7 +133,7 @@ public actor SerialPort: Transport {
         }
     }
 
-    private static func applyBaudRate(_ rate: Int, fd: Int32) throws {
+    static func applyBaudRate(_ rate: Int, fd: Int32) throws {
         guard rate > 0 else { throw TransportError.unsupportedBaudRate(rate) }
         #if canImport(Darwin)
         // IOSSIOSPEED accepte n'importe quel débit, standard ou non.
@@ -142,17 +142,20 @@ public actor SerialPort: Transport {
             throw errno == EINVAL ? TransportError.unsupportedBaudRate(rate) : ioError()
         }
         #else
-        guard let constant = standardSpeed(rate) else { throw TransportError.unsupportedBaudRate(rate) }
-        var options = termios()
-        guard tcgetattr(fd, &options) == 0 else { throw ioError() }
-        cfsetispeed(&options, constant)
-        cfsetospeed(&options, constant)
-        guard tcsetattr(fd, TCSANOW, &options) == 0 else { throw ioError() }
+        if let constant = standardSpeed(rate) {
+            var options = termios()
+            guard tcgetattr(fd, &options) == 0 else { throw ioError() }
+            cfsetispeed(&options, constant)
+            cfsetospeed(&options, constant)
+            guard tcsetattr(fd, TCSANOW, &options) == 0 else { throw ioError() }
+        } else {
+            try applyArbitraryBaudRate(rate, fd: fd)
+        }
         #endif
     }
 
     #if !canImport(Darwin)
-    /// Débits standard sous Linux. Les débits arbitraires (termios2/BOTHER) arrivent en phase 1.
+    /// Débits standard sous Linux, posés par l'API termios classique.
     private static func standardSpeed(_ rate: Int) -> speed_t? {
         switch rate {
         case 9_600: speed_t(B9600)
@@ -167,6 +170,30 @@ public actor SerialPort: Transport {
         case 2_000_000: speed_t(B2000000)
         default: nil
         }
+    }
+
+    /// Débit quelconque : termios2 avec BOTHER, la vitesse est donnée en clair.
+    private static func applyArbitraryBaudRate(_ rate: Int, fd: Int32) throws {
+        guard rate <= Int(UInt32.max) else { throw TransportError.unsupportedBaudRate(rate) }
+        var options = Termios2()
+        try withUnsafeMutablePointer(to: &options) { pointer in
+            guard ioctl(fd, PortIoctl.getTermios2, pointer) == 0 else { throw ioError() }
+            pointer.pointee.c_cflag &= ~(Termios2.cbaud | Termios2.cbaud << Termios2.inputShift)
+            pointer.pointee.c_cflag |= Termios2.bother | Termios2.bother << Termios2.inputShift
+            pointer.pointee.c_ispeed = UInt32(rate)
+            pointer.pointee.c_ospeed = UInt32(rate)
+            guard ioctl(fd, PortIoctl.setTermios2, pointer) == 0 else {
+                throw errno == EINVAL ? TransportError.unsupportedBaudRate(rate) : ioError()
+            }
+        }
+    }
+
+    /// Lit le débit effectivement posé (tests).
+    static func currentBaudRate(fd: Int32) throws -> Int {
+        var options = Termios2()
+        let status = withUnsafeMutablePointer(to: &options) { ioctl(fd, PortIoctl.getTermios2, $0) }
+        guard status == 0 else { throw ioError() }
+        return Int(options.c_ospeed)
     }
     #endif
 
@@ -239,7 +266,30 @@ private enum PortIoctl {
     static let exclusive: UInt = 0x540C             // TIOCEXCL
     static let getModemBits: UInt = 0x5415          // TIOCMGET
     static let setModemBits: UInt = 0x5418          // TIOCMSET
+    static let getTermios2: UInt = 0x802C_542A      // TCGETS2 = _IOR('T', 0x2A, struct termios2)
+    static let setTermios2: UInt = 0x402C_542B      // TCSETS2 = _IOW('T', 0x2B, struct termios2)
     #endif
     static let dtrBit: Int32 = 0x002                // TIOCM_DTR
     static let rtsBit: Int32 = 0x004                // TIOCM_RTS
 }
+
+#if !canImport(Darwin)
+/// `struct termios2` du noyau Linux (x86-64, arm64 : 44 octets), absente des en-têtes de la glibc.
+struct Termios2 {
+    var c_iflag: UInt32 = 0
+    var c_oflag: UInt32 = 0
+    var c_cflag: UInt32 = 0
+    var c_lflag: UInt32 = 0
+    var c_line: UInt8 = 0
+    var c_cc: (UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8,
+               UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8, UInt8) =
+        (0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+    var c_ispeed: UInt32 = 0
+    var c_ospeed: UInt32 = 0
+
+    static let cbaud: UInt32 = 0o010017
+    static let bother: UInt32 = 0o010000
+    /// Les bits du débit d'entrée sont décalés de 16 (IBSHIFT).
+    static let inputShift: UInt32 = 16
+}
+#endif

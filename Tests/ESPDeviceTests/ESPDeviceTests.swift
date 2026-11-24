@@ -101,10 +101,8 @@ struct ESPDeviceTests {
         }
     }
 
-    @Test func defaultOptionsNeedTheStubWhichArrivesInPhase1() async throws {
-        await #expect(throws: StubError.noBundledStub(.esp32)) {
-            try await ESPDevice.connect(SimulatedChip.esp32())
-        }
+    @Test func noBundledStubForE22() async throws {
+        #expect(StubImage.bundled(for: .esp32e22) == nil)
     }
 
     @Test func changesBaudRateUnderS3ROM() async throws {
@@ -116,7 +114,7 @@ struct ESPDeviceTests {
         #expect(await chip.baudRate == 921_600)
     }
 
-    @Test func refusesBaudChangeUnderESP32ROMUntilPhase1() async throws {
+    @Test func refusesBaudChangeUnderESP32ROM() async throws {
         let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: romOnly())
         await #expect(throws: UsageError.self) { try await esp.changeBaudRate(921_600) }
     }
@@ -194,7 +192,12 @@ struct StubImageTests {
         }
     }
 
-    @Test func noStubIsBundledYet() {
-        #expect(StubImage.bundled(for: .esp32) == nil)
+    @Test(arguments: ChipFamily.allCases.filter { $0 != .esp32e22 })
+    func bundledStubsParse(chip: ChipFamily) throws {
+        let stub = try #require(StubImage.bundled(for: chip))
+        #expect(stub.chip == chip)
+        #expect(stub.version == .bundled("2.0.0"))
+        #expect(!stub.text.isEmpty)
+        #expect(stub.entry >= stub.textAddress && stub.entry < stub.textAddress + UInt32(stub.text.count))
     }
 }

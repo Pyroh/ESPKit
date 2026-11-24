@@ -110,8 +110,11 @@ public struct StubImage: Sendable, Hashable {
 
     /// Stub v2 embarqué pour cette puce. `nil` pour l'ESP32-E22, que le stub v2 ne couvre pas.
     ///
-    /// Phase 0 : aucun stub n'est encore embarqué ; la fonction rend toujours `nil`.
+    /// Les images viennent d'`esp-flasher-stub` (Espressif, MIT OR Apache-2.0). Pour l'ESP32-P4,
+    /// c'est l'image des révisions 3 et suivantes.
     public static func bundled(for chip: ChipFamily) -> StubImage? {
-        nil
+        guard let json = bundledJSON(for: chip) else { return nil }
+        // Les images embarquées sont validées par les tests : un échec ici serait un bug d'ESPKit.
+        return try? StubImage(json: Data(json.utf8), chip: chip, version: .bundled(bundledVersion))
     }
 }

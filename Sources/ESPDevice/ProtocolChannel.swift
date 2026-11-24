@@ -82,6 +82,23 @@ actor ProtocolChannel {
         }
     }
 
+    /// Envoie une trame SLIP hors protocole de commande (accusé de réception de READ_FLASH).
+    func sendRaw(_ payload: Data) async throws {
+        emit(.rawBytes(direction: .sent, payload))
+        try await transport.write(SLIP.encode(payload))
+    }
+
+    /// Prochaine trame reçue, quelle qu'elle soit : `OHAI` du stub, bloc de READ_FLASH…
+    func receivePacket(timeout: Duration, opcode: UInt8? = nil) async throws -> Data {
+        let deadline = ContinuousClock().now + timeout
+        return try await nextPacket(until: deadline, opcode: opcode, timeout: timeout)
+    }
+
+    /// Contrôle l'état d'une réponse et rend sa valeur et ses données utiles.
+    func checked(_ response: Response) throws -> Reply {
+        try check(response, opcode: response.opcode)
+    }
+
     /// Lit les octets disponibles jusqu'à ce qu'aucun paquet n'arrive pendant `quietPeriod`.
     /// Sert à vider les réponses SYNC excédentaires.
     func drain(quietPeriod: Duration) async throws {
@@ -103,12 +120,15 @@ actor ProtocolChannel {
         }
         emit(.received(opcode: response.opcode, value: response.value, payload: split.payload, status: split.status))
         guard split.status == 0 else {
-            throw ProtocolError.deviceError(opcode: opcode, code: DeviceErrorCode(rawValue: split.error))
+            // La ROM met 1 dans l'octet d'état et la raison dans le suivant ; le stub v2 envoie
+            // un code sur 16 bits en big-endian (0xC000…), dont seul le premier octet est non nul.
+            let code = split.error != 0 ? split.error : split.status
+            throw ProtocolError.deviceError(opcode: opcode, code: DeviceErrorCode(rawValue: code))
         }
         return Reply(value: response.value, payload: split.payload)
     }
 
-    private func nextPacket(until deadline: ContinuousClock.Instant, opcode: UInt8,
+    private func nextPacket(until deadline: ContinuousClock.Instant, opcode: UInt8?,
                             timeout: Duration) async throws -> Data {
         let clock = ContinuousClock()
         while pending.isEmpty {

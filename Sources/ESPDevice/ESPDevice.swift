@@ -35,8 +35,8 @@ public actor ESPDevice {
 
     let channel: ProtocolChannel
     let descriptor: ChipDescriptor
-    private var cachedSecurityInfo: SecurityInfo?
-    private var attachedFlash: FlashInfo?
+    var cachedSecurityInfo: SecurityInfo?
+    var attachedFlash: FlashInfo?
     private var busy = false
     private var waiters: [CheckedContinuation<Void, Never>] = []
 
@@ -55,8 +55,6 @@ public actor ESPDevice {
     /// `nil` : le stub v2 embarqué pour `chip`.
     /// - Throws: `StubError` (image refusée, pas de stub embarqué, pas de `OHAI`),
     ///   `UsageError.unavailableInSecureDownloadMode`, `TransportError`, `ProtocolError`.
-    ///
-    /// Phase 0 : le chargement arrive en phase 1. Sans stub embarqué, lève `StubError.noBundledStub`.
     public func loadStub(_ stub: StubImage? = nil) async throws {
         try await exclusive {
             try ensureOpen()
@@ -66,14 +64,14 @@ public actor ESPDevice {
             }
             guard let image = stub ?? StubImage.bundled(for: chip) else { throw StubError.noBundledStub(chip) }
             guard image.chip == chip else { throw StubError.chipMismatch(stub: image.chip, device: chip) }
-            throw UsageError.unsupported(feature: "Le chargement du stub (phase 1)", chip: chip, state: state)
+            try await rawLoadStub(image)
         }
     }
 
-    /// Change le débit des deux côtés. Sous ROM, ESP8266 : `UsageError.unsupported`.
+    /// Change le débit des deux côtés.
     ///
-    /// Phase 0 : disponible sous ROM pour les puces sans correction d'horloge
-    /// (pas l'ESP32, pas l'ESP32-C2) ; le reste arrive avec le stub en phase 1.
+    /// Avec le stub, toutes les puces. Sous ROM, `UsageError.unsupported` sur l'ESP8266, l'ESP32
+    /// et l'ESP32-C2, dont la ROM calcule mal le diviseur selon le quartz : charger le stub d'abord.
     public func changeBaudRate(_ rate: Int) async throws {
         try await exclusive {
             try ensureOpen()
@@ -284,6 +282,42 @@ public actor ESPDevice {
         _ = try await channel.execute(Command(.writeReg, payload: .le(address, value, mask, microseconds)))
     }
 
+    /// Copie le stub en RAM avec les commandes mémoire de la ROM, le lance et attend son `OHAI`.
+    private func rawLoadStub(_ image: StubImage) async throws {
+        let blockSize = 0x1800
+        for (segment, address) in [(image.text, image.textAddress), (image.data, image.dataAddress)] where !segment.isEmpty {
+            let blocks = (segment.count + blockSize - 1) / blockSize
+            _ = try await channel.execute(Command(.memBegin, payload: .le(UInt32(segment.count), UInt32(blocks),
+                                                                         UInt32(blockSize), address)))
+            for sequence in 0..<blocks {
+                let start = segment.startIndex + sequence * blockSize
+                let chunk = segment.subdata(in: start..<min(start + blockSize, segment.endIndex))
+                var payload = Data.le(UInt32(chunk.count), UInt32(sequence), UInt32(0), UInt32(0))
+                payload.append(chunk)
+                _ = try await channel.execute(Command(.memData, payload: payload, checksum: Command.checksum(of: chunk)))
+            }
+        }
+        // MEM_END : premier mot à 0 pour sauter au point d'entrée.
+        try await channel.send(Command(.memEnd, payload: .le(image.entry == 0 ? UInt32(1) : 0, image.entry)))
+        let deadline = ContinuousClock.now + .seconds(3)
+        while true {
+            let remaining = deadline - .now
+            let packet: Data
+            do {
+                packet = try await channel.receivePacket(timeout: max(remaining, .zero), opcode: Opcode.memEnd.rawValue)
+            } catch is ProtocolError {
+                throw StubError.failedToStart(image.version)
+            }
+            if packet == Data("OHAI".utf8) { break }
+            if let response = Response(packet: packet), response.opcode == Opcode.memEnd.rawValue {
+                _ = try await channel.checked(response)       // refus de la ROM : on le remonte
+            }
+        }
+        await channel.setStatusLength(descriptor.statusLength(stubRunning: true))
+        state = .stub(image.version)
+        await channel.emit(.stubStarted(image.version))
+    }
+
     private func perform(_ sequence: ResetSequence) async throws {
         for step in sequence.steps {
             await channel.emit(.resetStep(step))
@@ -291,7 +325,7 @@ public actor ESPDevice {
         }
     }
 
-    private func rawAttachFlash(_ connection: SPIConnection, type: FlashType) async throws -> FlashInfo {
+    func rawAttachFlash(_ connection: SPIConnection, type: FlashType) async throws -> FlashInfo {
         try ensureOpen()
         try ensureNotSecureDownload("L'accès à la flash")
         guard type == .nor else {
@@ -319,6 +353,12 @@ public actor ESPDevice {
         let id = try await rawSPICommand(0x9F, data: Data(), readBits: 24)
         if [0xFF_FFFF, 0x00_0000, 0xFF_FF3F].contains(id) { throw FlashError.notDetected(jedecID: id) }
         let info = FlashInfo(jedecID: id, type: type)
+        if stubRunning || chip != .esp8266 {
+            // Géométrie : seule la taille varie (4 Mo si l'ID JEDEC ne la donne pas, comme esptool).
+            let size = UInt32(info.detectedSize?.byteCount ?? FlashSize.mb4.byteCount)
+            _ = try await channel.execute(Command(.spiSetParams, payload: .le(UInt32(0), size, UInt32(0x1_0000),
+                                                                              UInt32(0x1000), UInt32(0x100), UInt32(0xFFFF))))
+        }
         attachedFlash = info
         return info
     }

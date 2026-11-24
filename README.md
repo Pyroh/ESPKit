@@ -8,29 +8,35 @@ SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266,
 
 La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
 
-## État : phase 0 (socle)
+## État : phase 1 (flasher)
 
 Disponible :
 
 - types de base (`ChipFamily`, `ChipRevision`, `MACAddress`, `KeyPurpose`, réglages flash) ;
-- `SerialPort` POSIX (débits arbitraires sur macOS, débits standard sur Linux), découverte des ports (IOKit, sysfs), séquences de reset (classique, UnixTight, USB-Serial-JTAG, personnalisée) ;
+- `SerialPort` POSIX avec débits arbitraires (macOS : IOSSIOSPEED ; Linux : termios2), découverte des ports (IOKit, sysfs), séquences de reset (classique, UnixTight, USB-Serial-JTAG, personnalisée) ;
 - connexion : reset, synchro, détection de la puce (chip ID ou valeur magique), Secure Download Mode ;
-- registres, MAC, `securityInfo()`, attachement de la flash et identité JEDEC, commandes SPI brutes ;
+- stub v2 embarqué (`esp-flasher-stub` 2.0.0, toutes les puces sauf l'ESP32-E22), changement de débit ;
+- flash : écriture compressée zlib avec contrôle MD5, patch d'en-tête du bootloader, lecture, vérification, effacement total ou par zone ;
+- opérations longues en `AsyncSequence` (`ESPOperation`) : progression, annulation ;
+- registres, MAC, `securityInfo()`, identité JEDEC, commandes SPI brutes ;
 - trace bas niveau (`ConnectOptions.trace`).
-
-Pas encore : le stub (phase 1). En attendant, se connecter en ROM seule :
 
 ```swift
 import ESPKit
 
-var options = ConnectOptions()
-options.stub = .romOnly
-options.baudRate = nil
-
-let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001", options: options)
-print(esp.chip, try await esp.macAddress(), try await esp.flashInfo())
+let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")   // stub v2, 460 800 bauds
+let regions = [
+    FlashRegion(address: esp.chip.bootloaderOffset, data: try Data(contentsOf: bootloader)),
+    FlashRegion(address: 0x8000, data: try Data(contentsOf: partitions)),
+    FlashRegion(address: 0x10000, data: try Data(contentsOf: firmware)),
+]
+for try await event in esp.writeFlash(regions) {
+    if case .progress(let p) = event { print(p.stage, Int(p.fractionCompleted * 100), "%") }
+}
 await esp.disconnect(.hard)
 ```
+
+Pas encore : images et ELF (phase 2), espsecure (phase 3), eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 
 ## Tests
 
@@ -38,14 +44,26 @@ await esp.disconnect(.hard)
 swift test
 ```
 
-Les tests sur carte sont ignorés par défaut. Pour les lancer :
+Les tests sur carte sont ignorés par défaut. Pour les lancer (identité des puces) :
 
 ```bash
 ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_PORT_S3=/dev/cu.usbmodem1101 swift test --filter HardwareTests
+```
+
+Le test de flash a besoin en plus d'un build PlatformIO dont l'application écrit `ESPKit HIL OK <puce>` sur sa console (`printf("ESPKit HIL OK %s\n", CONFIG_IDF_TARGET)` sous ESP-IDF) :
+
+```bash
+ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_FIRMWARE_ESP32=…/.pio/build/esp32 swift test --filter HardwareTests
+```
+
+Le stub embarqué se régénère depuis une release d'esp-flasher-stub :
+
+```bash
+python3 -I Tools/generate-stubs.py v2.0.0 <dossier des JSON téléchargés>
 ```
 
 ## Règles de contribution
 
 - On code depuis la spécification et la documentation publique, jamais en traduisant le Python d'esptool (GPL).
 - Chaque fichier porte l'en-tête `// SPDX-License-Identifier: MIT OR Apache-2.0`.
-- Dépendances acceptées : `swift-crypto`, libz système. Rien sous GPL ou LGPL.
+- Dépendances acceptées : `swift-crypto`, libz système (paquet `zlib1g-dev` sous Linux). Rien sous GPL ou LGPL.

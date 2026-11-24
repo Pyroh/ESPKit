@@ -24,15 +24,23 @@ let package = Package(
         // Trames SLIP, commandes et réponses du protocole ROM/stub. Pur, interne au package.
         .target(name: "ESPProtocol"),
 
-        // L'acteur ESPDevice et ses opérations.
-        .target(name: "ESPDevice", dependencies: ["ESPTargets", "ESPTransport", "ESPProtocol"]),
+        // libz du système.
+        .systemLibrary(name: "CZlib", path: "Sources/CZlib", providers: [.apt(["zlib1g-dev"])]),
+
+        // MD5, SHA-256 et zlib : utilitaires internes, sans dépendance externe.
+        .target(name: "ESPSupport", dependencies: ["CZlib"]),
+
+        // L'acteur ESPDevice et ses opérations. Embarque le stub v2 (esp-flasher-stub).
+        .target(name: "ESPDevice", dependencies: ["ESPTargets", "ESPTransport", "ESPProtocol", "ESPSupport"]),
 
         // Parapluie : réexporte tous les modules publics.
         .target(name: "ESPKit", dependencies: ["ESPTargets", "ESPTransport", "ESPDevice"]),
 
         .testTarget(name: "ESPProtocolTests", dependencies: ["ESPProtocol"]),
         .testTarget(name: "ESPTargetsTests", dependencies: ["ESPTargets"]),
-        .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol"]),
+        .testTarget(name: "ESPSupportTests", dependencies: ["ESPSupport"]),
+        .testTarget(name: "ESPTransportTests", dependencies: ["ESPTransport"]),
+        .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport"]),
 
         // Tests sur carte réelle. Ignorés sauf si ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 sont définies.
         .testTarget(name: "HardwareTests", dependencies: ["ESPKit"]),

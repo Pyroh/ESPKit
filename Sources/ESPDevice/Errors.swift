@@ -62,6 +62,19 @@ public struct DeviceErrorCode: RawRepresentable, Hashable, Sendable, CustomStrin
     public static let flashReadLengthError = DeviceErrorCode(rawValue: 0x0A)
     public static let deflateError = DeviceErrorCode(rawValue: 0x0B)
 
+    // Codes du stub v2 (octet de poids fort de son code de réponse).
+    public static let badDataLength = DeviceErrorCode(rawValue: 0xC0)
+    public static let badDataChecksum = DeviceErrorCode(rawValue: 0xC1)
+    public static let badBlockSize = DeviceErrorCode(rawValue: 0xC2)
+    public static let invalidCommand = DeviceErrorCode(rawValue: 0xC3)
+    public static let failedSPIOperation = DeviceErrorCode(rawValue: 0xC4)
+    public static let failedSPIUnlock = DeviceErrorCode(rawValue: 0xC5)
+    public static let notInFlashMode = DeviceErrorCode(rawValue: 0xC6)
+    public static let inflateError = DeviceErrorCode(rawValue: 0xC7)
+    public static let notEnoughData = DeviceErrorCode(rawValue: 0xC8)
+    public static let tooMuchData = DeviceErrorCode(rawValue: 0xC9)
+    public static let commandNotImplemented = DeviceErrorCode(rawValue: 0xFF)
+
     public var description: String {
         let name: String? = switch rawValue {
         case 0x05: "message invalide"
@@ -71,6 +84,19 @@ public struct DeviceErrorCode: RawRepresentable, Hashable, Sendable, CustomStrin
         case 0x09: "erreur de lecture flash"
         case 0x0A: "longueur de lecture flash invalide"
         case 0x0B: "erreur de décompression"
+        case 0xC0: "longueur de données incorrecte"
+        case 0xC1: "somme de contrôle incorrecte"
+        case 0xC2: "taille de bloc incorrecte"
+        case 0xC3: "commande invalide"
+        case 0xC4: "échec de l'opération SPI"
+        case 0xC5: "échec du déverrouillage SPI"
+        case 0xC6: "pas d'écriture en cours"
+        case 0xC7: "erreur de décompression"
+        case 0xC8: "données insuffisantes"
+        case 0xC9: "trop de données"
+        case 0xCA: "échec de programmation NAND"
+        case 0xCB: "échec d'effacement NAND"
+        case 0xFF: "commande non implémentée"
         default: nil
         }
         return name.map { "\($0) (\(hex(rawValue)))" } ?? "code \(hex(rawValue))"

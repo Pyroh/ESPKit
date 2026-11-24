@@ -103,6 +103,70 @@ struct ChipDescriptor: Sendable {
         }
     }
 
+    // MARK: Écriture flash
+
+    /// La ROM attend un cinquième mot (« écriture chiffrée ») dans FLASH_BEGIN et FLASH_DEFL_BEGIN.
+    /// Vrai pour toutes les ROM sauf celles de l'ESP8266 et de l'ESP32 ; le stub ne l'attend pas.
+    var romFlashBeginHasEncryptionWord: Bool {
+        family != .esp8266 && family != .esp32
+    }
+
+    /// Code du mode flash dans l'octet 2 de l'en-tête d'image.
+    static func headerCode(for mode: FlashMode) -> UInt8 {
+        switch mode {
+        case .qio: 0
+        case .qout: 1
+        case .dio: 2
+        case .dout: 3
+        }
+    }
+
+    /// Code de taille (quartet haut de l'octet 3 de l'en-tête). `nil` si la puce ne l'encode pas.
+    func headerCode(for size: FlashSize) -> UInt8? {
+        if family == .esp8266 {
+            return switch size {
+            case .kb512: 0x0
+            case .kb256: 0x1
+            case .mb1: 0x2
+            case .mb2: 0x3
+            case .mb4: 0x4
+            case .mb2c1: 0x5
+            case .mb4c1: 0x6
+            case .mb8: 0x8
+            case .mb16: 0x9
+            default: nil
+            }
+        }
+        return switch size {
+        case .mb1: 0x0
+        case .mb2: 0x1
+        case .mb4: 0x2
+        case .mb8: 0x3
+        case .mb16: 0x4
+        case .mb32: 0x5
+        case .mb64: 0x6
+        case .mb128: 0x7
+        default: nil
+        }
+    }
+
+    /// Code de fréquence (quartet bas de l'octet 3). `nil` si la fréquence n'existe pas sur la puce,
+    /// ou si ESPKit n'a pas encore la table de cette puce (C5, C6, C61, P4, S31, E22).
+    func headerCode(for frequency: FlashFrequency) -> UInt8? {
+        let table: [FlashFrequency: UInt8]
+        switch family {
+        case .esp8266, .esp32, .esp32s2, .esp32s3, .esp32c3:
+            table = [.mhz80: 0xF, .mhz40: 0x0, .mhz26: 0x1, .mhz20: 0x2]
+        case .esp32c2:
+            table = [.mhz60: 0xF, .mhz30: 0x0, .mhz20: 0x1, .mhz15: 0x2]
+        case .esp32h2, .esp32h21, .esp32h4:
+            table = [.mhz48: 0xF, .mhz24: 0x0, .mhz16: 0x1, .mhz12: 0x2]
+        default:
+            return nil
+        }
+        return table[frequency]
+    }
+
     // MARK: Watchdogs (USB-Serial-JTAG)
 
     /// Registres RTC utilisés pour neutraliser le watchdog RTC et nourrir automatiquement le
