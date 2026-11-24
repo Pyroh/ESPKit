@@ -25,6 +25,13 @@ package enum Zlib {
         return out
     }
 
+    /// CRC-32 (IEEE 802.3), celui de zlib.
+    package static func crc32(_ data: Data, seed: UInt32 = 0) -> UInt32 {
+        data.withUnsafeBytes { buffer in
+            UInt32(CZlib.crc32(uLong(seed), buffer.bindMemory(to: Bytef.self).baseAddress, uInt(buffer.count)))
+        }
+    }
+
     /// Décompression d'un flux complet.
     package static func decompress(_ data: Data) throws -> Data {
         let inflater = try Inflater()

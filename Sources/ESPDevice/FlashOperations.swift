@@ -2,22 +2,9 @@
 
 import Foundation
 import ESPProtocol
+import ESPImage
 import ESPSupport
 import ESPTargets
-
-/// Données à écrire à une adresse de la flash.
-public struct FlashRegion: Hashable, Sendable {
-    public var address: UInt32
-    public var data: Data
-    /// Chiffrer cette région à l'écriture (chiffrement flash actif requis). Phase 6.
-    public var encrypt: Bool = false
-
-    public init(address: UInt32, data: Data, encrypt: Bool = false) {
-        self.address = address
-        self.data = data
-        self.encrypt = encrypt
-    }
-}
 
 public struct WriteFlashOptions: Hashable, Sendable {
     /// `.automatic` : zlib, sauf sous ROM ESP8266.
@@ -496,54 +483,13 @@ extension ESPDevice {
         return PreparedRegion(address: address, data: data, headerPatched: patched)
     }
 
-    /// Octets 2 et 3 de l'en-tête : mode, puis taille (quartet haut) et fréquence (quartet bas).
-    /// Recalcule le SHA-256 final quand l'image en porte un.
+    /// Octets 2 et 3 de l'en-tête (mode, taille, fréquence), puis SHA-256 final recalculé.
     private func patchHeader(_ data: inout Data, overrides: FlashHeaderOverrides, flash: FlashInfo) throws -> Bool {
-        guard overrides != .keep, data.count >= 8, data[0] == 0xE9 else { return false }
-        var mode = data[2], sizeAndFrequency = data[3]
-        if case .set(let value) = overrides.mode { mode = ChipDescriptor.headerCode(for: value) }
-        let size: FlashSize?
-        switch overrides.size {
-        case .keep: size = nil
-        case .set(let value): size = value
-        case .detect:
-            guard let detected = flash.detectedSize else {
-                throw UsageError.invalidArgument("taille de flash non détectée (ID JEDEC \(hex(flash.jedecID)))")
-            }
-            size = detected
+        do {
+            return try ImageHeader.patch(&data, chip: chip, overrides: overrides, detectedSize: flash.detectedSize)
+        } catch let error as ImageError {
+            throw UsageError.invalidArgument(error.description)
         }
-        if let size {
-            guard let code = descriptor.headerCode(for: size) else {
-                throw UsageError.invalidArgument("taille \(size) non encodable pour \(chip)")
-            }
-            sizeAndFrequency = sizeAndFrequency & 0x0F | code << 4
-        }
-        if case .set(let frequency) = overrides.frequency {
-            guard let code = descriptor.headerCode(for: frequency) else {
-                throw UsageError.invalidArgument("fréquence \(frequency) non encodable pour \(chip)")
-            }
-            sizeAndFrequency = sizeAndFrequency & 0xF0 | code
-        }
-        guard mode != data[2] || sizeAndFrequency != data[3] else { return false }
-        data[2] = mode
-        data[3] = sizeAndFrequency
-        if chip != .esp8266, data.count >= 24, data[23] == 1, let end = Self.imageEnd(data), data.count >= end + 32 {
-            data.replaceSubrange(end..<end + 32, with: SHA256.hash(data.prefix(end)))
-        }
-        return true
-    }
-
-    /// Fin d'une image ESP32-x, octet de somme de contrôle compris (avant l'empreinte SHA-256).
-    static func imageEnd(_ data: Data) -> Int? {
-        guard data.count >= 24 else { return nil }
-        var offset = 24
-        for _ in 0..<Int(data[1]) {
-            guard offset + 8 <= data.count else { return nil }
-            offset += 8 + Int(data.readLE32(at: offset + 4))
-            guard offset <= data.count else { return nil }
-        }
-        // Remplissage jusqu'à 16 n − 1, puis l'octet de somme de contrôle.
-        return (offset + 1 + 15) / 16 * 16
     }
 
     static func differences(expected: Data, actual: Data, limit: Int = 16) -> [ByteDifference] {

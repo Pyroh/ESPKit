@@ -66,6 +66,12 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         /// Les événements arrivent dans l'isolation de l'appelant (le main actor pour une UI).
         public mutating func next(isolation actor: isolated (any Actor)?) async throws(any Error) -> Element? {
             guard !finished else { return nil }
+            // Une tâche annulée lève toujours CancellationError, même si l'opération a eu le temps
+            // de se terminer : l'appelant n'attend plus son résultat.
+            if Task.isCancelled {
+                finished = true
+                throw CancellationError()
+            }
             let event = try await base.next(isolation: actor)
             switch event {
             case .finished:

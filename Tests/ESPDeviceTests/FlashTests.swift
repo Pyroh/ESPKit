@@ -2,6 +2,7 @@
 
 import Foundation
 import Testing
+import ESPImage
 import ESPProtocol
 import ESPSupport
 import ESPTargets
@@ -203,23 +204,43 @@ struct WriteFlashTests {
         let written = await chip.flash.subdata(in: 0x1000..<0x1000 + original.count)
         #expect(written[2] == 0x02)                          // DIO
         #expect(written[3] == 0x2F)                          // 4 Mo, 80 MHz
-        let end = try #require(ESPDevice.imageEnd(written))
+        let end = try #require(ImageHeader.imageEnd(written))
         #expect(written.subdata(in: end..<end + 32) == SHA256.hash(written.prefix(end)))
         #expect(written.subdata(in: end..<end + 32) != original.subdata(in: end..<end + 32))
     }
 
     @Test func reportsProgressThenFinishes() async throws {
         let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: options())
-        var stages: [OperationProgress.Stage] = []
         var finished: WriteFlashReport?
+        var sawProgress = false
         for try await event in esp.writeFlash([FlashRegion(address: 0x1_0000, data: sample(70_000))]) {
             switch event {
-            case .progress(let progress): stages.append(progress.stage)
+            case .progress: sawProgress = true
             case .finished(let report): finished = report
             }
         }
+        // Contrat : `.finished` arrive toujours ; un consommateur lent peut manquer des progressions.
         #expect(finished?.regions.count == 1)
+        #expect(sawProgress)
+    }
+
+    @Test func emitsEveryStageInOrder() async throws {
+        let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: options())
+        let (stream, continuation) = AsyncThrowingStream.makeStream(of: ESPOperationEvent<WriteFlashReport>.self,
+                                                                    throwing: (any Error).self)
+        _ = try await esp.performWriteFlash([FlashRegion(address: 0x1_0000, data: sample(70_000))],
+                                            options: WriteFlashOptions(), sink: ProgressSink(continuation))
+        continuation.finish()
+        var stages: [OperationProgress.Stage] = []
+        var completed: [Int] = []
+        for try await case .progress(let progress) in stream {
+            stages.append(progress.stage)
+            completed.append(progress.completedBytes)
+        }
+        #expect(stages.first == .preparing)
         #expect(stages.contains(.writing))
+        #expect(stages.last == .verifying)
+        #expect(completed == completed.sorted())
     }
 
     @Test func operationsAreCold() async throws {

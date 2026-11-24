@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
+import Foundation
+
 /// Mode d'accès SPI de la flash, tel qu'il est écrit dans l'en-tête d'image.
 public enum FlashMode: Hashable, Sendable, CaseIterable {
     case qio, qout, dio, dout
@@ -136,4 +138,18 @@ public enum SPIConnection: Hashable, Sendable {
     /// ESP32 uniquement.
     case spi, hspi
     case pins(clk: UInt8, q: UInt8, d: UInt8, hd: UInt8, cs: UInt8)
+}
+
+/// Données à écrire à une adresse de la flash.
+public struct FlashRegion: Hashable, Sendable {
+    public var address: UInt32
+    public var data: Data
+    /// Chiffrer cette région à l'écriture (chiffrement flash actif requis). Phase 6.
+    public var encrypt: Bool = false
+
+    public init(address: UInt32, data: Data, encrypt: Bool = false) {
+        self.address = address
+        self.data = data
+        self.encrypt = encrypt
+    }
 }

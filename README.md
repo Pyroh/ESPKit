@@ -8,7 +8,7 @@ SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266,
 
 La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
 
-## État : phase 1 (flasher)
+## État : phase 2 (images)
 
 Disponible :
 
@@ -18,6 +18,7 @@ Disponible :
 - stub v2 embarqué (`esp-flasher-stub` 2.0.0, toutes les puces sauf l'ESP32-E22), changement de débit ;
 - flash : écriture compressée zlib avec contrôle MD5, patch d'en-tête du bootloader, lecture, vérification, effacement total ou par zone ;
 - opérations longues en `AsyncSequence` (`ESPOperation`) : progression, annulation ;
+- images (`ESPImage`, sans I/O) : lecture d'ELF, `elf2image` (ESP32-x et ESP8266 v1/v2), lecture et validation d'images (`image-info`), fusion brute, Intel HEX et UF2, lecture d'Intel HEX. Sorties identiques à l'octet à esptool 4.11 et 5.1 sur des builds ESP-IDF et Arduino ;
 - registres, MAC, `securityInfo()`, identité JEDEC, commandes SPI brutes ;
 - trace bas niveau (`ConnectOptions.trace`).
 
@@ -36,7 +37,7 @@ for try await event in esp.writeFlash(regions) {
 await esp.disconnect(.hard)
 ```
 
-Pas encore : images et ELF (phase 2), espsecure (phase 3), eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
+Pas encore : espsecure (phase 3), eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 
 ## Tests
 
@@ -54,6 +55,12 @@ Le test de flash a besoin en plus d'un build PlatformIO dont l'application écri
 
 ```bash
 ESPKIT_PORT_ESP32=/dev/cu.usbserial-0001 ESPKIT_FIRMWARE_ESP32=…/.pio/build/esp32 swift test --filter HardwareTests
+```
+
+Les tests différentiels d'`ESPImage` comparent ESPKit à esptool, utilisé comme boîte noire. `Tools/oracle/make-references.sh` produit les binaires de référence à partir de builds ESP-IDF, Arduino et ESP8266 (voir l'en-tête du script), puis :
+
+```bash
+ESPKIT_IMAGE_REFERENCES=…/ref-v5 swift test --filter ReferenceTests
 ```
 
 Le stub embarqué se régénère depuis une release d'esp-flasher-stub :
