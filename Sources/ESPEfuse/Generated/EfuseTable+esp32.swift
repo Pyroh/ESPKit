@@ -1,0 +1,120 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// Généré par Tools/efuse-codegen/generate.py depuis components/efuse/esp32/esp_efuse_table.csv d'ESP-IDF (Apache-2.0). Ne pas modifier.
+
+extension EfuseTable {
+    static let esp32 = EfuseTable(chip: .esp32, fields: [
+        EfuseDefinition(name: "WR_DIS", idfName: "WR_DIS", aliases: [], block: 0, bits: [Bits(0, 16)], description: "Efuse write disable mask", category: "config", type: "uint:16", inSummary: true, writeDisableBit: 1, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RD_DIS", idfName: "RD_DIS", aliases: [], block: 0, bits: [Bits(16, 4)], description: "Disable reading from BlOCK1-3", category: "config", type: "uint:4", inSummary: true, writeDisableBit: 0, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "FLASH_CRYPT_CNT", idfName: "FLASH_CRYPT_CNT", aliases: [], block: 0, bits: [Bits(20, 7)], description: "Flash encryption is enabled if this field has an odd number of bits set", category: "flash", type: "uint:7", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "UART_DOWNLOAD_DIS", idfName: "UART_DOWNLOAD_DIS", aliases: [], block: 0, bits: [Bits(27, 1)], description: "Disable UART download mode. Valid for ESP32 V3 and newer; only", category: "security", type: "bool", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "MAC", idfName: "MAC", aliases: ["MAC_FACTORY"], block: 0, bits: [Bits(72, 8), Bits(64, 8), Bits(56, 8), Bits(48, 8), Bits(40, 8), Bits(32, 8)], description: "MAC address", category: "MAC", type: "bytes:6", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "MAC_CRC", idfName: "MAC_CRC", aliases: ["MAC_FACTORY_CRC"], block: 0, bits: [Bits(80, 8)], description: "CRC8 for MAC address", category: "MAC", type: "uint:8", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_APP_CPU", idfName: "DISABLE_APP_CPU", aliases: ["CHIP_VER_DIS_APP_CPU"], block: 0, bits: [Bits(96, 1)], description: "Disables APP CPU", category: "config", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_BT", idfName: "DISABLE_BT", aliases: ["CHIP_VER_DIS_BT"], block: 0, bits: [Bits(97, 1)], description: "Disables Bluetooth", category: "config", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CHIP_PACKAGE_4BIT", idfName: "CHIP_PACKAGE_4BIT", aliases: ["CHIP_VER_PKG_4BIT"], block: 0, bits: [Bits(98, 1)], description: "Chip package identifier #4bit", category: "identity", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIS_CACHE", idfName: "DIS_CACHE", aliases: ["CHIP_VER_DIS_CACHE"], block: 0, bits: [Bits(99, 1)], description: "Disables cache", category: "config", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_PAD_CONFIG_HD", idfName: "SPI_PAD_CONFIG_HD", aliases: [], block: 0, bits: [Bits(100, 5)], description: "read for SPI_pad_config_hd", category: "spi pad", type: "uint:5", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CHIP_PACKAGE", idfName: "CHIP_PACKAGE", aliases: ["CHIP_VER_PKG"], block: 0, bits: [Bits(105, 3)], description: "Chip package identifier", category: "identity", type: "uint:3", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CHIP_CPU_FREQ_LOW", idfName: "CHIP_CPU_FREQ_LOW", aliases: [], block: 0, bits: [Bits(108, 1)], description: "If set alongside EFUSE_RD_CHIP_CPU_FREQ_RATED; the ESP32's max CPU frequency is rated for 160MHz. 240MHz otherwise", category: "config", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CHIP_CPU_FREQ_RATED", idfName: "CHIP_CPU_FREQ_RATED", aliases: [], block: 0, bits: [Bits(109, 1)], description: "If set; the ESP32's maximum CPU frequency has been rated", category: "config", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "BLK3_PART_RESERVE", idfName: "BLK3_PART_RESERVE", aliases: [], block: 0, bits: [Bits(110, 1)], description: "BLOCK3 partially served for ADC calibration data", category: "config", type: "bool", inSummary: true, writeDisableBit: 10, readDisableBit: 3, values: [:]),
+        EfuseDefinition(name: "CHIP_VER_REV1", idfName: "CHIP_VER_REV1", aliases: [], block: 0, bits: [Bits(111, 1)], description: "bit is set to 1 for rev1 silicon", category: "identity", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CLK8M_FREQ", idfName: "CLK8M_FREQ", aliases: ["CK8M_FREQ"], block: 0, bits: [Bits(128, 8)], description: "8MHz clock freq override", category: "config", type: "uint:8", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC_VREF", idfName: "ADC_VREF", aliases: [], block: 0, bits: [Bits(136, 5)], description: "True ADC reference voltage", category: "calibration", type: "uint:5", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "XPD_SDIO_REG", idfName: "XPD_SDIO_REG", aliases: [], block: 0, bits: [Bits(142, 1)], description: "read for XPD_SDIO_REG", category: "vdd", type: "bool", inSummary: true, writeDisableBit: 5, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "XPD_SDIO_TIEH", idfName: "XPD_SDIO_TIEH", aliases: ["SDIO_TIEH"], block: 0, bits: [Bits(143, 1)], description: "If XPD_SDIO_FORCE & XPD_SDIO_REG", category: "vdd", type: "bool", inSummary: true, writeDisableBit: 5, readDisableBit: nil, values: [0: "1.8V", 1: "3.3V"]),
+        EfuseDefinition(name: "XPD_SDIO_FORCE", idfName: "XPD_SDIO_FORCE", aliases: ["SDIO_FORCE"], block: 0, bits: [Bits(144, 1)], description: "Ignore MTDI pin (GPIO12) for VDD_SDIO on reset", category: "vdd", type: "bool", inSummary: true, writeDisableBit: 5, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_PAD_CONFIG_CLK", idfName: "SPI_PAD_CONFIG_CLK", aliases: [], block: 0, bits: [Bits(160, 5)], description: "Override SD_CLK pad (GPIO6/SPICLK)", category: "spi pad", type: "uint:5", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_PAD_CONFIG_Q", idfName: "SPI_PAD_CONFIG_Q", aliases: [], block: 0, bits: [Bits(165, 5)], description: "Override SD_DATA_0 pad (GPIO7/SPIQ)", category: "spi pad", type: "uint:5", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_PAD_CONFIG_D", idfName: "SPI_PAD_CONFIG_D", aliases: [], block: 0, bits: [Bits(170, 5)], description: "Override SD_DATA_1 pad (GPIO8/SPID)", category: "spi pad", type: "uint:5", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_PAD_CONFIG_CS0", idfName: "SPI_PAD_CONFIG_CS0", aliases: [], block: 0, bits: [Bits(175, 5)], description: "Override SD_CMD pad (GPIO11/SPICS0)", category: "spi pad", type: "uint:5", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CHIP_VER_REV2", idfName: "CHIP_VER_REV2", aliases: [], block: 0, bits: [Bits(180, 1)], description: "", category: "identity", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "VOL_LEVEL_HP_INV", idfName: "VOL_LEVEL_HP_INV", aliases: [], block: 0, bits: [Bits(182, 2)], description: "This field stores the voltage level for CPU to run at 240 MHz; or for flash/PSRAM to run at 80 MHz.0x0: level 7; 0x1: level 6; 0x2: level 5; 0x3: level 4. (RO)", category: "config", type: "uint:2", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "WAFER_VERSION_MINOR", idfName: "WAFER_VERSION_MINOR", aliases: [], block: 0, bits: [Bits(184, 2)], description: "", category: "identity", type: "uint:2", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "FLASH_CRYPT_CONFIG", idfName: "FLASH_CRYPT_CONFIG", aliases: ["ENCRYPT_CONFIG"], block: 0, bits: [Bits(188, 4)], description: "Flash encryption config (key tweak bits)", category: "flash", type: "uint:4", inSummary: true, writeDisableBit: 10, readDisableBit: 3, values: [:]),
+        EfuseDefinition(name: "CODING_SCHEME", idfName: "CODING_SCHEME", aliases: [], block: 0, bits: [Bits(192, 2)], description: "Efuse variable block length scheme", category: "config", type: "uint:2", inSummary: true, writeDisableBit: 10, readDisableBit: 3, values: [0: "NONE (BLK1-3 len=256 bits)", 1: "3/4 (BLK1-3 len=192 bits)", 2: "REPEAT (BLK1-3 len=128 bits) not supported", 3: "NONE (BLK1-3 len=256 bits)"]),
+        EfuseDefinition(name: "CONSOLE_DEBUG_DISABLE", idfName: "CONSOLE_DEBUG_DISABLE", aliases: [], block: 0, bits: [Bits(194, 1)], description: "Disable ROM BASIC interpreter fallback", category: "config", type: "bool", inSummary: true, writeDisableBit: 15, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_SDIO_HOST", idfName: "DISABLE_SDIO_HOST", aliases: [], block: 0, bits: [Bits(195, 1)], description: "", category: "config", type: "bool", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ABS_DONE_0", idfName: "ABS_DONE_0", aliases: [], block: 0, bits: [Bits(196, 1)], description: "Secure boot V1 is enabled for bootloader image", category: "security", type: "bool", inSummary: true, writeDisableBit: 12, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ABS_DONE_1", idfName: "ABS_DONE_1", aliases: [], block: 0, bits: [Bits(197, 1)], description: "Secure boot V2 is enabled for bootloader image", category: "security", type: "bool", inSummary: true, writeDisableBit: 13, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "JTAG_DISABLE", idfName: "JTAG_DISABLE", aliases: ["DISABLE_JTAG"], block: 0, bits: [Bits(198, 1)], description: "Disable JTAG", category: "jtag", type: "bool", inSummary: true, writeDisableBit: 14, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_DL_ENCRYPT", idfName: "DISABLE_DL_ENCRYPT", aliases: [], block: 0, bits: [Bits(199, 1)], description: "Disable flash encryption in UART bootloader", category: "security", type: "bool", inSummary: true, writeDisableBit: 15, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_DL_DECRYPT", idfName: "DISABLE_DL_DECRYPT", aliases: [], block: 0, bits: [Bits(200, 1)], description: "Disable flash decryption in UART bootloader", category: "security", type: "bool", inSummary: true, writeDisableBit: 15, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_DL_CACHE", idfName: "DISABLE_DL_CACHE", aliases: [], block: 0, bits: [Bits(201, 1)], description: "Disable flash cache in UART bootloader", category: "config", type: "bool", inSummary: true, writeDisableBit: 15, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "KEY_STATUS", idfName: "KEY_STATUS", aliases: [], block: 0, bits: [Bits(202, 1)], description: "Usage of efuse block 3 (reserved)", category: "security", type: "bool", inSummary: true, writeDisableBit: 10, readDisableBit: 3, values: [:]),
+        EfuseDefinition(name: "BLOCK1", idfName: "BLOCK1", aliases: ["ENCRYPT_FLASH_KEY"], block: 1, bits: [Bits(0, 256)], description: "Flash encryption key", category: "security", type: "bytes:32", inSummary: true, writeDisableBit: 7, readDisableBit: 0, values: [:]),
+        EfuseDefinition(name: "BLOCK2", idfName: "BLOCK2", aliases: ["SECURE_BOOT_KEY"], block: 2, bits: [Bits(0, 256)], description: "Security boot key", category: "security", type: "bytes:32", inSummary: true, writeDisableBit: 8, readDisableBit: 1, values: [:]),
+        EfuseDefinition(name: "CUSTOM_MAC_CRC", idfName: "CUSTOM_MAC_CRC", aliases: ["MAC_CUSTOM_CRC"], block: 3, bits: [Bits(0, 8)], description: "CRC8 for custom MAC address", category: "MAC", type: "uint:8", inSummary: true, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "MAC_CUSTOM", idfName: "MAC_CUSTOM", aliases: ["MAC_CUSTOM"], block: 3, bits: [Bits(8, 48)], description: "Custom MAC address", category: "config", type: "uint:48", inSummary: false, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC1_TP_LOW", idfName: "ADC1_TP_LOW", aliases: [], block: 3, bits: [Bits(96, 7)], description: "ADC1 Two Point calibration low point. Only valid if EFUSE_RD_BLK3_PART_RESERVE", category: "config", type: "uint:7", inSummary: false, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "ADC1_TP_HIGH", idfName: "ADC1_TP_HIGH", aliases: [], block: 3, bits: [Bits(103, 9)], description: "ADC1 Two Point calibration high point. Only valid if EFUSE_RD_BLK3_PART_RESERVE", category: "config", type: "uint:9", inSummary: false, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "ADC2_TP_LOW", idfName: "ADC2_TP_LOW", aliases: [], block: 3, bits: [Bits(112, 7)], description: "ADC2 Two Point calibration low point. Only valid if EFUSE_RD_BLK3_PART_RESERVE", category: "config", type: "uint:7", inSummary: false, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "ADC2_TP_HIGH", idfName: "ADC2_TP_HIGH", aliases: [], block: 3, bits: [Bits(119, 9)], description: "ADC2 Two Point calibration high point. Only valid if EFUSE_RD_BLK3_PART_RESERVE", category: "config", type: "uint:9", inSummary: false, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "SECURE_VERSION", idfName: "SECURE_VERSION", aliases: [], block: 3, bits: [Bits(128, 32)], description: "Secure version for anti-rollback", category: "security", type: "uint:32", inSummary: true, writeDisableBit: 9, readDisableBit: 2, values: [:]),
+        EfuseDefinition(name: "MAC_VERSION", idfName: "MAC_VERSION", aliases: ["MAC_CUSTOM_VER"], block: 3, bits: [Bits(184, 8)], description: "Version of the MAC field", category: "MAC", type: "uint:8", inSummary: true, writeDisableBit: 9, readDisableBit: 2, values: [1: "Custom MAC in BLOCK3"]),
+    ], composites: [
+        CompositeLabel(name: "BLOCK3", block: 3, bitCount: 256, description: "Variable Block 3", category: "security", type: "bytes:32"),
+        CompositeLabel(name: "CUSTOM_MAC", block: 3, bitCount: 48, description: "Custom MAC address", category: "MAC", type: "bytes:6"),
+        CompositeLabel(name: "PKG_VERSION", block: 0, bitCount: 4, description: "calc Chip package = CHIP_PACKAGE_4BIT << 3 + CHIP_PACKAGE (read only)", category: "identity", type: "uint:4"),
+        CompositeLabel(name: "WAFER_VERSION_MAJOR", block: 0, bitCount: 3, description: "calc WAFER VERSION MAJOR from CHIP_VER_REV1 and CHIP_VER_REV2 and apb_ctl_date (read only)", category: "identity", type: "uint:3"),
+    ])
+}
+
+extension EfuseFieldName {
+    public enum ESP32 {
+        public static let absDone0: EfuseFieldName = "ABS_DONE_0"
+        public static let absDone1: EfuseFieldName = "ABS_DONE_1"
+        public static let adc1TpHigh: EfuseFieldName = "ADC1_TP_HIGH"
+        public static let adc1TpLow: EfuseFieldName = "ADC1_TP_LOW"
+        public static let adc2TpHigh: EfuseFieldName = "ADC2_TP_HIGH"
+        public static let adc2TpLow: EfuseFieldName = "ADC2_TP_LOW"
+        public static let adcVref: EfuseFieldName = "ADC_VREF"
+        public static let blk3PartReserve: EfuseFieldName = "BLK3_PART_RESERVE"
+        public static let block1: EfuseFieldName = "BLOCK1"
+        public static let block2: EfuseFieldName = "BLOCK2"
+        public static let block3: EfuseFieldName = "BLOCK3"
+        public static let chipCpuFreqLow: EfuseFieldName = "CHIP_CPU_FREQ_LOW"
+        public static let chipCpuFreqRated: EfuseFieldName = "CHIP_CPU_FREQ_RATED"
+        public static let chipPackage: EfuseFieldName = "CHIP_PACKAGE"
+        public static let chipPackage4bit: EfuseFieldName = "CHIP_PACKAGE_4BIT"
+        public static let chipVerRev1: EfuseFieldName = "CHIP_VER_REV1"
+        public static let chipVerRev2: EfuseFieldName = "CHIP_VER_REV2"
+        public static let clk8mFreq: EfuseFieldName = "CLK8M_FREQ"
+        public static let codingScheme: EfuseFieldName = "CODING_SCHEME"
+        public static let consoleDebugDisable: EfuseFieldName = "CONSOLE_DEBUG_DISABLE"
+        public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        public static let customMacCrc: EfuseFieldName = "CUSTOM_MAC_CRC"
+        public static let disableAppCpu: EfuseFieldName = "DISABLE_APP_CPU"
+        public static let disableBt: EfuseFieldName = "DISABLE_BT"
+        public static let disableDlCache: EfuseFieldName = "DISABLE_DL_CACHE"
+        public static let disableDlDecrypt: EfuseFieldName = "DISABLE_DL_DECRYPT"
+        public static let disableDlEncrypt: EfuseFieldName = "DISABLE_DL_ENCRYPT"
+        public static let disableSdioHost: EfuseFieldName = "DISABLE_SDIO_HOST"
+        public static let disCache: EfuseFieldName = "DIS_CACHE"
+        public static let flashCryptCnt: EfuseFieldName = "FLASH_CRYPT_CNT"
+        public static let flashCryptConfig: EfuseFieldName = "FLASH_CRYPT_CONFIG"
+        public static let jtagDisable: EfuseFieldName = "JTAG_DISABLE"
+        public static let keyStatus: EfuseFieldName = "KEY_STATUS"
+        public static let mac: EfuseFieldName = "MAC"
+        public static let macCrc: EfuseFieldName = "MAC_CRC"
+        public static let macCustom: EfuseFieldName = "MAC_CUSTOM"
+        public static let macVersion: EfuseFieldName = "MAC_VERSION"
+        public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        public static let rdDis: EfuseFieldName = "RD_DIS"
+        public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        public static let spiPadConfigClk: EfuseFieldName = "SPI_PAD_CONFIG_CLK"
+        public static let spiPadConfigCs0: EfuseFieldName = "SPI_PAD_CONFIG_CS0"
+        public static let spiPadConfigD: EfuseFieldName = "SPI_PAD_CONFIG_D"
+        public static let spiPadConfigHd: EfuseFieldName = "SPI_PAD_CONFIG_HD"
+        public static let spiPadConfigQ: EfuseFieldName = "SPI_PAD_CONFIG_Q"
+        public static let uartDownloadDis: EfuseFieldName = "UART_DOWNLOAD_DIS"
+        public static let volLevelHpInv: EfuseFieldName = "VOL_LEVEL_HP_INV"
+        public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        public static let wrDis: EfuseFieldName = "WR_DIS"
+        public static let xpdSdioForce: EfuseFieldName = "XPD_SDIO_FORCE"
+        public static let xpdSdioReg: EfuseFieldName = "XPD_SDIO_REG"
+        public static let xpdSdioTieh: EfuseFieldName = "XPD_SDIO_TIEH"
+    }
+}

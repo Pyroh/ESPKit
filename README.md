@@ -8,7 +8,7 @@ SDK Swift pour dialoguer avec le bootloader série des puces Espressif (ESP8266,
 
 La spécification de l'API publique fait foi : elle se trouve dans le dossier de recherche (`ESPKit-API.md`).
 
-## État : phase 3 (espsecure)
+## État : phase 4 (lecture des eFuses)
 
 Disponible :
 
@@ -39,7 +39,9 @@ await esp.disconnect(.hard)
 
 - sécurité (`ESPSecure`, sans I/O) : Secure Boot v2 en RSA-3072, ECDSA P-256 et P-384 (génération et lecture de clés PEM, signature locale ou par un `Signer` externe, jusqu'à 3 blocs, vérification, empreinte de clé à brûler en eFuse) ; chiffrement flash XTS-AES-128 et 256 et schéma ESP32, identiques à l'octet à espsecure. Les images signées par ESPKit sont acceptées par `espsecure verify-signature`.
 
-Pas encore : eFuses (phases 4 et 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
+- eFuses (`ESPEfuse`) : tables de 12 puces générées depuis ESP-IDF, lecture des blocs sur l'ESP32 et l'ESP32-S3, champs décodés (valeurs nommées, rôles de clé, MAC, protections), erreurs de codage, calibration ADC, instantanés et jetons, contrôleur virtuel. `summaryJSON()` est identique à l'octet à `espefuse summary --format json` sur l'ESP32 et l'ESP32-S3.
+
+Pas encore : programmation des eFuses (phase 5), écriture chiffrée, reflash différentiel, NAND et le reste (phase 6).
 
 ## Tests
 
@@ -69,6 +71,13 @@ Pour `ESPSecure`, `Tools/oracle/make-secure-references.sh` produit clés, signat
 
 ```bash
 ESPKIT_SECURE_REFERENCES=… ESPKIT_ESPSECURE=espsecure swift test --filter ESPSecureTests
+```
+
+Pour `ESPEfuse`, `Tools/oracle/make-efuse-references.sh` relève avec espefuse (lecture seule) les libellés de toutes les puces et, si des cartes sont branchées, leurs résumés et dumps. Les tables se régénèrent ensuite depuis ESP-IDF :
+
+```bash
+python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse <références>/real <références>/virt
+ESPKIT_EFUSE_REFERENCES=<références> swift test --filter ESPEfuseTests
 ```
 
 Le stub embarqué se régénère depuis une release d'esp-flasher-stub :

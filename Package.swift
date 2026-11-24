@@ -15,6 +15,7 @@ let package = Package(
         .library(name: "ESPImage", targets: ["ESPImage"]),
         .library(name: "ESPSecure", targets: ["ESPSecure"]),
         .library(name: "ESPDevice", targets: ["ESPDevice"]),
+        .library(name: "ESPEfuse", targets: ["ESPEfuse"]),
     ],
     dependencies: [
         // RSA, ECDSA et AES pour ESPSecure (Apache-2.0).
@@ -49,8 +50,11 @@ let package = Package(
         // L'acteur ESPDevice et ses opérations. Embarque le stub v2 (esp-flasher-stub).
         .target(name: "ESPDevice", dependencies: ["ESPTargets", "ESPTransport", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
+        // Lecture des eFuses. Tables générées depuis ESP-IDF (Tools/efuse-codegen).
+        .target(name: "ESPEfuse", dependencies: ["ESPTargets", "ESPDevice"]),
+
         // Parapluie : réexporte tous les modules publics.
-        .target(name: "ESPKit", dependencies: ["ESPTargets", "ESPTransport", "ESPImage", "ESPSecure", "ESPDevice"]),
+        .target(name: "ESPKit", dependencies: ["ESPTargets", "ESPTransport", "ESPImage", "ESPSecure", "ESPDevice", "ESPEfuse"]),
 
         .testTarget(name: "ESPProtocolTests", dependencies: ["ESPProtocol"]),
         .testTarget(name: "ESPTargetsTests", dependencies: ["ESPTargets"]),
@@ -58,6 +62,7 @@ let package = Package(
         .testTarget(name: "ESPTransportTests", dependencies: ["ESPTransport"]),
         .testTarget(name: "ESPImageTests", dependencies: ["ESPImage", "ESPSupport"]),
         .testTarget(name: "ESPSecureTests", dependencies: ["ESPSecure", "ESPSupport"]),
+        .testTarget(name: "ESPEfuseTests", dependencies: ["ESPEfuse"]),
         .testTarget(name: "ESPDeviceTests", dependencies: ["ESPDevice", "ESPProtocol", "ESPSupport", "ESPImage"]),
 
         // Tests sur carte réelle. Ignorés sauf si ESPKIT_PORT_ESP32 / ESPKIT_PORT_S3 sont définies.

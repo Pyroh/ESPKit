@@ -1,0 +1,114 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+//
+// Généré par Tools/efuse-codegen/generate.py depuis components/efuse/esp32c2/esp_efuse_table.csv d'ESP-IDF (Apache-2.0). Ne pas modifier.
+
+extension EfuseTable {
+    static let esp32c2 = EfuseTable(chip: .esp32c2, fields: [
+        EfuseDefinition(name: "WR_DIS", idfName: "WR_DIS", aliases: [], block: 0, bits: [Bits(0, 8)], description: "Disable programming of individual eFuses", category: "config", type: "uint:8", inSummary: true, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RD_DIS", idfName: "RD_DIS", aliases: [], block: 0, bits: [Bits(32, 2)], description: "Disable reading from BlOCK3", category: "config", type: "uint:2", inSummary: true, writeDisableBit: 0, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "WDT_DELAY_SEL", idfName: "WDT_DELAY_SEL", aliases: [], block: 0, bits: [Bits(34, 2)], description: "RTC watchdog timeout threshold; in unit of slow clock cycle", category: "wdt", type: "uint:2", inSummary: true, writeDisableBit: 1, readDisableBit: nil, values: [0: "40000", 1: "80000", 2: "160000", 3: "320000"]),
+        EfuseDefinition(name: "DIS_PAD_JTAG", idfName: "DIS_PAD_JTAG", aliases: [], block: 0, bits: [Bits(36, 1)], description: "Set this bit to disable pad jtag", category: "jtag", type: "bool", inSummary: true, writeDisableBit: 1, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIS_DOWNLOAD_ICACHE", idfName: "DIS_DOWNLOAD_ICACHE", aliases: [], block: 0, bits: [Bits(37, 1)], description: "The bit be set to disable icache in download mode", category: "security", type: "bool", inSummary: true, writeDisableBit: 1, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIS_DOWNLOAD_MANUAL_ENCRYPT", idfName: "DIS_DOWNLOAD_MANUAL_ENCRYPT", aliases: [], block: 0, bits: [Bits(38, 1)], description: "The bit be set to disable manual encryption", category: "security", type: "bool", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SPI_BOOT_CRYPT_CNT", idfName: "SPI_BOOT_CRYPT_CNT", aliases: [], block: 0, bits: [Bits(39, 3)], description: "Enables flash encryption when 1 or 3 bits are set and disables otherwise", category: "security", type: "uint:3", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [0: "Disable", 1: "Enable", 3: "Disable", 7: "Enable"]),
+        EfuseDefinition(name: "XTS_KEY_LENGTH_256", idfName: "XTS_KEY_LENGTH_256", aliases: [], block: 0, bits: [Bits(42, 1)], description: "Flash encryption key length", category: "security", type: "bool", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [0: "128 bits key", 1: "256 bits key"]),
+        EfuseDefinition(name: "UART_PRINT_CONTROL", idfName: "UART_PRINT_CONTROL", aliases: [], block: 0, bits: [Bits(43, 2)], description: "Set the default UARTboot message output mode", category: "config", type: "uint:2", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [0: "Enable", 1: "Enable when GPIO8 is low at reset", 2: "Enable when GPIO8 is high at reset", 3: "Disable"]),
+        EfuseDefinition(name: "FORCE_SEND_RESUME", idfName: "FORCE_SEND_RESUME", aliases: [], block: 0, bits: [Bits(45, 1)], description: "Set this bit to force ROM code to send a resume command during SPI boot", category: "flash", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIS_DOWNLOAD_MODE", idfName: "DIS_DOWNLOAD_MODE", aliases: [], block: 0, bits: [Bits(46, 1)], description: "Set this bit to disable download mode (boot_mode[3:0] = 0; 1; 2; 4; 5; 6; 7)", category: "security", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIS_DIRECT_BOOT", idfName: "DIS_DIRECT_BOOT", aliases: [], block: 0, bits: [Bits(47, 1)], description: "This bit set means disable direct_boot mode", category: "config", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ENABLE_SECURITY_DOWNLOAD", idfName: "ENABLE_SECURITY_DOWNLOAD", aliases: [], block: 0, bits: [Bits(48, 1)], description: "Set this bit to enable secure UART download mode", category: "security", type: "bool", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "FLASH_TPUW", idfName: "FLASH_TPUW", aliases: [], block: 0, bits: [Bits(49, 4)], description: "Configures flash waiting time after power-up; in unit of ms. If the value is less than 15; the waiting time is the configurable value.  Otherwise; the waiting time is twice the configurable value", category: "flash", type: "uint:4", inSummary: true, writeDisableBit: 3, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SECURE_BOOT_EN", idfName: "SECURE_BOOT_EN", aliases: [], block: 0, bits: [Bits(53, 1)], description: "The bit be set to enable secure boot", category: "security", type: "bool", inSummary: true, writeDisableBit: 2, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "SECURE_VERSION", idfName: "SECURE_VERSION", aliases: [], block: 0, bits: [Bits(54, 4)], description: "Secure version for anti-rollback", category: "security", type: "uint:4", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CUSTOM_MAC_USED", idfName: "CUSTOM_MAC_USED", aliases: ["ENABLE_CUSTOM_MAC"], block: 0, bits: [Bits(58, 1)], description: "True if MAC_CUSTOM is burned", category: "MAC", type: "bool", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_WAFER_VERSION_MAJOR", idfName: "DISABLE_WAFER_VERSION_MAJOR", aliases: [], block: 0, bits: [Bits(59, 1)], description: "Disables check of wafer version major", category: "identity", type: "bool", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DISABLE_BLK_VERSION_MAJOR", idfName: "DISABLE_BLK_VERSION_MAJOR", aliases: [], block: 0, bits: [Bits(60, 1)], description: "Disables check of blk version major", category: "identity", type: "bool", inSummary: true, writeDisableBit: 4, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "USER_DATA", idfName: "USER_DATA", aliases: [], block: 1, bits: [Bits(0, 88)], description: "User data block", category: "config", type: "bytes:11", inSummary: false, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "CUSTOM_MAC", idfName: "USER_DATA.MAC_CUSTOM", aliases: ["MAC_CUSTOM", "CUSTOM_MAC"], block: 1, bits: [Bits(0, 48)], description: "Custom MAC address", category: "MAC", type: "bytes:6", inSummary: true, writeDisableBit: 5, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "MAC", idfName: "MAC", aliases: ["MAC_FACTORY"], block: 2, bits: [Bits(40, 8), Bits(32, 8), Bits(24, 8), Bits(16, 8), Bits(8, 8), Bits(0, 8)], description: "MAC address", category: "MAC", type: "bytes:6", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "WAFER_VERSION_MINOR", idfName: "WAFER_VERSION_MINOR", aliases: [], block: 2, bits: [Bits(48, 4)], description: "WAFER_VERSION_MINOR", category: "identity", type: "uint:4", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "WAFER_VERSION_MAJOR", idfName: "WAFER_VERSION_MAJOR", aliases: [], block: 2, bits: [Bits(52, 2)], description: "WAFER_VERSION_MAJOR", category: "identity", type: "uint:2", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "PKG_VERSION", idfName: "PKG_VERSION", aliases: [], block: 2, bits: [Bits(54, 3)], description: "EFUSE_PKG_VERSION", category: "identity", type: "uint:3", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "BLK_VERSION_MINOR", idfName: "BLK_VERSION_MINOR", aliases: [], block: 2, bits: [Bits(57, 3)], description: "Minor version of BLOCK2", category: "identity", type: "uint:3", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [0: "No calib", 1: "With calib"]),
+        EfuseDefinition(name: "BLK_VERSION_MAJOR", idfName: "BLK_VERSION_MAJOR", aliases: [], block: 2, bits: [Bits(60, 2)], description: "Major version of BLOCK2", category: "identity", type: "uint:2", inSummary: true, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "OCODE", idfName: "OCODE", aliases: [], block: 2, bits: [Bits(62, 7)], description: "OCode", category: "config", type: "uint:7", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "TEMP_CALIB", idfName: "TEMP_CALIB", aliases: [], block: 2, bits: [Bits(69, 9)], description: "Temperature calibration data", category: "config", type: "uint:9", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC1_INIT_CODE_ATTEN0", idfName: "ADC1_INIT_CODE_ATTEN0", aliases: [], block: 2, bits: [Bits(78, 8)], description: "ADC1 init code at atten0", category: "config", type: "uint:8", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC1_INIT_CODE_ATTEN3", idfName: "ADC1_INIT_CODE_ATTEN3", aliases: [], block: 2, bits: [Bits(86, 5)], description: "ADC1 init code at atten3", category: "config", type: "uint:5", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC1_CAL_VOL_ATTEN0", idfName: "ADC1_CAL_VOL_ATTEN0", aliases: [], block: 2, bits: [Bits(91, 8)], description: "ADC1 calibration voltage at atten0", category: "config", type: "uint:8", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC1_CAL_VOL_ATTEN3", idfName: "ADC1_CAL_VOL_ATTEN3", aliases: [], block: 2, bits: [Bits(99, 6)], description: "ADC1 calibration voltage at atten3", category: "config", type: "uint:6", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIG_DBIAS_HVT", idfName: "DIG_DBIAS_HVT", aliases: [], block: 2, bits: [Bits(105, 5)], description: "BLOCK2 digital dbias when hvt", category: "config", type: "uint:5", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIG_LDO_SLP_DBIAS2", idfName: "DIG_LDO_SLP_DBIAS2", aliases: [], block: 2, bits: [Bits(110, 7)], description: "BLOCK2 DIG_LDO_DBG0_DBIAS2", category: "config", type: "uint:7", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIG_LDO_SLP_DBIAS26", idfName: "DIG_LDO_SLP_DBIAS26", aliases: [], block: 2, bits: [Bits(117, 8)], description: "BLOCK2 DIG_LDO_DBG0_DBIAS26", category: "config", type: "uint:8", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIG_LDO_ACT_DBIAS26", idfName: "DIG_LDO_ACT_DBIAS26", aliases: [], block: 2, bits: [Bits(125, 6)], description: "BLOCK2 DIG_LDO_ACT_DBIAS26", category: "config", type: "uint:6", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "DIG_LDO_ACT_STEPD10", idfName: "DIG_LDO_ACT_STEPD10", aliases: [], block: 2, bits: [Bits(131, 4)], description: "BLOCK2 DIG_LDO_ACT_STEPD10", category: "config", type: "uint:4", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RTC_LDO_SLP_DBIAS13", idfName: "RTC_LDO_SLP_DBIAS13", aliases: [], block: 2, bits: [Bits(135, 7)], description: "BLOCK2 DIG_LDO_SLP_DBIAS13", category: "config", type: "uint:7", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RTC_LDO_SLP_DBIAS29", idfName: "RTC_LDO_SLP_DBIAS29", aliases: [], block: 2, bits: [Bits(142, 9)], description: "BLOCK2 DIG_LDO_SLP_DBIAS29", category: "config", type: "uint:9", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RTC_LDO_SLP_DBIAS31", idfName: "RTC_LDO_SLP_DBIAS31", aliases: [], block: 2, bits: [Bits(151, 6)], description: "BLOCK2 DIG_LDO_SLP_DBIAS31", category: "config", type: "uint:6", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RTC_LDO_ACT_DBIAS31", idfName: "RTC_LDO_ACT_DBIAS31", aliases: [], block: 2, bits: [Bits(157, 6)], description: "BLOCK2 DIG_LDO_ACT_DBIAS31", category: "config", type: "uint:6", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "RTC_LDO_ACT_DBIAS13", idfName: "RTC_LDO_ACT_DBIAS13", aliases: [], block: 2, bits: [Bits(163, 8)], description: "BLOCK2 DIG_LDO_ACT_DBIAS13", category: "config", type: "uint:8", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "ADC_CALIBRATION_3", idfName: "ADC_CALIBRATION_3", aliases: [], block: 2, bits: [Bits(192, 11)], description: "Store the bit [86:96] of ADC calibration data", category: "config", type: "uint:11", inSummary: false, writeDisableBit: 6, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "BLOCK_KEY0", idfName: "KEY0", aliases: ["BLOCK_KEY0"], block: 3, bits: [Bits(0, 256)], description: "BLOCK_BLOCK_KEY0 - 256-bits. 256-bit key of Flash Encryption", category: "security", type: "bytes:32", inSummary: true, writeDisableBit: 7, readDisableBit: 0, values: [:]),
+        EfuseDefinition(name: "KEY0.FE_256BIT", idfName: "KEY0.FE_256BIT", aliases: [], block: 3, bits: [Bits(0, 256)], description: "256bit FE key", category: "config", type: "bytes:32", inSummary: false, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "KEY0.FE_128BIT", idfName: "KEY0.FE_128BIT", aliases: [], block: 3, bits: [Bits(0, 128)], description: "128bit FE key", category: "config", type: "bytes:16", inSummary: false, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+        EfuseDefinition(name: "KEY0.SB_128BIT", idfName: "KEY0.SB_128BIT", aliases: [], block: 3, bits: [Bits(128, 128)], description: "128bit SB key", category: "config", type: "bytes:16", inSummary: false, writeDisableBit: nil, readDisableBit: nil, values: [:]),
+    ], composites: [
+        CompositeLabel(name: "BLOCK_KEY0_HI_128", block: 3, bitCount: 128, description: "BLOCK_KEY0 - higher 128-bits. 128-bits key of Secure Boot", category: "security", type: "bytes:16"),
+        CompositeLabel(name: "BLOCK_KEY0_LOW_128", block: 3, bitCount: 128, description: "BLOCK_KEY0 - lower 128-bits. 128-bit key of Flash Encryption", category: "security", type: "bytes:16"),
+    ])
+}
+
+extension EfuseFieldName {
+    public enum ESP32C2 {
+        public static let adc1CalVolAtten0: EfuseFieldName = "ADC1_CAL_VOL_ATTEN0"
+        public static let adc1CalVolAtten3: EfuseFieldName = "ADC1_CAL_VOL_ATTEN3"
+        public static let adc1InitCodeAtten0: EfuseFieldName = "ADC1_INIT_CODE_ATTEN0"
+        public static let adc1InitCodeAtten3: EfuseFieldName = "ADC1_INIT_CODE_ATTEN3"
+        public static let adcCalibration3: EfuseFieldName = "ADC_CALIBRATION_3"
+        public static let blkVersionMajor: EfuseFieldName = "BLK_VERSION_MAJOR"
+        public static let blkVersionMinor: EfuseFieldName = "BLK_VERSION_MINOR"
+        public static let blockKey0: EfuseFieldName = "BLOCK_KEY0"
+        public static let blockKey0Hi128: EfuseFieldName = "BLOCK_KEY0_HI_128"
+        public static let blockKey0Low128: EfuseFieldName = "BLOCK_KEY0_LOW_128"
+        public static let customMac: EfuseFieldName = "CUSTOM_MAC"
+        public static let customMacUsed: EfuseFieldName = "CUSTOM_MAC_USED"
+        public static let digDbiasHvt: EfuseFieldName = "DIG_DBIAS_HVT"
+        public static let digLdoActDbias26: EfuseFieldName = "DIG_LDO_ACT_DBIAS26"
+        public static let digLdoActStepd10: EfuseFieldName = "DIG_LDO_ACT_STEPD10"
+        public static let digLdoSlpDbias2: EfuseFieldName = "DIG_LDO_SLP_DBIAS2"
+        public static let digLdoSlpDbias26: EfuseFieldName = "DIG_LDO_SLP_DBIAS26"
+        public static let disableBlkVersionMajor: EfuseFieldName = "DISABLE_BLK_VERSION_MAJOR"
+        public static let disableWaferVersionMajor: EfuseFieldName = "DISABLE_WAFER_VERSION_MAJOR"
+        public static let disDirectBoot: EfuseFieldName = "DIS_DIRECT_BOOT"
+        public static let disDownloadIcache: EfuseFieldName = "DIS_DOWNLOAD_ICACHE"
+        public static let disDownloadManualEncrypt: EfuseFieldName = "DIS_DOWNLOAD_MANUAL_ENCRYPT"
+        public static let disDownloadMode: EfuseFieldName = "DIS_DOWNLOAD_MODE"
+        public static let disPadJtag: EfuseFieldName = "DIS_PAD_JTAG"
+        public static let enableSecurityDownload: EfuseFieldName = "ENABLE_SECURITY_DOWNLOAD"
+        public static let flashTpuw: EfuseFieldName = "FLASH_TPUW"
+        public static let forceSendResume: EfuseFieldName = "FORCE_SEND_RESUME"
+        public static let key0Fe128bit: EfuseFieldName = "KEY0.FE_128BIT"
+        public static let key0Fe256bit: EfuseFieldName = "KEY0.FE_256BIT"
+        public static let key0Sb128bit: EfuseFieldName = "KEY0.SB_128BIT"
+        public static let mac: EfuseFieldName = "MAC"
+        public static let ocode: EfuseFieldName = "OCODE"
+        public static let pkgVersion: EfuseFieldName = "PKG_VERSION"
+        public static let rdDis: EfuseFieldName = "RD_DIS"
+        public static let rtcLdoActDbias13: EfuseFieldName = "RTC_LDO_ACT_DBIAS13"
+        public static let rtcLdoActDbias31: EfuseFieldName = "RTC_LDO_ACT_DBIAS31"
+        public static let rtcLdoSlpDbias13: EfuseFieldName = "RTC_LDO_SLP_DBIAS13"
+        public static let rtcLdoSlpDbias29: EfuseFieldName = "RTC_LDO_SLP_DBIAS29"
+        public static let rtcLdoSlpDbias31: EfuseFieldName = "RTC_LDO_SLP_DBIAS31"
+        public static let secureBootEn: EfuseFieldName = "SECURE_BOOT_EN"
+        public static let secureVersion: EfuseFieldName = "SECURE_VERSION"
+        public static let spiBootCryptCnt: EfuseFieldName = "SPI_BOOT_CRYPT_CNT"
+        public static let tempCalib: EfuseFieldName = "TEMP_CALIB"
+        public static let uartPrintControl: EfuseFieldName = "UART_PRINT_CONTROL"
+        public static let userData: EfuseFieldName = "USER_DATA"
+        public static let waferVersionMajor: EfuseFieldName = "WAFER_VERSION_MAJOR"
+        public static let waferVersionMinor: EfuseFieldName = "WAFER_VERSION_MINOR"
+        public static let wdtDelaySel: EfuseFieldName = "WDT_DELAY_SEL"
+        public static let wrDis: EfuseFieldName = "WR_DIS"
+        public static let xtsKeyLength256: EfuseFieldName = "XTS_KEY_LENGTH_256"
+    }
+}

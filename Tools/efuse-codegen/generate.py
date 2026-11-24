@@ -1,0 +1,219 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT OR Apache-2.0
+"""Génère les tables d'eFuses d'ESPKit (Sources/ESPEfuse/Generated/) à partir d'ESP-IDF.
+
+    python3 -I Tools/efuse-codegen/generate.py <esp-idf>/components/efuse <libellés>...
+
+Source des faits : `esp_efuse_table.csv` de chaque puce (ESP-IDF, Apache-2.0) : nom, alias,
+bloc, bits, description, valeurs nommées, bits de protection WR_DIS / RD_DIS.
+
+Les dossiers de libellés contiennent des `<puce>.json` produits par
+`espefuse summary --format json` (sur carte ou avec `--virt`). Ils ne servent qu'à harmoniser
+la présentation avec espefuse : nom affiché parmi les alias, catégorie, type, champs affichés
+par `summary`, et description des quelques champs composés qu'espefuse ajoute. Aucune valeur,
+position ni protection n'en vient.
+"""
+
+import json
+import pathlib
+import re
+import sys
+
+CHIPS = ["esp32", "esp32s2", "esp32s3", "esp32c2", "esp32c3", "esp32c5", "esp32c6",
+         "esp32c61", "esp32h2", "esp32h21", "esp32h4", "esp32p4"]
+
+
+def parse_csv(path):
+    """Champs, protections en écriture et en lecture."""
+    fields, order = {}, []
+    wr_dis, rd_dis = {}, {}
+    rd_dis_start = None
+    current = None
+    for raw in path.read_text().splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = [p.strip() for p in line.split(",", 4)]
+        name, block, start, count = parts[:4]
+        comment = parts[4] if len(parts) > 4 else ""
+        aliases = []
+        match = re.match(r"\[([^\]]*)\]\s*", comment)
+        if match:
+            aliases = match.group(1).split()
+            comment = comment[match.end():]
+        values = {}
+        match = re.search(r"\s*\{(.*)\}\s*$", comment)
+        if match:
+            for key, text in re.findall(r'(\d+)\s*:\s*"([^"]*)"', match.group(1)):
+                values[int(key)] = text
+            comment = comment[:match.start()]
+        block_index = int(block.replace("EFUSE_BLK", ""))
+        start = int(start)
+        count = 256 if count == "MAX_BLK_LEN" else int(count)
+        if name.startswith("WR_DIS."):
+            wr_dis[name[len("WR_DIS."):]] = start
+            current = None
+            continue
+        if name.startswith("RD_DIS."):
+            rd_dis[name[len("RD_DIS."):]] = start - rd_dis_start
+            current = None
+            continue
+        if name == "":
+            fields[current]["segments"].append((start, count))
+            fields[current]["lines"].append(comment)
+            continue
+        if name == "RD_DIS":
+            rd_dis_start = start
+        current = name
+        order.append(name)
+        fields[name] = dict(name=name, aliases=aliases, block=block_index, segments=[(start, count)],
+                            description=comment.strip(), values=values, lines=[comment])
+    return [fields[n] for n in order], wr_dis, rd_dis
+
+
+def load_labels(folders, chip):
+    labels = {}
+    for folder in folders:
+        path = pathlib.Path(folder) / f"{chip}.json"
+        if path.exists():
+            for name, entry in json.loads(path.read_text()).items():
+                labels.setdefault(name, entry)
+    return labels
+
+
+# Corrections de faits erronés dans les CSV d'ESP-IDF, chacune justifiée.
+DESCRIPTION_FIXES = {
+    # ESP-IDF 5.5.3 cite gpio10 ; sur l'ESP32-S3, la broche de strapping de JTAG est GPIO3
+    # (datasheet de l'ESP32-S3, comme l'affiche espefuse).
+    ("esp32s3", "STRAP_JTAG_SEL"): ("strapping gpio10", "strapping gpio3"),
+}
+
+SWIFT_KEYWORDS = {"default", "case", "class", "func", "import", "in", "is", "let", "var", "return",
+                  "self", "struct", "switch", "true", "false", "nil", "where", "while", "for", "if", "else"}
+
+
+def default_type(bits):
+    if bits == 1:
+        return "bool"
+    if bits <= 64 or bits % 8:
+        return f"uint:{bits}"
+    return f"bytes:{bits // 8}"
+
+
+def swift_string(text):
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def generate(efuse_root, label_folders, out_dir):
+    for chip in CHIPS:
+        csv_path = efuse_root / chip / "esp_efuse_table.csv"
+        if not csv_path.exists():
+            continue
+        fields, wr_dis, rd_dis = parse_csv(csv_path)
+        labels = load_labels(label_folders, chip)
+        used = set()
+        entries = []
+
+        def protection(field, table):
+            for candidate in [field["name"]] + field["aliases"]:
+                if candidate in table:
+                    return table[candidate]
+            return None
+
+        for field in fields:
+            fix = DESCRIPTION_FIXES.get((chip, field["name"]))
+            if fix:
+                field["description"] = field["description"].replace(*fix)
+            display = next((c for c in [field["name"]] + field["aliases"] if c in labels and c not in used),
+                           field["name"])
+            label = labels.get(display)
+            segments = field["segments"]
+            if label and label["bit_len"] < sum(c for _, c in segments) and label["bit_len"] == segments[0][1]:
+                # espefuse sépare un champ en plusieurs lignes du CSV : on garde la première.
+                segments = segments[:1]
+            bits = sum(c for _, c in segments)
+            entries.append(dict(name=display, csv=field["name"], aliases=field["aliases"], block=field["block"],
+                                segments=segments, description=field["description"],
+                                values=field["values"], wr=protection(field, wr_dis), rd=protection(field, rd_dis),
+                                category=label["category"] if label else "config",
+                                type=label["efuse_type"] if label else default_type(bits),
+                                shown=label is not None))
+            if label:
+                used.add(display)
+
+        # Champs d'espefuse qui correspondent à une ligne de continuation du CSV.
+        for name, label in labels.items():
+            if name in used or label.get("word") is None:
+                continue
+            start = label["word"] * 32 + label["pos"]
+            for field in fields:
+                for index, (s, c) in enumerate(field["segments"]):
+                    if field["block"] == label["block"] and s == start and c == label["bit_len"] and index > 0:
+                        entries.append(dict(name=name, csv=field["name"], aliases=[], block=field["block"],
+                                            segments=[(s, c)], description=field["lines"][index].strip(),
+                                            values={}, wr=protection(field, wr_dis), rd=protection(field, rd_dis),
+                                            category=label["category"], type=label["efuse_type"], shown=True))
+                        used.add(name)
+
+        composites = [dict(name=name, category=label["category"], type=label["efuse_type"],
+                           description=label["description"], bits=label["bit_len"], block=label["block"])
+                      for name, label in sorted(labels.items()) if name not in used]
+
+        case = chip
+        lines = [
+            "// SPDX-License-Identifier: MIT OR Apache-2.0",
+            "//",
+            "// Généré par Tools/efuse-codegen/generate.py depuis components/efuse/"
+            f"{chip}/esp_efuse_table.csv d'ESP-IDF (Apache-2.0). Ne pas modifier.",
+            "",
+            "extension EfuseTable {",
+            f"    static let {case} = EfuseTable(chip: .{case}, fields: [",
+        ]
+        for e in entries:
+            segs = ", ".join(f"Bits({s}, {c})" for s, c in e["segments"])
+            values = ", ".join(f"{k}: {swift_string(v)}" for k, v in sorted(e["values"].items())) or ":"
+            aliases = ", ".join(swift_string(a) for a in e["aliases"])
+            lines.append(
+                f"        EfuseDefinition(name: {swift_string(e['name'])}, idfName: {swift_string(e['csv'])}, "
+                f"aliases: [{aliases}], block: {e['block']}, bits: [{segs}], "
+                f"description: {swift_string(e['description'])}, category: {swift_string(e['category'])}, "
+                f"type: {swift_string(e['type'])}, inSummary: {'true' if e['shown'] else 'false'}, "
+                f"writeDisableBit: {e['wr'] if e['wr'] is not None else 'nil'}, "
+                f"readDisableBit: {e['rd'] if e['rd'] is not None else 'nil'}, values: [{values}]),")
+        lines.append("    ], composites: [")
+        for c in composites:
+            lines.append(
+                f"        CompositeLabel(name: {swift_string(c['name'])}, block: {c['block']}, bitCount: {c['bits']}, "
+                f"description: {swift_string(c['description'])}, category: {swift_string(c['category'])}, "
+                f"type: {swift_string(c['type'])}),")
+        lines += ["    ])", "}", ""]
+        # Constantes de noms : EfuseFieldName.ESP32S3.spiBootCryptCnt.
+        namespace = {"esp32": "ESP32"}.get(chip, "ESP32" + chip[5:].upper())
+        lines += ["extension EfuseFieldName {", f"    public enum {namespace} {{"]
+        names = sorted({e["name"] for e in entries} | {c["name"] for c in composites})
+        for name in names:
+            parts = name.lower().replace(".", "_").split("_")
+            identifier = parts[0] + "".join(p[:1].upper() + p[1:] for p in parts[1:])
+            if identifier[:1].isdigit():
+                identifier = "_" + identifier
+            if identifier in SWIFT_KEYWORDS:
+                identifier = f"`{identifier}`"
+            lines.append(f"        public static let {identifier}: EfuseFieldName = {swift_string(name)}")
+        lines += ["    }", "}", ""]
+        out = out_dir / f"EfuseTable+{chip}.swift"
+        out.write_text("\n".join(lines))
+        print(f"{out.name} : {len(entries)} champs, {sum(e['shown'] for e in entries)} dans summary, "
+              f"{len(composites)} composés")
+
+
+def main():
+    if len(sys.argv) < 2:
+        sys.exit(__doc__)
+    root = pathlib.Path(__file__).resolve().parent.parent.parent
+    out_dir = root / "Sources" / "ESPEfuse" / "Generated"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    generate(pathlib.Path(sys.argv[1]), sys.argv[2:], out_dir)
+
+
+if __name__ == "__main__":
+    main()

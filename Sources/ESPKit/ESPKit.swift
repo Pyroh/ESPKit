@@ -6,3 +6,4 @@
 @_exported import ESPImage
 @_exported import ESPSecure
 @_exported import ESPDevice
+@_exported import ESPEfuse
