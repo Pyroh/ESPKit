@@ -1,0 +1,20 @@
+ESPKit
+Copyright (c) 2026 VelvetFlare and the ESPKit contributors
+
+ESPKit is dual-licensed under the MIT License (LICENSE-MIT) or the
+Apache License, Version 2.0 (LICENSE-APACHE), at your option.
+
+ESPKit is an independent implementation of the Espressif serial bootloader
+protocol. It contains no code from esptool, espefuse or espsecure
+(GPL-2.0-or-later). Protocol constants, register addresses and timing values
+are technical facts documented by Espressif.
+
+Third-party components (added in later phases):
+
+- esp-flasher-stub (https://github.com/esp-rs/esp-flasher-stub)
+  Flasher stub binaries, MIT OR Apache-2.0. Will live in
+  Sources/ESPDevice/Resources/stubs/ with their licence files.
+
+- ESP-IDF eFuse tables (components/efuse/<chip>/esp_efuse_table.csv)
+  Apache-2.0. Used as input of Tools/efuse-codegen; generated Swift sources
+  are derived works of these tables.

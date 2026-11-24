@@ -1,0 +1,157 @@
+// SPDX-License-Identifier: MIT OR Apache-2.0
+
+import Foundation
+#if canImport(IOKit)
+import IOKit
+#endif
+
+/// Un port série présent sur la machine.
+public struct SerialPortInfo: Hashable, Sendable {
+    /// Par exemple « /dev/cu.usbmodem1101 ».
+    public var path: String
+    public var usb: USBIdentity?
+
+    public init(path: String, usb: USBIdentity? = nil) {
+        self.path = path
+        self.usb = usb
+    }
+}
+
+/// Critères de choix d'un port. Un critère `nil` est ignoré.
+public struct PortFilter: Hashable, Sendable {
+    public var vendorID: UInt16?
+    public var productID: UInt16?
+    public var pathContains: String?
+    public var serialNumberContains: String?
+
+    public init(vendorID: UInt16? = nil, productID: UInt16? = nil,
+                pathContains: String? = nil, serialNumberContains: String? = nil) {
+        self.vendorID = vendorID
+        self.productID = productID
+        self.pathContains = pathContains
+        self.serialNumberContains = serialNumberContains
+    }
+
+    public func matches(_ port: SerialPortInfo) -> Bool {
+        if let vendorID, port.usb?.vendorID != vendorID { return false }
+        if let productID, port.usb?.productID != productID { return false }
+        if let pathContains, !port.path.contains(pathContains) { return false }
+        if let serialNumberContains {
+            guard let serial = port.usb?.serialNumber, serial.contains(serialNumberContains) else { return false }
+        }
+        return true
+    }
+}
+
+public enum SerialPorts {
+    /// Ports série présents (macOS : IOKit ; Linux : sysfs). Ne les ouvre pas.
+    public static func available() throws -> [SerialPortInfo] {
+        #if canImport(IOKit)
+        try availableFromIOKit()
+        #elseif os(Linux)
+        availableFromSysfs()
+        #else
+        []
+        #endif
+    }
+
+    public static func available(matching filter: PortFilter) throws -> [SerialPortInfo] {
+        try available().filter(filter.matches)
+    }
+}
+
+#if canImport(IOKit)
+extension SerialPorts {
+    private static func availableFromIOKit() throws -> [SerialPortInfo] {
+        guard let matching = IOServiceMatching("IOSerialBSDClient") else { return [] }
+        var iterator: io_iterator_t = 0
+        let status = IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator)
+        guard status == KERN_SUCCESS else { throw TransportError.ioFailed(errno: status) }
+        defer { IOObjectRelease(iterator) }
+
+        var ports: [SerialPortInfo] = []
+        while case let service = IOIteratorNext(iterator), service != 0 {
+            defer { IOObjectRelease(service) }
+            // Le périphérique « callout » (/dev/cu.*) n'attend pas la porteuse, contrairement à /dev/tty.*.
+            guard let path = property(service, "IOCalloutDevice", searchParents: false) as? String else { continue }
+            ports.append(SerialPortInfo(path: path, usb: usbIdentity(of: service)))
+        }
+        return ports.sorted { $0.path < $1.path }
+    }
+
+    private static func usbIdentity(of service: io_object_t) -> USBIdentity? {
+        guard let vendor = (property(service, "idVendor", searchParents: true) as? NSNumber)?.uint16Value,
+              let product = (property(service, "idProduct", searchParents: true) as? NSNumber)?.uint16Value
+        else { return nil }
+        return USBIdentity(
+            vendorID: vendor,
+            productID: product,
+            serialNumber: property(service, "USB Serial Number", searchParents: true) as? String,
+            manufacturer: property(service, "USB Vendor Name", searchParents: true) as? String,
+            product: property(service, "USB Product Name", searchParents: true) as? String
+        )
+    }
+
+    private static func property(_ service: io_object_t, _ key: String, searchParents: Bool) -> Any? {
+        if searchParents {
+            let options = IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)
+            return IORegistryEntrySearchCFProperty(service, kIOServicePlane, key as CFString, kCFAllocatorDefault, options)
+        }
+        return IORegistryEntryCreateCFProperty(service, key as CFString, kCFAllocatorDefault, 0)?.takeRetainedValue()
+    }
+}
+#endif
+
+#if os(Linux)
+extension SerialPorts {
+    /// Parcourt /sys/class/tty : seuls les ports adossés à un périphérique réel sont rendus.
+    private static func availableFromSysfs() -> [SerialPortInfo] {
+        let fileManager = FileManager.default
+        let root = URL(fileURLWithPath: "/sys/class/tty")
+        guard let names = try? fileManager.contentsOfDirectory(atPath: root.path) else { return [] }
+        var ports: [SerialPortInfo] = []
+        for name in names {
+            let deviceLink = root.appendingPathComponent(name).appendingPathComponent("device")
+            guard let device = try? fileManager.destinationOfSymbolicLink(atPath: deviceLink.path) else { continue }
+            let deviceURL = URL(fileURLWithPath: device, relativeTo: deviceLink.deletingLastPathComponent())
+                .standardizedFileURL
+            // Les ports 8250 sans matériel derrière apparaissent aussi : on ne garde que USB et ACM,
+            // plus les UART dont le pilote n'est pas « serial8250 ».
+            let isUSB = name.hasPrefix("ttyUSB") || name.hasPrefix("ttyACM")
+            if !isUSB {
+                let driver = (try? fileManager.destinationOfSymbolicLink(atPath: deviceURL.appendingPathComponent("driver").path))
+                if driver == nil || driver!.hasSuffix("serial8250") { continue }
+            }
+            ports.append(SerialPortInfo(path: "/dev/\(name)", usb: usbIdentity(startingAt: deviceURL)))
+        }
+        return ports.sorted { $0.path < $1.path }
+    }
+
+    /// Remonte l'arborescence sysfs jusqu'au nœud USB qui porte idVendor/idProduct.
+    private static func usbIdentity(startingAt start: URL) -> USBIdentity? {
+        var directory = start
+        for _ in 0..<6 {
+            let vendorFile = directory.appendingPathComponent("idVendor")
+            if let vendor = readHex(vendorFile), let product = readHex(directory.appendingPathComponent("idProduct")) {
+                return USBIdentity(
+                    vendorID: vendor,
+                    productID: product,
+                    serialNumber: readText(directory.appendingPathComponent("serial")),
+                    manufacturer: readText(directory.appendingPathComponent("manufacturer")),
+                    product: readText(directory.appendingPathComponent("product"))
+                )
+            }
+            directory.deleteLastPathComponent()
+        }
+        return nil
+    }
+
+    private static func readText(_ url: URL) -> String? {
+        (try? String(contentsOf: url, encoding: .utf8))?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private static func readHex(_ url: URL) -> UInt16? {
+        readText(url).flatMap { UInt16($0, radix: 16) }
+    }
+}
+#endif
