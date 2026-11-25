@@ -3,11 +3,8 @@
 A Swift SDK for talking to the serial bootloader of Espressif chips (ESP8266, ESP32 and the ESP32-x family): detection, flashing, images, Secure Boot, flash encryption and eFuses. An independent reimplementation of what esptool, espefuse and espsecure can do, without a CLI.
 
 - **Platforms:** macOS 15+ and Linux.
-- **Language:** Swift 6.2 or later (swift-crypto 5.1), strict concurrency. `ESPDevice` is an `actor`; long-running operations are `AsyncSequence`s.
-- **Products:** `ESPKit` (everything), plus `ESPImage` and `ESPSecure` (each with `ESPTargets`) for tools that build or sign images without a chip.
+- **Language:** Swift 6.2 or later, strict concurrency.
 - **License:** MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
-
-The public API specification is the reference; it lives in the research folder (`ESPKit-API.md`).
 
 ## Disclaimer
 
@@ -50,18 +47,22 @@ print(try await esp.flashInfo().detectedSize!)  // 8MB
 Writing, reading, verifying or erasing the flash takes from a few seconds to several minutes over a
 serial link. So `writeFlash`, `readFlash`, `verifyFlash`, `eraseFlash` and `readMemory` do not
 wait until the work is done. Each returns an `ESPOperation`: a description of the work, which you
-run by consuming it as an `AsyncSequence`.
+run by iterating it as an `AsyncSequence`. It yields `.progress` events (stage, region, bytes
+done), then a single `.finished` carrying the result: a write report, the bytes read, the
+verification results.
 
-- **Cold:** nothing reaches the chip until you iterate the operation or await its `.value`.
-  Iterating it again runs it again.
-- **Events:** it yields `.progress` events (stage, region, bytes done), then a single `.finished`
-  carrying the result: a write report, the bytes read, the verification results.
-- **Never slowed down:** if the consumer (a UI, say) is slower than the chip, it only gets the
-  latest progress; the final event is never dropped.
-- **Cancellable:** cancelling the task, or leaving the loop, stops the operation at the next block.
-  The session stays open, ready for the next operation.
-- **In order:** operations on one `ESPDevice` run one after the other, even when several tasks
-  start them at once.
+```swift
+for try await event in esp.readFlash(at: 0, count: nil) {    // nil: the whole flash
+    switch event {
+    case .progress(let progress):
+        print(Int(progress.fractionCompleted * 100), "%")
+    case .finished(let backup):
+        try backup.write(to: backupURL)
+    }
+}
+```
+
+When only one of the two matters, two shortcuts skip the `switch`:
 
 ```swift
 // The result only.
@@ -71,16 +72,26 @@ let partitionTable = try await esp.readFlash(at: 0x8000, count: 0xC00).value
 for try await progress in esp.eraseFlash().progress {
     print(progress.stage)
 }
+```
 
-// Cancellation: cancel the task that runs the operation.
+- **Cold:** nothing reaches the chip until you iterate the operation or await its `.value`, and
+  each iteration runs it again. The shortcuts are iterations too: looping over `.progress` and
+  then awaiting `.value` runs the operation twice. To get both, iterate the operation once.
+- **Never slowed down:** if the consumer (a UI, say) is slower than the chip, it only gets the
+  latest progress; the final event is never dropped.
+- **Cancellable:** cancelling the task, or leaving the loop, stops the operation at the next block.
+  The session stays open, ready for the next operation.
+- **In order:** operations on one `ESPDevice` run one after the other, even when several tasks
+  start them at once.
+
+```swift
 let backup = Task { try await esp.readFlash(at: 0, count: nil).value }
 backup.cancel()     // `try await backup.value` then throws CancellationError
 ```
 
 ### Flash a firmware
 
-Writes are compressed and checked by MD5. The loop follows the progress of the write, then gets
-its report.
+Writes are compressed and checked by MD5.
 
 ```swift
 let regions = [

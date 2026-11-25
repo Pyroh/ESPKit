@@ -54,8 +54,6 @@ task.
 ### Operations
 
 - ``ESPOperation``
-- ``ESPOperationEvent``
-- ``OperationProgress``
 
 ### Memory and execution
 

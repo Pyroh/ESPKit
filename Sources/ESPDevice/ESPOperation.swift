@@ -2,17 +2,36 @@
 
 import Foundation
 
-/// Long-running operation on the chip: write, read, verify, erase.
+/// An `AsyncSequence` of progress events, then the result, of a long operation on the chip:
+/// write, read, verify, erase.
 ///
-/// The operation is **cold**: nothing is sent to the chip until it is iterated
-/// or `value` is awaited, and each iteration runs it again.
+/// Iterate the operation itself to follow its progress and get its result. Each iteration
+/// yields ``ESPOperationEvent/progress(_:)`` events, then a single
+/// ``ESPOperationEvent/finished(_:)`` with the result:
+///
+/// ```swift
+/// for try await event in esp.writeFlash(regions) {
+///     switch event {
+///     case .progress(let progress):
+///         print(progress.stage, progress.fractionCompleted)
+///     case .finished(let report):
+///         print(report.regions.count, "regions written")
+///     }
+/// }
+/// ```
+///
+/// Two shortcuts cover the cases where only one of them matters: ``value`` runs the operation and
+/// returns its result, ``progress`` yields its progress and drops the result.
+///
+/// The operation is **cold**: nothing is sent to the chip until it is iterated or ``value`` is
+/// awaited, and each iteration runs it again. Iterating ``progress`` then awaiting ``value``
+/// therefore runs the operation twice: to get both, iterate the operation once.
 /// It runs in the isolation of the `ESPDevice`, so after the other operations.
 ///
 /// - Cancelling the iterating task, or leaving the loop, stops the operation at the next block;
 ///   the iteration then throws `CancellationError`.
 /// - `.progress` events never block the transfer: if the consumer is slower than the chip,
-///   only the most recent progress is kept. `.finished` is never
-///   lost.
+///   only the most recent progress is kept. `.finished` is never lost.
 public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
     /// Progress events, then the result.
     public typealias Element = ESPOperationEvent<Success>
@@ -25,18 +44,23 @@ public struct ESPOperation<Success: Sendable>: AsyncSequence, Sendable {
         self.body = body
     }
 
-    /// Runs the operation to completion without following its progress.
+    /// Runs the operation to completion without following its progress, and returns its result.
+    ///
+    /// Each access runs the operation again.
     public var value: Success {
         get async throws { try await body(ProgressSink.discarding) }
     }
 
-    /// Progress only. The result is discarded: use it when `Success == Void`
-    /// or when the result is read elsewhere.
+    /// The progress of a new run of the operation, without its result.
+    ///
+    /// Use it when the operation returns nothing (`Success == Void`, as for an erase) or when the
+    /// result does not matter. Awaiting ``value`` afterwards would run the operation a second
+    /// time: to get both, iterate the operation itself.
     public var progress: some AsyncSequence<OperationProgress, any Error> & Sendable {
         ProgressOnly(operation: self)
     }
 
-    /// Starts a new run of the operation.
+    /// Starts a new run of the operation. `for try await` calls it; you do not need to.
     public func makeAsyncIterator() -> Iterator {
         let (stream, continuation) = AsyncThrowingStream.makeStream(
             of: Element.self, throwing: (any Error).self, bufferingPolicy: .bufferingNewest(1))
