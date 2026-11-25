@@ -49,7 +49,7 @@ while writing (`--encrypt-files`). Such regions are sent uncompressed, padded wi
 16 bytes (32 on the ESP32), and are not verified: the flash holds ciphertext. ESPKit refuses them
 unless flash encryption is enabled in the eFuses, or ``WriteFlashOptions/ignoreEncryptionEfuses``
 is set. The ESP32 needs the stub for this; to produce ciphertext offline instead, use
-`FlashEncryption` from ESPSecure and write the result in plaintext.
+``FlashEncryption`` from ESPSecure and write the result in plaintext.
 
 ### Reading, verifying, erasing
 

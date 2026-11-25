@@ -46,7 +46,7 @@ connection: ``ESPDevice/securityInfo()``, ``ESPDevice/writeFlash(_:options:)`` a
 
 ### Ending the session
 
-``ESPDevice/disconnect(_:)`` applies an `ExitReset` and closes the port. `ExitReset.hard`
+``ESPDevice/disconnect(_:)`` applies an ``ExitReset`` and closes the port. `ExitReset.hard`
 restarts the chip into its application; `ExitReset.stayInBootloader` leaves it in the ROM.
 After `disconnect`, every call throws ``ConnectionError/disconnected``.
 

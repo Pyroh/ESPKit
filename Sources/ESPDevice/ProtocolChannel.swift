@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
-import ESPProtocol
 import ESPTransport
 
 /// Command/response exchange over a `Transport`: SLIP framing, waiting for the matching

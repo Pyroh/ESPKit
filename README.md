@@ -4,6 +4,7 @@ A Swift SDK for talking to the serial bootloader of Espressif chips (ESP8266, ES
 
 - **Platforms:** macOS 15+ and Linux.
 - **Language:** Swift 6.2 or later (swift-crypto 5.1), strict concurrency. `ESPDevice` is an `actor`; long-running operations are `AsyncSequence`s.
+- **Products:** `ESPKit` (everything), plus `ESPImage` and `ESPSecure` (each with `ESPTargets`) for tools that build or sign images without a chip.
 - **License:** MIT OR Apache-2.0 (`LICENSE-MIT`, `LICENSE-APACHE`, `NOTICE`).
 
 The public API specification is the reference; it lives in the research folder (`ESPKit-API.md`).
@@ -62,17 +63,20 @@ Not yet: eFuse programming on a board for chips other than the ESP32, SPI NAND f
 
 ## Documentation
 
-Every public symbol is documented, and each module has a DocC catalog with guides (connecting,
-writing the flash, building images, Secure Boot, flash encryption, reading and burning eFuses, the
-correspondence with esptool). To build it, with no plugin:
+Every public symbol is documented in a single DocC catalog, `Sources/ESPKit/ESPKit.docc`, with one
+entry point: the API grouped by topic (talking to a chip, serial ports, chips and flash settings,
+images, Secure Boot and flash encryption, eFuses) and the guides (connecting, writing the flash,
+building images, signing, reading and burning eFuses, the correspondence with esptool). To build it,
+with no plugin:
 
 ```bash
 Tools/build-docs.sh
 ```
 
-The archives land in `.build/documentation`: one per module, and `ESPKitDocumentation.doccarchive`
-merging them all. Open an archive in Xcode, or preview a module with
-`xcrun docc preview Sources/ESPDevice/ESPDevice.docc --additional-symbol-graph-dir .build/documentation/graphs/ESPDevice`.
+The archive lands in `.build/documentation/ESPKit.doccarchive`. Double-click it to read it in Xcode,
+or open it in Dash, which indexes it as a docset (copy it out of `.build` first: the next build
+replaces it). Preview it live with
+`xcrun docc preview Sources/ESPKit/ESPKit.docc --additional-symbol-graph-dir .build/documentation/graphs`.
 `WARNINGS_AS_ERRORS=1` makes any broken link fail the build, as in CI.
 
 ## Tests

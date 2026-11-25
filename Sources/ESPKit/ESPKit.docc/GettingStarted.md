@@ -41,7 +41,7 @@ print(esp.chip, try await esp.macAddress(), try await esp.flashInfo())
 ```
 
 `connect` resets the chip into its bootloader, detects it, loads the flasher stub and raises the
-baud rate to 460,800. `ConnectOptions` changes any of that.
+baud rate to 460,800. ``ConnectOptions`` changes any of that.
 
 ### Flash a build
 
@@ -66,6 +66,6 @@ await esp.disconnect(.hard)          // restart into the new application
 
 ### Next steps
 
-- Build images from an ELF instead of using the build's binaries: `ImageBuilder` in ESPImage.
-- Sign them for Secure Boot: `SecureBootV2` in ESPSecure.
-- Read the chip's security state: `EfuseController` in ESPEfuse.
+- Build images from an ELF instead of using the build's binaries: ``ImageBuilder`` in ESPImage.
+- Sign them for Secure Boot: ``SecureBootV2`` in ESPSecure.
+- Read the chip's security state: ``EfuseController`` in ESPEfuse.

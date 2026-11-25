@@ -3,7 +3,6 @@
 import Foundation
 import Testing
 @testable import ESPImage
-import ESPProtocol
 import ESPSupport
 import ESPTargets
 @testable import ESPDevice

@@ -4,7 +4,7 @@ Talk to a chip over something other than a local serial port.
 
 ## Overview
 
-`ESPDevice` only needs a ``Transport``: a byte channel that can also set two control lines and
+``ESPDevice`` only needs a ``Transport``: a byte channel that can also set two control lines and
 change its baud rate. ``SerialPort`` is one; a TCP bridge, a USB library or a test double can be
 another.
 

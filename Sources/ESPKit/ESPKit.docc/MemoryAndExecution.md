@@ -13,7 +13,7 @@ Read registers and memory, run code from RAM, and start the application in flash
 
 ### Code in RAM
 
-``ESPDevice/loadRAMAndRun(_:)`` copies a `FirmwareImage` (from ESPImage) into RAM and jumps to its
+``ESPDevice/loadRAMAndRun(_:)`` copies a ``FirmwareImage`` (from ESPImage) into RAM and jumps to its
 entry point, without touching the flash (`load-ram`). The session ends: the chip now runs your
 code, and the actor moves to ``ESPDevice/State/closed`` without a reset. Segments mapped from
 flash are refused.

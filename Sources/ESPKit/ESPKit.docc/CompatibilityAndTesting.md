@@ -15,7 +15,7 @@ outputs, without a board.
 
 ESPKit's tests use Espressif's tools as black boxes and compare outputs, never code:
 
-- images built by `ImageBuilder` and files produced by `MergedImage` are identical to esptool 4.11
+- images built by ``ImageBuilder`` and files produced by ``MergedImage`` are identical to esptool 4.11
   and 5.1 on ESP-IDF, Arduino and ESP8266 builds;
 - Secure Boot v2 signatures verify with `espsecure verify-signature`; key digests, Secure Boot v1
   digests and flash encryption match espsecure;

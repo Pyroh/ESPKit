@@ -1,16 +1,16 @@
-# ``ESPTargets``
+# Chips and Flash Settings
 
-Base types shared by every ESPKit module: chip families, revisions, MAC addresses, flash settings and regions.
+The common vocabulary of the SDK: chip families, revisions, MAC addresses, flash settings and regions.
 
 ## Overview
 
-ESPTargets has no I/O and no dependency. Every other module builds on it, so its types are the
-common vocabulary of the SDK: a ``ChipFamily`` says which chip you talk to, a ``FlashRegion``
+These types come from the ESPTargets module, which has no I/O and no dependency; every other
+module builds on it, so they appear everywhere: a ``ChipFamily`` says which chip you talk to, a ``FlashRegion``
 says what to write where, ``FlashHeaderOverrides`` says how to patch a bootloader header on
 the way.
 
 ```swift
-import ESPTargets
+import ESPKit
 
 let chip = ChipFamily.esp32s3
 print(chip.displayName, chip.architecture, String(chip.bootloaderOffset, radix: 16))

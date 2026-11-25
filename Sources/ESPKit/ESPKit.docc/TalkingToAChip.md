@@ -1,4 +1,4 @@
-# ``ESPDevice``
+# Talking to a Chip
 
 A session with a chip in download mode: detection, flashing, reading, registers, memory and RAM code.
 
@@ -10,7 +10,7 @@ and raises the baud rate. Every operation then goes through the actor, so two ex
 interleave even when several tasks share the session.
 
 ```swift
-import ESPDevice
+import ESPKit
 
 let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")
 print(esp.chip, try await esp.macAddress())

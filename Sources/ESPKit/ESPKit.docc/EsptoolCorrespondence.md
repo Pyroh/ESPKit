@@ -10,7 +10,7 @@ Where each esptool, espefuse and espsecure command lives in ESPKit.
 |---|---|
 | `chip-id`, `read-mac`, `flash-id` | `ESPDevice.chip`, `chipID()`, `macAddress()`, `flashInfo()` |
 | `get-security-info` | `ESPDevice.securityInfo()` |
-| `write-flash` (`-z`, `-e`, `--diff-with`, `--skip-flashed`, `--encrypt-files`, `--flash-*`) | `writeFlash(_:options:)` with `WriteFlashOptions` |
+| `write-flash` (`-z`, `-e`, `--diff-with`, `--skip-flashed`, `--encrypt-files`, `--flash-*`) | `writeFlash(_:options:)` with ``WriteFlashOptions`` |
 | `read-flash`, `verify-flash` | `readFlash(at:count:)`, `verifyFlash(_:)` |
 | `erase-flash`, `erase-region` | `eraseFlash(force:)`, `eraseRegion(at:count:force:)` |
 | `read-flash-status`, `write-flash-status`, `read-flash-sfdp` | `readFlashStatus(byteCount:)`, `writeFlashStatus(_:byteCount:nonVolatile:)`, `readSFDP(at:count:)` |
@@ -19,7 +19,7 @@ Where each esptool, espefuse and espsecure command lives in ESPKit.
 | `elf2image` | `ImageBuilder.makeImage(from:chip:options:)`, `makeESP8266Image(from:version:options:)` |
 | `image-info` | `AnyFirmwareImage(parsing:chip:)`, `validate()` |
 | `merge-bin` (raw, hex, uf2) | `MergedImage.raw`, `intelHex`, `uf2` |
-| `--before`, `--after` | `ConnectOptions.entryReset`, `disconnect(_:)` with `ExitReset` |
+| `--before`, `--after` | `ConnectOptions.entryReset`, `disconnect(_:)` with ``ExitReset`` |
 | `--no-stub`, `--baud`, `--trace` | `ConnectOptions.stub`, `baudRate`, `trace` |
 
 ### espefuse

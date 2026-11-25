@@ -2,7 +2,7 @@
 
 import Foundation
 import Testing
-@testable import ESPProtocol
+@testable import ESPDevice
 
 @Suite("SLIP")
 struct SLIPTests {
