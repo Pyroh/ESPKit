@@ -46,17 +46,16 @@ baud rate to 460,800. ``ConnectOptions`` changes any of that.
 ### Flash a build
 
 An ESP-IDF or PlatformIO build produces three binaries: the bootloader, the partition table and the
-application.
+application. ``FlashRegions`` holds them; ESPKit works out where each one goes on the connected
+chip.
 
 ```swift
-let build = URL(fileURLWithPath: ".pio/build/esp32s3")
-let regions = [
-    FlashRegion(address: esp.chip.bootloaderOffset,
-                data: try Data(contentsOf: build.appendingPathComponent("bootloader.bin"))),
-    FlashRegion(address: 0x8000, data: try Data(contentsOf: build.appendingPathComponent("partitions.bin"))),
-    FlashRegion(address: 0x10000, data: try Data(contentsOf: build.appendingPathComponent("firmware.bin"))),
-]
-for try await event in esp.writeFlash(regions) {
+let folder = URL(fileURLWithPath: ".pio/build/esp32s3")
+let build = FlashRegions(
+    bootloader: try Data(contentsOf: folder.appendingPathComponent("bootloader.bin")),
+    partitionTable: try Data(contentsOf: folder.appendingPathComponent("partitions.bin")),
+    application: try Data(contentsOf: folder.appendingPathComponent("firmware.bin")))
+for try await event in esp.writeFlash(build) {
     if case .progress(let progress) = event {
         print(progress.stage, Int(progress.fractionCompleted * 100), "%")
     }

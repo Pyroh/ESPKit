@@ -382,3 +382,49 @@ struct ReadVerifyEraseTests {
         #expect(flash.subdata(in: 0x2_0000..<0x2_0000 + 20_000) == b)
     }
 }
+
+@Suite("Writing a build")
+struct WriteBuildTests {
+    /// Arduino's default layout: otadata at 0xE000, app0 (ota_0) at 0x10000, no factory partition.
+    private static func otaTable() -> Data {
+        var data = Data()
+        for (type, subtype, offset, size, label) in [(UInt8(1), UInt8(0x02), UInt32(0x9000), UInt32(0x5000), "nvs"),
+                                                     (1, 0x00, 0xE000, 0x2000, "otadata"),
+                                                     (0, 0x10, 0x1_0000, 0x14_0000, "app0"),
+                                                     (0, 0x11, 0x15_0000, 0x14_0000, "app1")] {
+            data.append(contentsOf: [0xAA, 0x50, type, subtype])
+            data.appendLE(offset)
+            data.appendLE(size)
+            data.append(Data(label.utf8) + Data(count: 16 - label.utf8.count))
+            data.appendLE(UInt32(0))
+        }
+        let digest = MD5.hash(data)
+        data.append(contentsOf: [0xEB, 0xEB] + [UInt8](repeating: 0xFF, count: 14))
+        data.append(digest)
+        return data + Data(repeating: 0xFF, count: 0xC00 - data.count)
+    }
+
+    @Test func resolvesTheAddressesForTheConnectedChip() async throws {
+        let chip = SimulatedChip.esp32s3()
+        // An earlier OTA update left a selection in otadata.
+        await chip.setFlash(Data(repeating: 0x5A, count: 0x2000), at: 0xE000)
+        let esp = try await ESPDevice.connect(chip, options: options())
+        let build = FlashRegions(bootloader: image(chipID: 9), partitionTable: Self.otaTable(),
+                                 application: image(chipID: 9, payload: sample(50_000, seed: 4)))
+        let report = try await esp.writeFlash(build).value
+        #expect(report.regions.map(\.address) == [0x0, 0x8000, 0xE000, 0x1_0000])
+        let flash = await chip.flash
+        #expect(flash.subdata(in: 0x8000..<0x8C00) == build.partitionTable)
+        #expect(flash.subdata(in: 0xE000..<0x1_0000) == Data(repeating: 0xFF, count: 0x2000))
+        #expect(flash.subdata(in: 0x1_0000..<0x1_0000 + build.application.count) == build.application)
+    }
+
+    @Test func refusesATableItCannotRead() async throws {
+        let esp = try await ESPDevice.connect(SimulatedChip.esp32(), options: options())
+        let build = FlashRegions(bootloader: image(chipID: 0), partitionTable: Data(repeating: 0xFF, count: 0xC00),
+                                 application: image(chipID: 0))
+        await #expect(throws: PartitionTableError.malformed("no partition")) {
+            try await esp.writeFlash(build).value
+        }
+    }
+}

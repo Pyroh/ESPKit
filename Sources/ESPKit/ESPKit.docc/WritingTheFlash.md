@@ -4,17 +4,16 @@ Write, read back, verify and erase the SPI flash, including differential and enc
 
 ## Overview
 
-``ESPDevice/writeFlash(_:options:)`` takes the regions to write and returns an ``ESPOperation``
-whose result is a ``WriteFlashReport``. With the stub, data travels zlib-compressed in 16 KiB
-blocks, and each region is checked afterwards against the MD5 the chip computes.
+``ESPDevice/writeFlash(_:options:)-(FlashRegions,_)`` writes a build, given as ``FlashRegions``:
+its bootloader, partition table and application, without their addresses.
+``ESPDevice/writeFlash(_:options:)-([FlashRegion],_)`` writes any list of ``FlashRegion`` values,
+each at the address you give. Both return an ``ESPOperation`` whose result is a
+``WriteFlashReport``. With the stub, data travels zlib-compressed in 16 KiB blocks, and each region
+is checked afterwards against the MD5 the chip computes.
 
 ```swift
-let regions = [
-    FlashRegion(address: esp.chip.bootloaderOffset, data: bootloader),
-    FlashRegion(address: 0x8000, data: partitions),
-    FlashRegion(address: 0x10000, data: application),
-]
-for try await event in esp.writeFlash(regions) {
+let build = FlashRegions(bootloader: bootloader, partitionTable: partitions, application: application)
+for try await event in esp.writeFlash(build) {
     switch event {
     case .progress(let progress): print(progress.stage, Int(progress.fractionCompleted * 100), "%")
     case .finished(let report): print(report.regions.map(\.bytesSent))
@@ -25,6 +24,27 @@ for try await event in esp.writeFlash(regions) {
 Before anything is sent, ESPKit rejects empty, overlapping or out-of-flash regions, an image built
 for another chip, and writes below 0x8000 while Secure Boot is enabled; ``WriteFlashOptions/force``
 lifts the last two.
+
+### Where a build goes
+
+Only the bootloader's address is fixed by the chip. The others come from the build, and
+``FlashRegions`` resolves them for the connected chip when the operation runs:
+
+| File | Address |
+|---|---|
+| Bootloader | ``ChipFamily/bootloaderOffset``: the ROM looks for it at 0x1000 on the ESP32 and ESP32-S2, 0x2000 on the ESP32-C5, H4, P4 and S31, 0x0 on the others |
+| Partition table | ``FlashRegions/partitionTableOffset``: 0x8000 unless the build moved it with `CONFIG_PARTITION_TABLE_OFFSET`, as large or secure bootloaders need |
+| Application | The partition the bootloader boots, read from the table: `factory`, or `ota_0` when there is none |
+| `otadata` | Erased when the table has it, so that an earlier OTA update does not keep another partition selected. `idf.py flash` does the same. |
+
+Before anything is sent, ESPKit rejects a partition table it cannot read (bad magic, MD5
+mismatch), a table without a `factory` or `ota_0` partition, an application larger than its
+partition, and a bootloader that runs into the partition table: ``PartitionTableError``.
+
+``FlashRegions/resolved(for:)`` returns the same regions, to merge the build into one file with
+``MergedImage`` or to check it with ``ESPDevice/verifyFlash(_:)``. Write explicit regions for
+anything else: a data partition image (NVS, SPIFFS, LittleFS), a merged image at 0x0, or an
+ESP8266 Arduino build, which has no partition table.
 
 ### Bootloader header
 

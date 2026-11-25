@@ -10,7 +10,7 @@ Where each esptool, espefuse and espsecure command lives in ESPKit.
 |---|---|
 | `chip-id`, `read-mac`, `flash-id` | `ESPDevice.chip`, `chipID()`, `macAddress()`, `flashInfo()` |
 | `get-security-info` | `ESPDevice.securityInfo()` |
-| `write-flash` (`-z`, `-e`, `--diff-with`, `--skip-flashed`, `--encrypt-files`, `--flash-*`) | `writeFlash(_:options:)` with ``WriteFlashOptions`` |
+| `write-flash` (`-z`, `-e`, `--diff-with`, `--skip-flashed`, `--encrypt-files`, `--flash-*`) | `writeFlash(_:options:)` with ``WriteFlashOptions``, given ``FlashRegions`` or explicit regions |
 | `read-flash`, `verify-flash` | `readFlash(at:count:)`, `verifyFlash(_:)` |
 | `erase-flash`, `erase-region` | `eraseFlash(force:)`, `eraseRegion(at:count:force:)` |
 | `read-flash-status`, `write-flash-status`, `read-flash-sfdp` | `readFlashStatus(byteCount:)`, `writeFlashStatus(_:byteCount:nonVolatile:)`, `readSFDP(at:count:)` |

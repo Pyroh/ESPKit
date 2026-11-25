@@ -40,7 +40,7 @@ your own ``StubImage``, built from raw segments or from an esp-flasher-stub JSON
 ### Secure Download Mode
 
 A chip with Secure Download Mode enabled only accepts a few ROM commands. ESPKit detects it at
-connection: ``ESPDevice/securityInfo()``, ``ESPDevice/writeFlash(_:options:)`` and
+connection: ``ESPDevice/securityInfo()``, ``ESPDevice/writeFlash(_:options:)-([FlashRegion],_)`` and
 ``ESPDevice/eraseRegion(at:count:force:)`` stay available; every other operation throws
 ``UsageError/unavailableInSecureDownloadMode(operation:)`` without sending anything.
 

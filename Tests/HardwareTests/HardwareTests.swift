@@ -97,17 +97,16 @@ extension Boards {
 // MARK: - Phase 1 milestone
 
 /// Bootloader, partition table and application of a PlatformIO build.
-private func firmwareRegions(_ folder: String, chip: ChipFamily) throws -> [FlashRegion] {
+func firmwareBuild(_ folder: String) throws -> FlashRegions {
     let url = URL(fileURLWithPath: folder)
-    return [
-        FlashRegion(address: chip.bootloaderOffset, data: try Data(contentsOf: url.appendingPathComponent("bootloader.bin"))),
-        FlashRegion(address: 0x8000, data: try Data(contentsOf: url.appendingPathComponent("partitions.bin"))),
-        FlashRegion(address: 0x1_0000, data: try Data(contentsOf: url.appendingPathComponent("firmware.bin"))),
-    ]
+    return FlashRegions(bootloader: try Data(contentsOf: url.appendingPathComponent("bootloader.bin")),
+                        partitionTable: try Data(contentsOf: url.appendingPathComponent("partitions.bin")),
+                        application: try Data(contentsOf: url.appendingPathComponent("firmware.bin")))
 }
 
 private func flashAndBoot(port: String, chip: ChipFamily, firmware: String) async throws {
-    let regions = try firmwareRegions(firmware, chip: chip)
+    let build = try firmwareBuild(firmware)
+    let regions = try build.resolved(for: chip)
     var options = ConnectOptions()                       // stub v2 and 460,800 baud by default
     options.expectedChip = chip
     let clock = ContinuousClock()
@@ -121,9 +120,9 @@ private func flashAndBoot(port: String, chip: ChipFamily, firmware: String) asyn
     #expect(await esp.baudRate == 460_800)
 
     let writeStart = clock.now
-    let report = try await esp.writeFlash(regions).value
+    let report = try await esp.writeFlash(build).value
     let written = clock.now - writeStart
-    #expect(report.regions.count == 3)
+    #expect(report.regions.map(\.address) == regions.map(\.address))
 
     let readStart = clock.now
     for region in regions {

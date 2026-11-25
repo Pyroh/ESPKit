@@ -7,11 +7,8 @@ Combine bootloader, partition table and application into one file, and read imag
 ``MergedImage`` produces the three formats of `esptool merge-bin`:
 
 ```swift
-let regions = [
-    FlashRegion(address: 0x0, data: bootloader),
-    FlashRegion(address: 0x8000, data: partitions),
-    FlashRegion(address: 0x10000, data: application),
-]
+let build = FlashRegions(bootloader: bootloader, partitionTable: partitions, application: application)
+let regions = try build.resolved(for: .esp32s3)     // bootloader at 0x0 on the S3
 let raw = try MergedImage.raw(regions, chip: .esp32s3, padTo: .mb8)
 let hex = try MergedImage.intelHex(regions, chip: .esp32s3)
 let uf2 = try MergedImage.uf2(regions, chip: .esp32s3)

@@ -49,6 +49,11 @@ try image.serialized().write(to: binURL)
 - ``MemoryRegion``
 - ``ImageValidation``
 
+### Builds
+
+- ``FlashRegions``
+- ``PartitionTableError``
+
 ### Merging
 
 - ``MergedImage``

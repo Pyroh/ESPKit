@@ -91,28 +91,34 @@ backup.cancel()     // `try await backup.value` then throws CancellationError
 
 ### Flash a firmware
 
-Writes are compressed and checked by MD5.
+A build produces three files: the bootloader, the partition table and the application. Give them
+to `FlashRegions` and ESPKit works out the addresses for the connected chip: the bootloader goes
+where the chip's ROM looks for it, the application into the partition the partition table says
+the bootloader boots. Writes are compressed and checked by MD5.
 
 ```swift
-let regions = [
-    FlashRegion(address: esp.chip.bootloaderOffset, data: bootloader),
-    FlashRegion(address: 0x8000, data: partitions),
-    FlashRegion(address: 0x10000, data: application),
-]
+let build = FlashRegions(bootloader: bootloader, partitionTable: partitions, application: application)
+// If the build moved its partition table (CONFIG_PARTITION_TABLE_OFFSET), say where:
+// build.partitionTableOffset = 0x9000
 
-for try await event in esp.writeFlash(regions) {
+for try await event in esp.writeFlash(build) {
     switch event {
     case .progress(let progress):
         print(progress.stage, Int(progress.fractionCompleted * 100), "%")
     case .finished(let report):
-        print("\(report.regions.count) regions written and checked by MD5")
+        // ESP32-S3, Arduino layout: 0x0, 0x8000, 0xe000 (otadata, erased), 0x10000
+        print(report.regions.map { "0x" + String($0.address, radix: 16) })
     }
 }
+```
 
-// Next build: give what is already on the chip, and only the 4 KiB sectors
-// that changed are sent.
+Anything else (a data partition, a merged image, an ESP8266 build) is written as explicit
+`FlashRegion`s, each at its address. On the next build, give what is already on the chip, and only
+the 4 KiB sectors that changed are sent:
+
+```swift
 var options = WriteFlashOptions()
-options.previousContents = regions
+options.previousContents = try build.resolved(for: esp.chip)
 let report = try await esp.writeFlash([FlashRegion(address: 0x10000, data: newApplication)], options: options).value
 print(report.regions[0].bytesSent, "bytes sent")
 ```
@@ -123,7 +129,7 @@ print(report.regions[0].bytesSent, "bytes sent")
 let backup = try await esp.readFlash(at: 0, count: nil).value   // nil: the whole flash
 
 // Compares MD5 digests; on a mismatch, reads back and reports the first differences.
-for case .mismatch(let address, let differences) in try await esp.verifyFlash(regions).value {
+for case .mismatch(let address, let differences) in try await esp.verifyFlash(build.resolved(for: esp.chip)).value {
     print("0x\(String(address, radix: 16)): \(differences.count) bytes differ")
 }
 
@@ -144,11 +150,8 @@ options.flashSize = .mb4
 let app = try ImageBuilder.makeImage(from: elf, chip: .esp32s3, options: options).serialized()
 
 // One file for a web flasher or an OTA server, or a UF2 for drag-and-drop.
-let regions = [
-    FlashRegion(address: 0x0, data: bootloader),
-    FlashRegion(address: 0x8000, data: partitions),
-    FlashRegion(address: 0x10000, data: app),
-]
+let regions = try FlashRegions(bootloader: bootloader, partitionTable: partitions, application: app)
+    .resolved(for: .esp32s3)
 try MergedImage.raw(regions, chip: .esp32s3).write(to: mergedURL)
 try MergedImage.uf2(regions, chip: .esp32s3).write(to: uf2URL)
 

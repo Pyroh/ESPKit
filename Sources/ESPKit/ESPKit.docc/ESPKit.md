@@ -26,11 +26,8 @@ ESPTargets) for tools that build or sign images without a chip and should not li
 import ESPKit
 
 let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")
-let report = try await esp.writeFlash([
-    FlashRegion(address: esp.chip.bootloaderOffset, data: bootloader),
-    FlashRegion(address: 0x8000, data: partitions),
-    FlashRegion(address: 0x10000, data: application),
-]).value
+let build = FlashRegions(bootloader: bootloader, partitionTable: partitions, application: application)
+let report = try await esp.writeFlash(build).value
 await esp.disconnect(.hard)
 ```
 

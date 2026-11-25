@@ -5,7 +5,7 @@ import ESPImage
 import ESPSupport
 import ESPTargets
 
-/// Settings of ``ESPDevice/writeFlash(_:options:)``.
+/// Settings of `ESPDevice.writeFlash(_:options:)`.
 public struct WriteFlashOptions: Hashable, Sendable {
     /// `.automatic`: zlib, except under the ESP8266 ROM.
     public var compression: Compression = .automatic
@@ -54,7 +54,7 @@ public struct WriteFlashOptions: Hashable, Sendable {
     public init() {}
 }
 
-/// Result of ``ESPDevice/writeFlash(_:options:)``.
+/// Result of `ESPDevice.writeFlash(_:options:)`.
 public struct WriteFlashReport: Hashable, Sendable {
     /// One entry per region, in the order written.
     public var regions: [Region]
@@ -123,6 +123,22 @@ extension ESPDevice {
     public nonisolated func writeFlash(_ regions: [FlashRegion],
                                        options: WriteFlashOptions = .init()) -> ESPOperation<WriteFlashReport> {
         ESPOperation { sink in try await self.performWriteFlash(regions, options: options, sink: sink) }
+    }
+
+    /// Writes a build without giving its addresses: the bootloader at the chip's
+    /// `bootloaderOffset`, the partition table at `regions.partitionTableOffset`, the application
+    /// in the partition the bootloader boots, and an erased `otadata` partition if the table has one.
+    ///
+    /// The addresses are resolved with `FlashRegions.resolved(for:)` for the connected chip when
+    /// the operation runs; everything else is the same as writing those regions.
+    ///
+    /// - Throws: `PartitionTableError` if the partition table cannot be read or the files do not
+    ///   fit, then the errors of ``writeFlash(_:options:)-([FlashRegion],_)``.
+    public nonisolated func writeFlash(_ regions: FlashRegions,
+                                       options: WriteFlashOptions = .init()) -> ESPOperation<WriteFlashReport> {
+        ESPOperation { sink in
+            try await self.performWriteFlash(regions.resolved(for: self.chip), options: options, sink: sink)
+        }
     }
 
     /// Reads the flash. `count == nil`: up to the end of the detected flash.

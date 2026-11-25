@@ -16,6 +16,7 @@ lists the types it can throw.
 | ``UsageError`` | a request the chip or the session cannot honour, or a safeguard | change the arguments, or use `force` |
 | ``FlashError`` | an MD5 mismatch, no flash detected, a status register that does not take | rewrite; check the flash wiring |
 | ``StubError`` | the stub is missing, for another chip, malformed, or did not start | use `.romOnly`, or another stub |
+| ``PartitionTableError`` | a build's partition table cannot be read, or its files do not fit | check `partitionTableOffset` and the partition sizes |
 
 ```swift
 do {

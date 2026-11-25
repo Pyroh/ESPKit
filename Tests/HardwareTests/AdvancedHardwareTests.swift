@@ -156,11 +156,7 @@ extension Boards {
             let board = try #require(boards.first { $0.chip == chip })
             let path = try #require(board.port), folder = URL(fileURLWithPath: try #require(board.firmware))
             let flasher = try await ESPDevice.connect(port: path, options: connectOptions(chip))
-            _ = try await flasher.writeFlash([
-                FlashRegion(address: chip.bootloaderOffset, data: try Data(contentsOf: folder.appendingPathComponent("bootloader.bin"))),
-                FlashRegion(address: 0x8000, data: try Data(contentsOf: folder.appendingPathComponent("partitions.bin"))),
-                FlashRegion(address: 0x1_0000, data: try Data(contentsOf: folder.appendingPathComponent("firmware.bin"))),
-            ]).value
+            _ = try await flasher.writeFlash(try firmwareBuild(folder.path)).value
             await flasher.disconnect(.stayInBootloader)
 
             let serial = SerialPort(path: path)
