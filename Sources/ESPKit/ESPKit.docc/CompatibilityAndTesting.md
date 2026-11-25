@@ -22,7 +22,8 @@ ESPKit's tests use Espressif's tools as black boxes and compare outputs, never c
 - `summaryJSON()` matches `espefuse summary --format json` on real boards, and virtual burn
   scenarios end in the same state as `espefuse --virt`.
 
-The scripts in `Tools/oracle` produce the references; the README explains how to run the tests.
+The scripts in `Tools/oracle` produce the references; `TESTING.md` at the root of the repository
+explains how to run every test, on a simulated chip, against the tools and on real boards.
 
 ### Licence
 
