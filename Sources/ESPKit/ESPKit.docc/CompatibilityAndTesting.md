@@ -30,3 +30,18 @@ ESPKit is dual-licensed MIT OR Apache-2.0. It contains no esptool, espefuse or e
 (GPL); protocol constants, register addresses and timings are technical facts documented by
 Espressif. The bundled stub is esp-flasher-stub (MIT OR Apache-2.0) and the eFuse tables derive
 from ESP-IDF (Apache-2.0). See `NOTICE`.
+
+### Disclaimer
+
+ESPKit is provided "as is", without warranty of any kind, express or implied, as its licences
+(MIT and Apache-2.0) state. It writes flash memory and can burn eFuses, which cannot be undone: a
+wrong write, an interrupted transfer or a wrong eFuse can leave a board unusable or permanently
+locked. You use it at your own risk; the authors and contributors are not liable for damaged,
+bricked or locked hardware, lost data, or any other damage.
+
+Bug reports are welcome, though: open an issue at <https://github.com/Pyroh/ESPKit/issues> with the
+chip, the board and USB adapter, the ESPKit commit and, when the problem involves the chip, a trace
+(`ConnectOptions.trace`).
+
+ESPKit is an independent project, not affiliated with, endorsed or supported by Espressif Systems.
+Product names are trademarks of their respective owners.

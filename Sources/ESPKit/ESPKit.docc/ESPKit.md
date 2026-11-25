@@ -38,6 +38,10 @@ let report = try await esp.writeFlash([
 await esp.disconnect(.hard)
 ```
 
+> Important: ESPKit is provided "as is", without warranty of any kind, express or implied, as its licences (MIT and Apache-2.0) state. It writes flash memory and can burn eFuses, which cannot be undone: a wrong write, an interrupted transfer or a wrong eFuse can leave a board unusable or permanently locked. You use it at your own risk; the authors and contributors are not liable for damaged, bricked or locked hardware, lost data, or any other damage.
+> ESPKit is an independent project, not affiliated with, endorsed or supported by Espressif Systems.
+> Bug reports are welcome: <https://github.com/Pyroh/ESPKit/issues>.
+
 ## Topics
 
 ### Essentials
