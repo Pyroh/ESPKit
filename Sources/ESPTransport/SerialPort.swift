@@ -10,8 +10,10 @@ import Glibc
 
 /// POSIX serial port (`/dev/cu.*` on macOS, `/dev/ttyUSB*` or `/dev/ttyACM*` on Linux).
 ///
-/// Blocking system calls (`poll`, `read`, `write`) run on a dedicated queue: they never
-/// occupy a thread of the Swift Concurrency cooperative pool.
+/// The actor runs on its own serial dispatch queue, not on the Swift Concurrency cooperative pool,
+/// so its blocking system calls (`poll`, `read`, `write`) never hold a thread of that pool. A
+/// ``read(maxCount:timeout:)`` therefore keeps the port busy until data arrives or the timeout
+/// expires: the other calls on the port wait for it.
 public actor SerialPort: Transport {
     /// The device path given to ``init(path:)``.
     public nonisolated let path: String
@@ -19,14 +21,19 @@ public actor SerialPort: Transport {
     public nonisolated let usbIdentity: USBIdentity?
 
     private var descriptor: Int32 = -1
-    private let io: DispatchQueue
+    private let executor: QueueExecutor
+
+    /// The port's serial queue, on which every method runs.
+    public nonisolated var unownedExecutor: UnownedSerialExecutor {
+        executor.asUnownedSerialExecutor()
+    }
 
     /// Performs no I/O: the port opens with `open()`.
     /// The USB identity is looked up here, from the list of present ports.
     public init(path: String) {
         self.path = path
         self.usbIdentity = (try? SerialPorts.available())?.first(where: { $0.path == path })?.usb
-        self.io = DispatchQueue(label: "ESPKit.SerialPort \(path)")
+        self.executor = QueueExecutor(label: "ESPKit.SerialPort \(path)")
     }
 
     deinit {
@@ -39,57 +46,47 @@ public actor SerialPort: Transport {
     /// - Throws: ``TransportError/openFailed(path:errno:)``, ``TransportError/portBusy(path:)``.
     public func open() async throws {
         guard descriptor < 0 else { return }
-        let path = self.path
-        descriptor = try await onIOQueue { try Self.openDescriptor(path: path) }
+        descriptor = try Self.openDescriptor(path: path)
     }
 
     /// Closes the port; later calls throw ``TransportError/closed``.
     public func close() async {
         guard descriptor >= 0 else { return }
-        let fd = descriptor
+        _ = systemClose(descriptor)
         descriptor = -1
-        await onIOQueue { _ = systemClose(fd) }
     }
 
     /// Writes every byte, waiting while the driver's buffer is full.
     public func write(_ data: Data) async throws {
-        let fd = try openDescriptor()
-        try await onIOQueue { try Self.writeAll(fd: fd, data: data) }
+        try Self.writeAll(fd: openDescriptor(), data: data)
     }
 
     /// Returns at most `maxCount` bytes as soon as some arrive, or empty data when the timeout expires.
     /// - Throws: ``TransportError/deviceRemoved`` if the device went away.
     public func read(maxCount: Int, timeout: Duration) async throws -> Data {
-        let fd = try openDescriptor()
-        return try await onIOQueue { try Self.read(fd: fd, maxCount: maxCount, timeout: timeout) }
+        try Self.read(fd: openDescriptor(), maxCount: maxCount, timeout: timeout)
     }
 
     /// Drops what the driver received but nobody read (`tcflush`).
     public func discardInput() async throws {
-        let fd = try openDescriptor()
-        try await onIOQueue {
-            guard tcflush(fd, TCIFLUSH) == 0 else { throw Self.ioError() }
-        }
+        guard tcflush(try openDescriptor(), TCIFLUSH) == 0 else { throw Self.ioError() }
     }
 
     /// Any rate the driver accepts, standard or not (IOSSIOSPEED on macOS, termios2 on Linux).
     /// - Throws: ``TransportError/unsupportedBaudRate(_:)``.
     public func setBaudRate(_ rate: Int) async throws {
-        let fd = try openDescriptor()
-        try await onIOQueue { try Self.applyBaudRate(rate, fd: fd) }
+        try Self.applyBaudRate(rate, fd: openDescriptor())
     }
 
     /// Sets DTR and/or RTS with a single `ioctl`, so both change at the same instant.
     public func setControlLines(dtr: Bool?, rts: Bool?) async throws {
         guard dtr != nil || rts != nil else { return }
         let fd = try openDescriptor()
-        try await onIOQueue {
-            var bits: Int32 = 0
-            guard ioctl(fd, PortIoctl.getModemBits, &bits) == 0 else { throw Self.ioError() }
-            if let dtr { bits = dtr ? bits | PortIoctl.dtrBit : bits & ~PortIoctl.dtrBit }
-            if let rts { bits = rts ? bits | PortIoctl.rtsBit : bits & ~PortIoctl.rtsBit }
-            guard ioctl(fd, PortIoctl.setModemBits, &bits) == 0 else { throw Self.ioError() }
-        }
+        var bits: Int32 = 0
+        guard ioctl(fd, PortIoctl.getModemBits, &bits) == 0 else { throw Self.ioError() }
+        if let dtr { bits = dtr ? bits | PortIoctl.dtrBit : bits & ~PortIoctl.dtrBit }
+        if let rts { bits = rts ? bits | PortIoctl.rtsBit : bits & ~PortIoctl.rtsBit }
+        guard ioctl(fd, PortIoctl.setModemBits, &bits) == 0 else { throw Self.ioError() }
     }
 
     // MARK: Implementation
@@ -97,21 +94,6 @@ public actor SerialPort: Transport {
     private func openDescriptor() throws -> Int32 {
         guard descriptor >= 0 else { throw TransportError.closed }
         return descriptor
-    }
-
-    private func onIOQueue<T: Sendable>(_ body: @escaping @Sendable () throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { continuation in
-            io.async { continuation.resume(with: Result { try body() }) }
-        }
-    }
-
-    private func onIOQueue(_ body: @escaping @Sendable () -> Void) async {
-        await withCheckedContinuation { continuation in
-            io.async {
-                body()
-                continuation.resume()
-            }
-        }
     }
 
     private static func openDescriptor(path: String) throws -> Int32 {
@@ -257,6 +239,28 @@ public actor SerialPort: Transport {
     }
 
     private static func ioError() -> TransportError { .ioFailed(errno: errno) }
+}
+
+// MARK: - Executor
+
+/// Runs an actor's jobs one at a time on a serial dispatch queue. `DispatchSerialQueue` would do
+/// it on Darwin, but the Dispatch of Linux toolchains (Swift 6.2) does not have it.
+private final class QueueExecutor: SerialExecutor {
+    private let queue: DispatchQueue
+
+    init(label: String) {
+        queue = DispatchQueue(label: label)
+    }
+
+    func enqueue(_ job: consuming ExecutorJob) {
+        let job = UnownedJob(job)
+        queue.async { job.runSynchronously(on: self.asUnownedSerialExecutor()) }
+    }
+
+    /// Lets `assumeIsolated` accept code that runs on the queue without going through the actor.
+    func checkIsolated() {
+        dispatchPrecondition(condition: .onQueue(queue))
+    }
 }
 
 // MARK: - System calls
