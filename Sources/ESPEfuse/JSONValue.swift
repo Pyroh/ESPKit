@@ -52,7 +52,7 @@ enum JSONValue: Sendable {
             case 0x09: out += "\\t"
             case 0x08: out += "\\b"
             case 0x0C: out += "\\f"
-            case 0x20..<0x7F: out.unicodeScalars.append(Unicode.Scalar(unit)!)
+            case 0x20..<0x7F: out.unicodeScalars.append(Unicode.Scalar(UInt8(unit)))
             default: out += String(format: "\\u%04x", unit)
             }
         }

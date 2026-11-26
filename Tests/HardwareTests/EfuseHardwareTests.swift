@@ -15,10 +15,10 @@ extension Boards {
     @Suite("eFuses on a board", .serialized)
     struct EfuseHardwareTests {
         @Test("ESP32: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_ESP32"] != nil && references != nil))
-        func esp32() async throws { try await compare(port: environment["ESPKIT_PORT_ESP32"]!, chip: .esp32) }
+        func esp32() async throws { try await compare(port: try #require(environment["ESPKIT_PORT_ESP32"]), chip: .esp32) }
 
         @Test("ESP32-S3: eFuses identical to espefuse", .enabled(if: environment["ESPKIT_PORT_S3"] != nil && references != nil))
-        func s3() async throws { try await compare(port: environment["ESPKIT_PORT_S3"]!, chip: .esp32s3) }
+        func s3() async throws { try await compare(port: try #require(environment["ESPKIT_PORT_S3"]), chip: .esp32s3) }
     }
 }
 
@@ -30,10 +30,10 @@ private func compare(port: String, chip: ChipFamily) async throws {
     await esp.disconnect(.hard)
 
     let summary = await efuses.summaryJSON()
-    let expected = try Data(contentsOf: references!.appendingPathComponent("summary-\(chip.rawValue).json"))
+    let expected = try Data(contentsOf: try #require(references).appendingPathComponent("summary-\(chip.rawValue).json"))
     #expect(summary == expected, "summary differs from espefuse's")
 
-    let dump = try String(contentsOf: references!.appendingPathComponent("dump-\(chip.rawValue).txt"), encoding: .utf8)
+    let dump = try String(contentsOf: try #require(references).appendingPathComponent("dump-\(chip.rawValue).txt"), encoding: .utf8)
     let words = dump.split(separator: "\n").compactMap { line -> [UInt32]? in
         guard let range = line.range(of: "dump:") else { return nil }
         return line[range.upperBound...].split(separator: " ").compactMap { UInt32($0, radix: 16) }

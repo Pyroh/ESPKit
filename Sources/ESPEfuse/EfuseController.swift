@@ -276,7 +276,8 @@ public actor EfuseController {
             value = .keyPurpose(KeyPurpose(rawCode: UInt8(truncatingIfNeeded: Self.integer(bits))))
         } else if definition.type.hasPrefix("bytes") {
             let data = Self.bytes(bits)
-            value = definition.category == "MAC" && data.count == 6 ? .mac(MACAddress(bytes: data)!) : .bytes(data)
+            let mac = definition.category == "MAC" ? MACAddress(bytes: data) : nil
+            value = mac.map(EfuseValue.mac) ?? .bytes(data)
         } else {
             value = .uint(Self.integer(bits))
         }
@@ -303,7 +304,8 @@ public actor EfuseController {
             value = .uint(major)
         case (.esp32, "CUSTOM_MAC"):
             guard let definition = table?.definition(named: "MAC_CUSTOM") else { return nil }
-            value = .mac(MACAddress(bytes: Self.bytes(bits(of: definition)))!)
+            let data = Self.bytes(bits(of: definition))
+            value = MACAddress(bytes: data).map(EfuseValue.mac) ?? .bytes(data)
             ranges = definition.bits.map { $0.start..<$0.start + $0.count }
             protection = definition
         case (.esp32, "BLOCK3"):

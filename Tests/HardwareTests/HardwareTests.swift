@@ -76,12 +76,12 @@ extension Boards {
 
         @Test("ESP32: flash a real firmware and boot", .enabled(if: esp32Port != nil && esp32Firmware != nil))
         func esp32Flash() async throws {
-            try await flashAndBoot(port: esp32Port!, chip: .esp32, firmware: esp32Firmware!)
+            try await flashAndBoot(port: try #require(esp32Port), chip: .esp32, firmware: try #require(esp32Firmware))
         }
 
         @Test("ESP32-S3: flash a real firmware and boot", .enabled(if: s3Port != nil && s3Firmware != nil))
         func s3Flash() async throws {
-            try await flashAndBoot(port: s3Port!, chip: .esp32s3, firmware: s3Firmware!)
+            try await flashAndBoot(port: try #require(s3Port), chip: .esp32s3, firmware: try #require(s3Firmware))
         }
 
         @Test("Ports present", .enabled(if: esp32Port != nil || s3Port != nil))

@@ -17,7 +17,7 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-crypto.git", .upToNextMinor(from: "5.1.2")),
     ],
     targets: [
-        .target(name: "ESPTargets"),
+        .target(name: "ESPTargets", dependencies: ["ESPSupport"]),
         .target(name: "ESPTransport", dependencies: ["ESPTargets"]),
         .systemLibrary(name: "CZlib", path: "Sources/CZlib", providers: [.apt(["zlib1g-dev"])]),
         .target(name: "ESPSupport", dependencies: ["CZlib"]),

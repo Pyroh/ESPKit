@@ -6,8 +6,8 @@ import ESPTargets
 @testable import ESPEfuse
 
 /// Sets `value` on the field's bits in the blocks (least significant first, like reading).
-private func set(_ name: String, to value: UInt64, chip: ChipFamily, in blocks: inout [[UInt32]]) {
-    let definition = EfuseTable.table(for: chip)!.definition(named: name)!
+private func set(_ name: String, to value: UInt64, chip: ChipFamily, in blocks: inout [[UInt32]]) throws {
+    let definition = try #require(EfuseTable.table(for: chip)?.definition(named: name))
     var index = 0
     for range in definition.bits {
         for bit in range.start..<range.start + range.count {
@@ -46,11 +46,11 @@ struct EfuseTableTests {
 struct EfuseControllerTests {
     @Test func decodesValuesProtectionsAndNamedValues() async throws {
         var blocks = EfuseLayout.blankBlocks(for: .esp32s3)
-        set("SPI_BOOT_CRYPT_CNT", to: 1, chip: .esp32s3, in: &blocks)
-        set("KEY_PURPOSE_0", to: 4, chip: .esp32s3, in: &blocks)
-        set("RD_DIS", to: 1, chip: .esp32s3, in: &blocks)                       // BLOCK_KEY0 unreadable
-        let wrDisBit = EfuseTable.esp32s3.definition(named: "SPI_BOOT_CRYPT_CNT")!.writeDisableBit!
-        set("WR_DIS", to: 1 << UInt64(wrDisBit), chip: .esp32s3, in: &blocks)
+        try set("SPI_BOOT_CRYPT_CNT", to: 1, chip: .esp32s3, in: &blocks)
+        try set("KEY_PURPOSE_0", to: 4, chip: .esp32s3, in: &blocks)
+        try set("RD_DIS", to: 1, chip: .esp32s3, in: &blocks)                       // BLOCK_KEY0 unreadable
+        let wrDisBit = try #require(EfuseTable.esp32s3.definition(named: "SPI_BOOT_CRYPT_CNT")?.writeDisableBit)
+        try set("WR_DIS", to: 1 << UInt64(wrDisBit), chip: .esp32s3, in: &blocks)
         blocks[4] = [0x0403_0201] + Array(repeating: 0, count: 7)
         let controller = EfuseController(virtual: .esp32s3, initialState: EfuseSnapshot(chip: .esp32s3, blocks: blocks))
 
@@ -70,9 +70,9 @@ struct EfuseControllerTests {
 
     @Test func convertsS3Calibration() async throws {
         var blocks = EfuseLayout.blankBlocks(for: .esp32s3)
-        set("BLK_VERSION_MAJOR", to: 1, chip: .esp32s3, in: &blocks)
-        set("TEMP_CALIB", to: 0x18B, chip: .esp32s3, in: &blocks)               // sign + 139
-        set("ADC2_INIT_CODE_ATTEN0", to: 0xA3, chip: .esp32s3, in: &blocks)     // sign + 35
+        try set("BLK_VERSION_MAJOR", to: 1, chip: .esp32s3, in: &blocks)
+        try set("TEMP_CALIB", to: 0x18B, chip: .esp32s3, in: &blocks)               // sign + 139
+        try set("ADC2_INIT_CODE_ATTEN0", to: 0xA3, chip: .esp32s3, in: &blocks)     // sign + 35
         let controller = EfuseController(virtual: .esp32s3, initialState: EfuseSnapshot(chip: .esp32s3, blocks: blocks))
         #expect(await controller.field("TEMP_CALIB")?.displayValue == "-13.9")
         #expect(await controller.field("ADC2_INIT_CODE_ATTEN0")?.displayValue == "-140")
@@ -107,7 +107,7 @@ struct EfuseControllerTests {
 
     @Test func tokensRoundTripAndAreReadOnly() async throws {
         var blocks = EfuseLayout.blankBlocks(for: .esp32s3)
-        set("SPI_BOOT_CRYPT_CNT", to: 7, chip: .esp32s3, in: &blocks)
+        try set("SPI_BOOT_CRYPT_CNT", to: 7, chip: .esp32s3, in: &blocks)
         let original = EfuseController(virtual: .esp32s3, initialState: EfuseSnapshot(chip: .esp32s3, blocks: blocks))
         let token = await original.token()
         #expect(token.hasPrefix("EFSR:esp32s3:"))

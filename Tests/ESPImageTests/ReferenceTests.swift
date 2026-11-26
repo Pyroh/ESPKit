@@ -53,23 +53,27 @@ private func options(_ arguments: [String]) throws -> (ImageOptions, ESP8266Imag
     var version: ESP8266ImageVersion?
     var iterator = arguments.makeIterator()
     while let argument = iterator.next() {
+        func value() throws -> String {
+            let next = iterator.next()
+            return try #require(next, "no value after \(argument)")
+        }
         switch argument {
         case "--flash_mode":
-            let value = iterator.next()!
-            options.flashMode = [FlashMode.qio, .qout, .dio, .dout].first { "\($0)" == value }!
+            let mode = try value()
+            options.flashMode = try #require([FlashMode.qio, .qout, .dio, .dout].first { "\($0)" == mode })
         case "--flash_freq":
-            options.flashFrequency = FlashFrequency(megahertz: Int(iterator.next()!.dropLast())!)
-        case "--flash_size": options.flashSize = flashSize(iterator.next()!)!
-        case "--elf-sha256-offset": options.elfSHA256Offset = UInt32(bytes(iterator.next()!)!)
-        case "--min-rev-full": options.minRevision = ChipRevision(encoded: UInt16(iterator.next()!)!)
-        case "--max-rev-full": options.maxRevision = ChipRevision(encoded: UInt16(iterator.next()!)!)
+            options.flashFrequency = FlashFrequency(megahertz: try #require(Int(value().dropLast())))
+        case "--flash_size": options.flashSize = try #require(flashSize(value()))
+        case "--elf-sha256-offset": options.elfSHA256Offset = UInt32(try #require(bytes(value())))
+        case "--min-rev-full": options.minRevision = ChipRevision(encoded: try #require(UInt16(value())))
+        case "--max-rev-full": options.maxRevision = ChipRevision(encoded: try #require(UInt16(value())))
         case "--dont-append-digest": options.appendSHA256 = false
         case "--secure-pad": options.securePadding = .v1
         case "--secure-pad-v2": options.securePadding = .v2
         case "--use_segments": options.useSegments = true
         case "--ram-only-header": options.ramOnlyHeader = true
-        case "--pad-to-size": options.padToMultipleOf = bytes(iterator.next()!)
-        case "--flash-mmu-page-size": options.mmuPageSize = bytes(iterator.next()!)
+        case "--pad-to-size": options.padToMultipleOf = bytes(try value())
+        case "--flash-mmu-page-size": options.mmuPageSize = bytes(try value())
         case "--version": version = iterator.next() == "2" ? .v2 : .v1
         default: Issue.record("untranslated esptool argument: \(argument)")
         }
@@ -89,21 +93,21 @@ private func firstDifference(_ a: Data, _ b: Data) -> String {
 struct ReferenceTests {
     @Test(arguments: cases())
     fileprivate func elf2image(_ testCase: Case) throws {
-        let root = referenceFolder!.deletingLastPathComponent()
+        let root = try #require(referenceFolder).deletingLastPathComponent()
         let elf = try ELFFile(parsing: Data(contentsOf: root.appendingPathComponent(testCase.elf)))
         let (options, version) = try options(testCase.arguments)
         if testCase.chip == .esp8266 {
             let files = try ImageBuilder.makeESP8266Image(from: elf, version: version ?? .v1, options: options)
             for file in files {
                 let name = version == .v2 ? "\(testCase.name).bin" : "\(testCase.name)-\(file.suffix)"
-                let expected = try Data(contentsOf: referenceFolder!.appendingPathComponent(name))
+                let expected = try Data(contentsOf: try #require(referenceFolder).appendingPathComponent(name))
                 #expect(file.data == expected, "\(name): \(firstDifference(file.data, expected))")
             }
             return
         }
         let image = try ImageBuilder.makeImage(from: elf, chip: testCase.chip, options: options)
         let built = try image.serialized()
-        let expected = try Data(contentsOf: referenceFolder!.appendingPathComponent("\(testCase.name).bin"))
+        let expected = try Data(contentsOf: try #require(referenceFolder).appendingPathComponent("\(testCase.name).bin"))
         #expect(built == expected, "\(firstDifference(built, expected))")
 
         // Parsing the reference gives back the same segments and a valid image.
@@ -118,14 +122,15 @@ struct ReferenceTests {
 
     @Test(arguments: [ChipFamily.esp32, .esp32s3])
     func mergeBin(chip: ChipFamily) throws {
-        let root = referenceFolder!.deletingLastPathComponent()
+        let root = try #require(referenceFolder).deletingLastPathComponent()
         let folder = root.appendingPathComponent("elf/idf/\(chip.rawValue)")
         let regions = [
             FlashRegion(address: chip.bootloaderOffset, data: try Data(contentsOf: folder.appendingPathComponent("bootloader.bin"))),
             FlashRegion(address: 0x8000, data: try Data(contentsOf: folder.appendingPathComponent("partitions.bin"))),
             FlashRegion(address: 0x1_0000, data: try Data(contentsOf: folder.appendingPathComponent("firmware.bin"))),
         ]
-        let reference = { (name: String) in try Data(contentsOf: referenceFolder!.appendingPathComponent(name)) }
+        let references = try #require(referenceFolder)
+        let reference = { (name: String) in try Data(contentsOf: references.appendingPathComponent(name)) }
 
         let raw = try MergedImage.raw(regions, chip: chip)
         let expectedRaw = try reference("merge-\(chip.rawValue).raw")

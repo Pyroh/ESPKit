@@ -130,7 +130,7 @@ extension SerialPorts {
             let isUSB = name.hasPrefix("ttyUSB") || name.hasPrefix("ttyACM")
             if !isUSB {
                 let driver = (try? fileManager.destinationOfSymbolicLink(atPath: deviceURL.appendingPathComponent("driver").path))
-                if driver == nil || driver!.hasSuffix("serial8250") { continue }
+                guard let driver, !driver.hasSuffix("serial8250") else { continue }
             }
             ports.append(SerialPortInfo(path: "/dev/\(name)", usb: usbIdentity(startingAt: deviceURL)))
         }

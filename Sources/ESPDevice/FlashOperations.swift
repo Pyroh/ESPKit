@@ -238,9 +238,12 @@ extension ESPDevice {
             }
             let compress = options.compression != .none
 
-            let flash = options.spiConnection == .default && attachedFlash != nil
-                ? attachedFlash!
-                : try await rawAttachFlash(options.spiConnection, type: .nor)
+            let flash: FlashInfo
+            if options.spiConnection == .default, let attached = attachedFlash {
+                flash = attached
+            } else {
+                flash = try await rawAttachFlash(options.spiConnection, type: .nor)
+            }
             let flashSize = flash.detectedSize?.byteCount ?? FlashSize.mb4.byteCount
             try validate(regions, flashSize: flashSize)
             if !options.force { try checkWriteGuards(regions) }
@@ -268,13 +271,13 @@ extension ESPDevice {
             for (index, region) in prepared.enumerated() {
                 try Task.checkCancellation()
                 let started = ContinuousClock.now
-                let md5 = MD5Digest(bytes: MD5.hash(region.data))!
+                let md5 = MD5Digest(hashing: region.data)
                 var chunks = [0..<region.data.count]
                 if let old = previous?[region.address] {
                     chunks = Self.changedChunks(old: old, new: region.data, address: region.address)
                     if !chunks.isEmpty && !options.trustPreviousContents {
                         let expected = Self.padded(old, to: region.data.count)
-                        if try await rawFlashMD5(at: region.address, count: region.data.count) != MD5Digest(bytes: MD5.hash(expected))! {
+                        if try await rawFlashMD5(at: region.address, count: region.data.count) != MD5Digest(hashing: expected) {
                             chunks = [0..<region.data.count]       // the flash does not hold the old content
                         }
                     }
@@ -358,7 +361,7 @@ extension ESPDevice {
             for (index, region) in regions.enumerated() {
                 try Task.checkCancellation()
                 guard !region.data.isEmpty else { results.append(.match(address: region.address)); continue }
-                let expected = MD5Digest(bytes: MD5.hash(region.data))!
+                let expected = MD5Digest(hashing: region.data)
                 if try await rawFlashMD5(at: region.address, count: region.data.count) == expected {
                     results.append(.match(address: region.address))
                 } else {
@@ -502,7 +505,7 @@ extension ESPDevice {
             guard let expected = MD5Digest(bytes: digest) else {
                 throw ProtocolError.invalidResponse("READ_FLASH: final MD5 of \(digest.count) bytes")
             }
-            let actual = MD5Digest(bytes: MD5.hash(out))!
+            let actual = MD5Digest(hashing: out)
             guard actual == expected else { throw FlashError.md5Mismatch(address: address, expected: expected, actual: actual) }
             return out
         } catch {

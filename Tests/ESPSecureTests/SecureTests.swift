@@ -114,7 +114,11 @@ struct FlashEncryptionTests {
 
 @Suite("Secure Boot v1")
 struct SecureBootV1Tests {
-    private let pem = try! SecureBootV2.SigningKey.generate(.ecdsa256).pemRepresentation
+    private let pem: String
+
+    init() throws {
+        pem = try SecureBootV2.SigningKey.generate(.ecdsa256).pemRepresentation
+    }
 
     @Test func signsAndVerifies() throws {
         let data = image(1000)

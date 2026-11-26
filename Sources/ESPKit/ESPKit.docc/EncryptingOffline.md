@@ -11,7 +11,8 @@ plain `writeFlash`, or read a dump back:
 ```swift
 import ESPSecure
 
-let scheme = FlashEncryption.Scheme.default(for: .esp32s3)!     // .xtsAES128
+// nil on a chip without flash encryption, such as the ESP8266.
+guard let scheme = FlashEncryption.Scheme.default(for: .esp32s3) else { return }     // .xtsAES128
 let key = FlashEncryption.generateKey(for: scheme)
 let ciphertext = try FlashEncryption.encrypt(application, at: 0x10000, key: key, scheme: scheme)
 let plaintext = try FlashEncryption.decrypt(ciphertext, at: 0x10000, key: key, scheme: scheme)

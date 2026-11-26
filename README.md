@@ -39,7 +39,9 @@ for port in try SerialPorts.available() {
 let esp = try await ESPDevice.connect(port: "/dev/cu.usbserial-0001")
 print(esp.chip.displayName)                     // ESP32-S3
 print(try await esp.macAddress())               // 24:0A:C4:12:34:56
-print(try await esp.flashInfo().detectedSize!)  // 8MB
+if let size = try await esp.flashInfo().detectedSize {   // nil for an unknown flash chip
+    print(size)                                 // 8MB
+}
 ```
 
 ### Long operations
@@ -234,4 +236,5 @@ burning tests are described in [TESTING.md](TESTING.md).
 
 - Code is written from the specification and public documentation, never by translating esptool's Python (GPL).
 - Every file carries the `// SPDX-License-Identifier: MIT OR Apache-2.0` header.
+- No force unwrapping (`!`, `try!`, `as!`), in the code, the tests or the examples: unwrap with `if let` or `guard let`, and in tests with `try #require(…)`.
 - Accepted dependencies: `swift-crypto` (5.1.x), system libz (the `zlib1g-dev` package on Linux). Nothing under GPL or LGPL.

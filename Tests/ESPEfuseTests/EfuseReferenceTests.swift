@@ -21,7 +21,7 @@ func blocks(fromDump text: String) -> [[UInt32]] {
               let dump = line.range(of: "dump:") else { continue }
         blocks[index] = line[dump.upperBound...].split(separator: " ").compactMap { UInt32($0, radix: 16) }
     }
-    return blocks.keys.sorted().map { blocks[$0]! }
+    return blocks.sorted { $0.key < $1.key }.map(\.value)
 }
 
 /// Field-by-field differences, for a readable message.
@@ -43,13 +43,13 @@ func differences(_ ours: Data, _ theirs: Data) -> [String] {
 struct EfuseReferenceTests {
     @Test(arguments: [ChipFamily.esp32, .esp32s3])
     func summaryMatchesEspefuse(chip: ChipFamily) async throws {
-        let dump = folder!.appendingPathComponent("dump-\(chip.rawValue).txt")
+        let dump = try #require(folder).appendingPathComponent("dump-\(chip.rawValue).txt")
         guard FileManager.default.fileExists(atPath: dump.path) else { return }
         let snapshot = EfuseSnapshot(chip: chip, blocks: blocks(fromDump: try String(contentsOf: dump, encoding: .utf8)),
                                      errorRegisters: [], apbControlDate: chip == .esp32 ? 0x8000_0000 : nil)
         let controller = EfuseController(virtual: chip, initialState: snapshot)
         let ours = await controller.summaryJSON()
-        let theirs = try Data(contentsOf: folder!.appendingPathComponent("summary-\(chip.rawValue).json"))
+        let theirs = try Data(contentsOf: try #require(folder).appendingPathComponent("summary-\(chip.rawValue).json"))
         let issues = differences(ours, theirs)
         #expect(issues.isEmpty, "\(issues.count) difference(s):\n\(issues.prefix(30).joined(separator: "\n"))")
         #expect(ours == theirs, "JSON differs byte for byte")

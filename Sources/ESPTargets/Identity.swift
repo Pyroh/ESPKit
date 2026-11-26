@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT OR Apache-2.0
 
 import Foundation
+import ESPSupport
 
 /// Silicon revision, comparable ("v0.2" < "v1.0").
 public struct ChipRevision: Comparable, Hashable, Sendable, CustomStringConvertible {
@@ -138,6 +139,11 @@ public struct MD5Digest: Hashable, Sendable, CustomStringConvertible {
     public init?(bytes: Data) {
         guard bytes.count == 16 else { return nil }
         self.bytes = Data(bytes)
+    }
+
+    /// The MD5 of `data`, to compare with what the chip computes (`ESPDevice.flashMD5(at:count:)`).
+    public init(hashing data: Data) {
+        bytes = MD5.hash(data)
     }
 
     /// Lower-case hexadecimal, like `md5sum`.

@@ -321,9 +321,8 @@ actor SimulatedChip: Transport {
         let base: UInt32 = 0x3FF5_A000
         let read: [(UInt32, Int)] = [(base, 7), (base + 0x38, 8), (base + 0x58, 8), (base + 0x78, 8)]
         let write: [(UInt32, Int)] = [(base + 0x1C, 7), (base + 0x98, 8), (base + 0xB8, 8), (base + 0xD8, 8)]
-        if efuses == nil {
-            efuses = read.map { address, count in (0..<count).map { registers[address + UInt32($0 * 4)] ?? 0 } }
-        }
+        var cells = efuses ?? read.map { address, count in (0..<count).map { registers[address + UInt32($0 * 4)] ?? 0 } }
+        defer { efuses = cells }
         let opcode = (registers[base + 0xFC] ?? 0) & 0xFFFF
         if command & 2 != 0 && opcode == 0x5A5A {
             efusePrograms += 1
@@ -331,19 +330,19 @@ actor SimulatedChip: Transport {
                 efuseIgnoredPrograms -= 1
             } else {
                 for (block, (address, count)) in write.enumerated() {
-                    for word in 0..<count { efuses![block][word] |= registers[address + UInt32(word * 4)] ?? 0 }
+                    for word in 0..<count { cells[block][word] |= registers[address + UInt32(word * 4)] ?? 0 }
                 }
                 if let glitch = efuseGlitch {
-                    efuses![glitch.block][glitch.word] |= glitch.bits
+                    cells[glitch.block][glitch.word] |= glitch.bits
                     efuseGlitch = nil
                 }
             }
         }
         if command & 1 != 0 && opcode == 0x5AA5 {
-            let readDisable = efuses![0][0] >> 16 & 0xF
+            let readDisable = cells[0][0] >> 16 & 0xF
             for (block, (address, count)) in read.enumerated() {
                 let hidden = block > 0 && readDisable >> UInt32(block - 1) & 1 == 1
-                for word in 0..<count { registers[address + UInt32(word * 4)] = hidden ? 0 : efuses![block][word] }
+                for word in 0..<count { registers[address + UInt32(word * 4)] = hidden ? 0 : cells[block][word] }
             }
         }
         registers[base + 0x104] = 0

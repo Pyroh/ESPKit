@@ -18,7 +18,7 @@ private let folder = ProcessInfo.processInfo.environment["ESPKIT_SECURE_REFERENC
 private let espsecure = ProcessInfo.processInfo.environment["ESPKIT_ESPSECURE"]
 private let schemes = ["rsa3072", "ecdsa256", "ecdsa384"]
 
-private func file(_ name: String) throws -> Data { try Data(contentsOf: folder!.appendingPathComponent(name)) }
+private func file(_ name: String) throws -> Data { try Data(contentsOf: try #require(folder).appendingPathComponent(name)) }
 
 @Suite("espsecure interoperability", .enabled(if: folder != nil))
 struct EspsecureInteropTests {
@@ -49,12 +49,12 @@ struct EspsecureInteropTests {
         let output = FileManager.default.temporaryDirectory.appendingPathComponent("espkit-signed-\(scheme).bin")
         try signed.write(to: output)
         let log = try run(["verify-signature", "--version", "2",
-                           "--keyfile", folder!.appendingPathComponent("key-\(scheme).pem").path, output.path])
+                           "--keyfile", try #require(folder).appendingPathComponent("key-\(scheme).pem").path, output.path])
         #expect(log.contains("verification successful"), "espsecure: \(log)")
     }
 
     @Test func secureBootV1MatchesEspsecure() throws {
-        guard FileManager.default.fileExists(atPath: folder!.appendingPathComponent("key-v1.pem").path) else { return }
+        guard FileManager.default.fileExists(atPath: try #require(folder).appendingPathComponent("key-v1.pem").path) else { return }
         let pem = String(decoding: try file("key-v1.pem"), as: UTF8.self)
         #expect(try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem) == (try file("v1-derived256.bin")))
         #expect(try SecureBootV1.derivedKey(fromPrivateKeyPEM: pem, bitLength: 192) == (try file("v1-derived192.bin")))
@@ -68,7 +68,7 @@ struct EspsecureInteropTests {
         let output = FileManager.default.temporaryDirectory.appendingPathComponent("espkit-signed-v1.bin")
         try signed.write(to: output)
         let log = try run(["verify-signature", "--version", "1",
-                           "--keyfile", folder!.appendingPathComponent("key-v1.pem").path, output.path])
+                           "--keyfile", try #require(folder).appendingPathComponent("key-v1.pem").path, output.path])
         #expect(log.contains("Signature is valid"), "espsecure: \(log)")
     }
 
@@ -125,7 +125,7 @@ struct EspsecureInteropTests {
 private func run(_ arguments: [String]) throws -> String {
     let process = Process()
     process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-    process.arguments = [espsecure!] + arguments
+    process.arguments = [try #require(espsecure)] + arguments
     let pipe = Pipe()
     process.standardOutput = pipe
     process.standardError = pipe

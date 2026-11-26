@@ -16,7 +16,7 @@ let chip = ChipFamily.esp32s3
 print(chip.displayName, chip.architecture, String(chip.bootloaderOffset, radix: 16))
 // ESP32-S3 xtensa 0
 
-let mac = MACAddress("24:0A:C4:12:34:56")!
+let mac = MACAddress("24:0A:C4:12:34:56")      // nil if the text is not a MAC address
 let firmware = FlashRegion(address: 0x10000, data: try Data(contentsOf: url))
 ```
 

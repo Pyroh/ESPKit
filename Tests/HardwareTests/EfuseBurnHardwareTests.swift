@@ -51,12 +51,12 @@ extension Boards {
         @Test("Custom MAC in BLOCK3")
         func customMAC() async throws {
             let (esp, efuses) = try await controller()
-            guard await efuses.customMAC() == nil else {
-                print("ESP32: custom MAC already programmed: \(await efuses.customMAC()!)")
+            if let programmed = await efuses.customMAC() {
+                print("ESP32: custom MAC already programmed: \(programmed)")
                 await esp.disconnect(.hard)
                 return
             }
-            let mac = MACAddress("02:4B:49:54:00:01")!
+            let mac = try #require(MACAddress("02:4B:49:54:00:01"))
             var plan = EfuseBurnPlan()
             plan.setCustomMAC(mac)
             let preview = try await efuses.preview(plan)
@@ -64,7 +64,7 @@ extension Boards {
             _ = try await efuses.burn(plan, confirm: .irreversible)
             #expect(await efuses.customMAC() == mac)
             #expect(await efuses.field("CUSTOM_MAC")?.displayValue.hasSuffix("OK)") == true)
-            print("ESP32: custom MAC \(await efuses.field("CUSTOM_MAC")!.displayValue)")
+            print("ESP32: custom MAC \(await efuses.field("CUSTOM_MAC")?.displayValue ?? "unreadable")")
             await esp.disconnect(.hard)
         }
 
